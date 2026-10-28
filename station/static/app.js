@@ -2497,15 +2497,19 @@ function tplLine(b) {
 }
 
 function tplEditorHtml() {
+  const row = (b, i) => {
+    const cat = b.token ? tokenCat(b.token) : 'custom';
+    const label = b.token || b.text || '';
+    return '<div class="tpl-row2" data-i="' + i + '">' +
+      '<span class="chip tpl-chip" data-cat="' + cat + '" title="' + esc(tplLine(b)) + '">' +
+      '<span class="nm">' + esc(label) + '</span></span>' +
+      '<input class="tpl-w" type="number" step="0.05" min="0.1" max="2" value="' + (b.weight || 1) + '">' +
+      '<button class="tpl-del bx" data-i="' + i + '">×</button></div>';
+  };
   const col = (title, arr, key) =>
     '<div class="tpl-col"><h4>' + title + ' <span class="hint">' + arr.length + ' 块</span></h4>' +
     '<div class="tpl-list" id="tpl-' + key + '-list">' +
-    (arr.length ? arr.map((b, i) =>
-      '<div class="tpl-row2" data-i="' + i + '">' +
-      '<span class="tpl-name" title="' + esc(tplLine(b)) + '">' + esc(tplLine(b)) + '</span>' +
-      '<input class="tpl-w" type="number" step="0.05" min="0.1" max="2" value="' + (b.weight || 1) + '">' +
-      '<button class="tpl-del bx" data-i="' + i + '">×</button></div>').join('')
-      : '<div class="hint" style="padding:8px">（空）</div>') +
+    (arr.length ? arr.map(row).join('') : '<div class="hint" style="padding:8px">（空）</div>') +
     '</div></div>';
   return '<div class="tpl-editor">' + col('正向', S.pos, 'pos') + col('负向', S.neg, 'neg') + '</div>' +
     '<div class="tpl-params">' +
@@ -2586,4 +2590,3 @@ async function saveCurrentAsTemplate() {
     };
   }
 }
-

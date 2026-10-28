@@ -783,3 +783,10 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
 .tpl-params{display:flex;gap:14px;margin:12px 0;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .tpl-params label{display:flex;align-items:center;gap:6px}
 .modal-body:has(.tpl-editor){max-width:min(980px,94vw)!important}
+
+/* template dialog chips (same look as main page blocks) */
+.tpl-row2{gap:8px}
+.tpl-row2 .tpl-chip{flex:1;min-width:0;display:flex;align-items:center;padding:5px 9px;border-radius:8px 8px 8px 8px;
+  border-left:3px solid var(--c,#7d8798);background:rgba(255,255,255,.045);overflow:hidden}
+.tpl-row2 .tpl-chip .nm{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tpl-row2 .tpl-w{width:64px}
