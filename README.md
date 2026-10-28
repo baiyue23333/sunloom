@@ -71,6 +71,15 @@ SUNLOOM 把它拆成积木：机位、光、姿势、服装、场景、道具各
     docs/积木手册.md      全部积木与展开文本
     docs/工作原理.md      数据怎么流动
 
+## 网络受限时怎么发布
+
+如果 git 无法直连 github.com（TLS 被重置），但 api.github.com 可用，可以用 REST API 发布：
+
+    set GITHUB_TOKEN=ghp_xxx
+    python tools/publish_github.py --repo yourname/sunloom --message "update"
+
+它只新增/覆盖文件，不删除远端已有文件。
+
 ## 发布前自检
 
     python tools/check_clean.py
