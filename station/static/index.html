@@ -1,346 +1,466 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" sizes="64x64" href="/icon_64.png?v=3">
+  <link rel="icon" type="image/png" sizes="256x256" href="/icon_256.png?v=3">
+  <link rel="apple-touch-icon" href="/icon_256.png?v=3">
 <title>SUNLOOM · block studio</title>
-<link rel="icon" type="image/png" sizes="64x64" href="/static/icon_64.png">
-<link rel="stylesheet" href="/static/style.css?v=6">
+<link rel="stylesheet" href="/style.css?v=6">
+<style>.build-badge{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;color:#ffd98a;border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.12)}</style>
 </head>
 <body>
 <div class="bg-orbs"><i></i><i></i><i></i></div>
-
+<div class="grain"></div>
 <header class="topbar">
-  <div class="brand"><img src="/static/icon_dark.png" alt="" style="width:26px;height:26px;border-radius:8px">
-    <b>SUNLOOM</b><span class="sub" style="display:none">block studio</span></div>
+  <div class="brand"><img class="logo" src="/icon_dark.png" alt=""><b>SUNLOOM</b><span class="sub">block studio</span></div>
   <nav class="tabs" id="tabs">
-    <button data-tab="build" class="on">拼装</button>
+    <button data-tab="build" class="active">拼装</button>
     <button data-tab="gallery">画廊</button>
     <button data-tab="library">词库</button>
-    <button data-tab="outfit">服装</button>
+    <button data-tab="garment">服装</button>
     <button data-tab="recipe">配方</button>
-    <button data-tab="paint">重绘</button>
-    <button data-tab="tag">打标</button>
     <button data-tab="train">训练</button>
+    <button data-tab="tag">打标</button>
+    <button data-tab="repro">复现</button>
     <button data-tab="engine">引擎</button>
     <button data-tab="maint">维护</button>
   </nav>
-  <div class="top-right">
-    <button class="pillx" id="pill-comfy" title="点击打开 ComfyUI">ComfyUI ?</button>
-    <button class="pillx" id="pill-queue" title="队列">队列 0</button>
-    <button class="pillx" id="pill-selfcheck" title="环境自检">自检</button>
-    <button class="pillx" id="pill-overview" title="功能总览">总览</button>
-    <button class="pillx" id="pill-docs" title="文档">文档</button>
+  <div class="statusbar">
+    <span class="pill" id="pill-comfy">ComfyUI …</span>
+    <span class="pill" id="pill-queue">队列 0</span>
+    <span class="pill" id="pill-reg">登记 0</span>
+    <span class="pill" id="pill-check">自检 …</span>
+    <button class="ghost" id="help-btn">功能总览</button>
   </div>
 </header>
 
+<button id="lib-fab" class="lib-fab" title="展开积木库">›</button>
 <main>
-  <section id="view-build" class="view" style="display:block">
-    <div class="builder">
-      <aside class="card palette">
-        <div class="card-head"><h3>积木库</h3><button class="ghost tiny" id="pal-toggle">收起</button></div>
-        <input id="pal-search" placeholder="搜索积木 / 分类…" style="width:100%;margin-bottom:10px">
-        <div class="pal-shell"><div class="pal-rail" id="pal-rail"></div><div id="pal-body"></div></div>
-      </aside>
+<!-- ---------------- 拼装 ---------------- -->
+<section id="view-build" class="view active">
+  <div class="builder">
+    <aside class="palette card">
+      <div class="card-head"><h3>积木库</h3><input id="palette-search" placeholder="搜索…">
+        <button class="ghost tiny" id="pal-collapse" title="收起积木库">‹</button></div>
+      <div class="pal-wrap"><div id="pal-rail" class="pal-rail"></div><div id="palette" class="palette-body"></div></div>
+    </aside>
 
-      <div class="canvas">
-        <div class="card lane">
-          <div class="card-head"><h3>正向</h3><span class="hint" id="pos-count"></span>
-            <span class="lane-tools">
-              <button class="ghost tiny" data-add="desc">+ 描述</button>
-              <button class="ghost tiny" data-add="text">+ 文本</button>
-              <button class="ghost tiny" data-add="tag">+ 标签</button>
-            </span>
-            <button class="ghost tiny" id="pos-clear" style="margin-left:auto">清空</button></div>
-          <div class="lane-body" id="lane-pos"></div>
+    <section class="canvas">
+      <div class="lane card" data-lane="positive">
+        <div class="card-head">
+          <h3>正向 <span class="hint" id="pos-count">0 块</span></h3>
+          <div class="head-actions">
+            <button class="ghost" data-adddesc="positive">+ 描述</button>
+            <button class="ghost" data-addtext="positive">+ 标签</button>
+            <button class="ghost" data-clear="positive">清空</button>
+          </div>
         </div>
-        <div class="card lane" style="margin-top:14px">
-          <div class="card-head"><h3>负向</h3><span class="hint" id="neg-count"></span>
-            <span class="lane-tools">
-              <button class="ghost tiny" data-add="text">+ 文本</button>
-              <button class="ghost tiny" data-add="tag">+ 标签</button>
-            </span>
-            <button class="ghost tiny" id="neg-clear" style="margin-left:auto">清空</button></div>
-          <div class="lane-body" id="lane-neg"></div>
+        <div class="lane-body" id="lane-positive"></div>
+      </div>
+      <div class="lane card neg" data-lane="negative">
+        <div class="card-head">
+          <h3>负向 <span class="hint" id="neg-count">0 块</span></h3>
+          <div class="head-actions">
+            <button class="ghost" data-addtext="negative">+ 文本</button>
+            <button class="ghost" data-clear="negative">清空</button>
+          </div>
         </div>
-        <div class="card" style="margin-top:14px">
-          <div class="card-head"><h3>结构检查</h3><span class="hint" id="val-summary">—</span>
-            <button class="ghost tiny" id="val-run" style="margin-left:auto">重新检查</button></div>
-          <div id="val-body" class="hint">点「出图」前会先检查；也可以手动点重新检查。</div>
+        <div class="lane-body" id="lane-negative"></div>
+      </div>
+      <div class="row2-cards">
+        <div class="card tpl-card">
+          <div class="card-head"><h3>快速模板</h3><span class="hint">点一下就把整组积木摆好</span></div>
+          <div id="tpl-row" class="tpl-row"></div>
         </div>
-        <details class="card" style="margin-top:14px">
-          <summary style="cursor:pointer"><b>展开预览</b> <span class="hint" id="prev-len"></span></summary>
-          <div id="prev-body" style="margin-top:10px"></div>
-        </details>
-        <div class="card" style="margin-top:14px">
+        <div class="card desc-card">
           <div class="card-head"><h3>描述</h3><span class="hint">写一段画面，带权重</span></div>
           <textarea id="desc-text" rows="3" placeholder="例：她站在书店的旧木梯上，指尖划过书脊，暖黄的吊灯从上方打下来"></textarea>
-          <div class="row2" style="margin-top:8px">
-            <div class="field"><label>权重</label><input id="desc-weight" type="number" step="0.05" value="1.1"></div>
-            <div class="field"><label>&nbsp;</label>
-              <div class="row2"><button class="ghost" id="desc-pos">插入正向</button>
-              <button class="ghost" id="desc-neg">插入负向</button></div></div>
+          <div class="desc-row">
+            <label>权重</label>
+            <input id="desc-weight" type="number" step="0.05" min="0.4" max="2" value="1.1">
+            <button class="ghost" id="desc-pos">插入正向</button>
+            <button class="ghost" id="desc-neg">插入负向</button>
+            <button class="ghost" id="desc-save">存为积木</button>
           </div>
-          <button class="ghost wide" id="desc-save">存为积木</button>
         </div>
       </div>
+      <div id="validate-bar" class="validate-bar ok">结构检查：等待积木…</div>
+      <details class="card preview fold-card" open>
+        <summary><span>展开预览</span><span class="hint" id="expand-used"></span></summary>
+        <pre id="preview-pos" class="prompt-preview"></pre>
+        <pre id="preview-neg" class="prompt-preview neg"></pre>
+      </details>
+    </section>
 
-      <aside class="card params">
-        <div class="card-head"><h3>参数</h3><span class="hint" id="eta"></span></div>
-        <div class="row2">
-          <div class="field"><label>模式</label>
-            <select id="p-mode"><option value="t2i">文生图</option><option value="i2i">图生图</option></select></div>
-          <div class="field"><label>尺寸</label>
-            <select id="p-size">
-              <option>1024x1536</option><option>832x1216</option><option>896x1152</option>
-              <option>1024x1024</option><option>1536x1024</option><option>1216x832</option>
-            </select></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>步数</label><input id="p-steps" type="number" value="28"></div>
-          <div class="field"><label>CFG</label><input id="p-cfg" type="number" step="0.1" value="5.5"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>种子</label><input id="p-seed" type="number" value="0" placeholder="0=随机"></div>
-          <div class="field"><label>前缀</label><input id="p-prefix" value="img"></div>
-        </div>
-        <div class="field" id="ref-field" style="display:none"><label>参考图（图生图）</label>
-          <input id="p-ref" placeholder="A:\path\to\image.png"></div>
-        <div class="field" id="denoise-field" style="display:none"><label>重绘幅度</label>
-          <input id="p-denoise" type="number" step="0.05" value="0.6"></div>
-        <div class="field"><label>LoRA</label>
-          <div id="lora-rows"></div>
-          <button class="ghost wide" id="lora-add" style="margin-top:6px">+ 加 LoRA</button>
-        </div>
-        <button class="primary wide" id="run">出图</button>
-        <button class="ghost wide" id="batch-open" style="margin-top:8px">批量出图</button>
-        <div class="hint" id="run-msg" style="margin-top:8px"></div>
-        <div id="result" style="margin-top:10px"></div>
-      </aside>
-    </div>
-  </section>
-
-  <section id="view-gallery" class="view">
-    <div class="card"><div class="card-head"><h3>画廊</h3><span class="hint" id="g-count"></span></div>
-      <div class="toolbar">
-        <input id="g-q" placeholder="搜索文件名…">
-        <select id="g-since"><option value="">全部时间</option><option value="today">今天</option><option value="week">近 7 天</option></select>
-        <select id="g-recipe"><option value="">全部配方</option><option value="yes">有配方</option><option value="no">无配方</option></select>
-        <button class="ghost tiny" id="g-select">选择导出</button>
-        <button class="ghost tiny" id="g-export" style="display:none">导出选中</button>
+    <aside class="params card">
+      <div class="card-head"><h3>参数</h3><span class="hint" id="eta">—</span></div>
+      <details class="fold" open><summary>画面</summary>
+      <div class="field"><label>尺寸</label>
+        <select id="p-size">
+          <option value="1024x1536">1024 × 1536 竖</option>
+          <option value="832x1216">832 × 1216 快</option>
+          <option value="1024x1024">1024 × 1024 方</option>
+          <option value="1216x832">1216 × 832 横</option>
+        </select>
       </div>
-      <div id="g-grid" class="gallery"></div></div>
-  </section>
+      <div class="row2">
+        <div class="field"><label>步数</label><input id="p-steps" type="number" value="30"></div>
+        <div class="field"><label>CFG</label><input id="p-cfg" type="number" step="0.1" value="5.5"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>种子</label><input id="p-seed" type="number" placeholder="随机"></div>
+        <div class="field"><label>前缀</label><input id="p-prefix" value="st"></div>
+      </div>
+      </details>
 
-  <section id="view-library" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>词库</h3><span class="hint" id="lib-count"></span>
-        <button class="ghost tiny" id="lib-export" style="margin-left:auto">导出</button>
-        <button class="ghost tiny" id="lib-import">导入</button></div>
-        <div class="toolbar">
-          <input id="lib-q" placeholder="搜索…">
-          <select id="lib-cat"><option value="">全部分类</option></select>
-          <button class="ghost tiny" id="lib-sort">A→Z</button>
-        </div>
-        <div id="lib-list" style="max-height:58vh;overflow:auto"></div></div>
-      <div class="card"><div class="card-head"><h3>编辑词条</h3></div>
-        <div class="field"><label>名字（@开头）</label><input id="tk-name" placeholder="@POSE_STAND"></div>
-        <div class="field"><label>分类</label><select id="tk-cat"></select></div>
-        <div class="field"><label>提示词</label><textarea id="tk-text" rows="4"></textarea></div>
-        <div class="field"><label>备注</label><textarea id="tk-note" rows="2"></textarea></div>
-        <div class="row2"><button class="primary" id="tk-save">保存</button>
-          <button class="ghost" id="tk-del">删除</button></div>
-        <p class="hint" style="margin-top:8px">保存后立即生效，所有模板与拼装共用同一份词库。</p></div>
+      <details class="fold" open><summary>LoRA</summary>
+        <div id="lora-list" class="lora-list"></div>
+        <button class="ghost wide" id="lora-add">+ 加 LoRA</button>
+      </details>
+
+      <details class="fold" open><summary>出图</summary>
+        <button class="primary wide" id="run-btn">▶ 出图</button>
+        <button class="ghost wide" id="batch-btn2" style="margin-top:8px">批量出图（多 seed）</button>
+        <div class="progress"><div class="bar" id="run-bar"></div></div>
+        <div class="hint" id="run-status">就绪</div>
+      </details>
+
+      <details class="fold" open><summary>结果</summary>
+        <div id="result" class="result"></div>
+      </details>
+    </aside>
+  </div>
+</section>
+
+<!-- ---------------- 画廊 ---------------- -->
+<section id="view-gallery" class="view">
+  <div class="toolbar card">
+    <label>目录</label>
+    <select id="g-dir">
+      <option value="station_out">工作站输出</option>
+      <option value="remote_out">remote_out</option>
+      <option value="原图">原图</option>
+    </select>
+    <select id="g-rating">
+      <option value="">全部评级</option><option value="A">仅 A</option>
+      <option value="B">仅 B</option><option value="C">仅 C</option><option value="none">未评级</option>
+    </select>
+    <select id="g-recipe">
+      <option value="">配方：全部</option><option value="1">有配方</option><option value="0">无配方</option>
+    </select>
+    <select id="g-date">
+      <option value="">时间：全部</option><option value="1">今天</option><option value="7">近 7 天</option>
+    </select>
+    <input id="g-q" placeholder="搜索文件名 / 备注…">
+    <button class="ghost" id="g-select">选择导出</button>
+    <button class="ghost" id="g-export" style="display:none">导出选中</button>
+    <button class="ghost" id="g-refresh">刷新</button>
+    <span class="hint" id="g-total"></span>
+  </div>
+  <div id="gallery" class="gallery"></div>
+</section>
+
+<!-- ---------------- 词库 ---------------- -->
+<section id="view-library" class="view">
+  <div class="lib-grid">
+    <div class="card">
+      <div class="card-head"><h3>提示词积木</h3>
+        <input id="lib-search" placeholder="搜索…"></div>
+      <div id="lib-az" class="lib-az"></div>
+      <div id="token-table" class="token-table"></div>
     </div>
-  </section>
+    <div class="card">
+      <div class="card-head"><h3>编辑 / 新建</h3></div>
+      <div class="field"><label>名称（@开头）</label><input id="tk-name" placeholder="@CAM_BUST"></div>
+      <div class="field"><label>分类</label>
+        <select id="tk-cat">
+          <option value="cam">机位</option><option value="light">打光</option>
+          <option value="id">身份</option><option value="body">体型</option>
+          <option value="face">表情</option><option value="outfit">服装</option>
+          <option value="drape">型态</option><option value="neg">负向</option>
+          <option value="scene">场景</option><option value="custom">自定义</option>
+        </select>
+      </div>
+      <div class="field"><label>内容</label><textarea id="tk-text" rows="6"></textarea></div>
+      <div class="field"><label>备注（鼠标悬停时显示）</label><textarea id="tk-note" rows="2" placeholder="这块是干什么的、有什么坑…"></textarea>
+        <button class="ghost wide" id="tk-note-save" style="margin-top:6px">保存备注</button></div>
+      <div class="row2">
+        <button class="primary" id="tk-save">保存</button>
+        <button class="ghost" id="tk-del">删除</button>
+      </div>
+      <hr>
+      <div class="hint">服装已独立成「服装」页签：套装的提示词、型态、姿势都在那里管理。</div>
+  </div>
+</section>
 
-  <section id="view-outfit" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>套装库</h3>
-        <button class="ghost tiny" id="gm-new" style="margin-left:auto">+ 新建</button></div>
-        <div id="gm-list"></div>
-        <p class="hint">默认套装会替换 @OUTFIT 宏，出图会写进配方。</p></div>
-      <div class="card"><div class="card-head"><h3>编辑套装</h3><span class="hint" id="gm-cur"></span></div>
-        <div class="field"><label>key（英文，保存后不建议改）</label><input id="gm-key"></div>
-        <div class="field"><label>名称</label><input id="gm-label"></div>
-        <div class="field"><label>用途</label><input id="gm-use"></div>
-        <div class="field"><label>正向</label><textarea id="gm-prompt" rows="4"></textarea></div>
-        <div class="field"><label>负向</label><textarea id="gm-negative" rows="2"></textarea></div>
-        <div class="row2">
-          <div class="field"><label>材质</label><input id="gm-material" placeholder="silk / wool …"></div>
-          <div class="field"><label>型态</label><input id="gm-drape" placeholder="slipping off one shoulder"></div>
-        </div>
-        <div class="row2"><button class="primary" id="gm-save">保存</button>
-          <button class="ghost" id="gm-del">删除</button></div>
-        <div class="row2" style="margin-top:8px">
-          <button class="ghost" id="gm-default">设为默认</button>
-          <button class="ghost" id="gm-dup">复制</button>
-        </div>
-        <div class="row2" style="margin-top:8px">
-          <button class="ghost" id="gm-export">导出</button>
-          <button class="ghost" id="gm-import">导入</button>
-        </div>
-        <div class="hint" id="gm-preview" style="margin-top:8px"></div></div>
+
+<!-- ---------------- 服装 ---------------- -->
+<section id="view-garment" class="view">
+  <div class="garment-grid">
+    <div class="card">
+      <div class="card-head"><h3>服装库</h3>
+        <button class="ghost tiny" id="gm-new">+ 新建</button></div>
+      <div id="gm-list" class="gm-list"></div>
+      <p class="hint" style="margin-top:10px">每套服装 = 一段正向提示词 + 一段负向；型态/姿势是往提示词里追加的片段。</p>
     </div>
-  </section>
+    <div class="card">
+      <div class="card-head"><h3>编辑服装</h3><span class="hint" id="gm-status"></span></div>
+      <div class="row2">
+        <div class="field"><label>key（英文，保存后不建议改）</label><input id="gm-key2" placeholder="casual"></div>
+        <div class="field"><label>名称</label><input id="gm-label" placeholder="简版连衣"></div>
+      </div>
+      <div class="field"><label>用途</label><input id="gm-use" placeholder="半身 / 特写"></div>
+      <div class="field"><label>型态（点一下追加到正向末尾）</label><div id="gm-drapes" class="chip-row"></div></div>
+      <div class="field"><label>姿势（点一下追加到正向末尾）</label><div id="gm-poses" class="chip-row"></div></div>
+      <div class="subcard"><div class="sub-title">手持物 · 右手</div>
+        <label class="sub-label">点 chip 追加，或自己写</label>
+        <div id="gm-hold-r" class="chip-row"></div>
+        <textarea id="gm-hand-r" rows="2" style="margin-top:6px" placeholder="(holding a white ceramic cup:1.3)"></textarea></div>
+      <div class="subcard"><div class="sub-title">手持物 · 左手</div>
+        <label class="sub-label">点 chip 追加，或自己写</label>
+        <div id="gm-hold-l" class="chip-row"></div>
+        <textarea id="gm-hand-l" rows="2" style="margin-top:6px" placeholder="(holding a paint palette:1.3)"></textarea></div>
+      <div class="subcard"><div class="sub-title">武器 · 特殊词条</div>
+        <label class="sub-label">必须配 GRIP，建议同时开 @NEG_HANDS</label>
+        <div id="gm-weapons" class="chip-row"></div>
+        <p class="hint" style="margin:6px 0 0">武器会改变画面重心；建议同时开 @NEG_HANDS，并把 @WEAPON_GRIP 一起加上。</p></div>
+      <div class="field"><label>正向</label><textarea id="gm-prompt2" rows="7"></textarea></div>
+      <div class="field"><label>负向</label><textarea id="gm-neg2" rows="3"></textarea></div>
+      <div class="row2">
+        <button class="primary" id="gm-save2">保存服装</button>
+        <button class="ghost" id="gm-del2">删除这套</button>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <section id="view-recipe" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>配方记录</h3><span class="hint" id="rc-count"></span>
+
+<!-- ---------------- 配方 ---------------- -->
+<section id="view-recipe" class="view">
+  <div class="lib-grid" style="grid-template-columns:330px 1fr">
+    <div class="card">
+      <div class="card-head"><h3>配方记录</h3><span class="hint" id="rc-count"></span>
+        <button class="ghost tiny" id="rc-compare" style="margin-left:auto">对比选中</button>
         <button class="ghost tiny" id="rc-backfill" style="margin-left:auto">回填历史</button></div>
-        <div id="rc-list" style="max-height:66vh;overflow:auto"></div></div>
-      <div class="card"><div class="card-head"><h3>这张图的配方</h3></div>
-        <div id="rc-detail" class="hint">在左边点一张图，或者在画廊里点「参数」。</div></div>
+      <div id="rc-list" class="rc-list"></div>
     </div>
-  </section>
-
-  <section id="view-paint" class="view">
-    <div class="two">
-      <div class="card">
-        <div class="card-head"><h3>局部重绘</h3><span class="hint" id="pt-hint">先载入一张图</span></div>
-        <div class="row2">
-          <button class="ghost" id="pt-load">载入图片路径</button>
-          <button class="ghost" id="pt-clear">清空蒙版</button>
-        </div>
-        <div class="paint-wrap" id="pt-wrap">
-          <img id="pt-img" alt="">
-          <canvas id="pt-canvas"></canvas>
-        </div>
-        <div class="row2" style="margin-top:8px">
-          <div class="field"><label>笔刷 / 羽化</label>
-            <div class="row2"><input id="pt-size" type="number" value="30" min="4" max="120">
-            <input id="pt-feather" type="number" value="10" min="0" max="60"></div></div>
-          <div class="field"><label>模式</label>
-            <select id="pt-mode"><option value="brush">画笔</option><option value="erase">橡皮</option><option value="box">框选</option></select></div>
-        </div>
-        <div class="field"><label>重绘提示词（只写框里要出现的东西）</label>
-          <textarea id="pt-prompt" rows="3" placeholder="(detailed hand:1.4), same art style"></textarea></div>
-        <div class="row2">
-          <div class="field"><label>重绘幅度</label><input id="pt-denoise" type="number" step="0.05" value="0.55"></div>
-          <div class="field"><label>步数</label><input id="pt-steps" type="number" value="26"></div>
-        </div>
-        <div class="row2"><button class="ghost" id="pt-mask-save">存蒙版</button>
-          <button class="primary" id="pt-run" disabled>执行重绘</button></div>
-        <div class="hint" id="pt-msg" style="margin-top:8px"></div>
-        <div id="pt-mask-list" class="mask-list"></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><h3>图生图 / 复现</h3></div>
-        <div class="field"><label>参考图</label><input id="rp-ref2" placeholder="A:\path\to\image.png"></div>
-        <div class="row2">
-          <div class="field"><label>重绘幅度</label><input id="rp-denoise" type="number" step="0.05" value="0.55"></div>
-          <div class="field"><label>步数</label><input id="rp-steps" type="number" value="30"></div>
-        </div>
-        <div class="field"><label>提示词</label><textarea id="rp-prompt" rows="3"></textarea></div>
-        <button class="primary wide" id="rp-run">开始复现</button>
-        <div class="hint" id="rp-msg" style="margin-top:8px"></div>
-        <div id="rp-out"></div>
-      </div>
+    <div class="card">
+      <div class="card-head"><h3>这张图的配方</h3><span class="hint" id="rc-name"></span></div>
+      <div id="rc-body"><p class="hint">从画廊点某张图下面的「参数」，或在左侧点一张。</p></div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <section id="view-tag" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>打标</h3><span class="hint" id="tg-sum"></span></div>
-        <div class="field"><label>数据集</label><select id="tg-dataset"></select></div>
-        <div class="row2">
-          <div class="field"><label>阈值</label><input id="tg-thresh" type="number" step="0.05" value="0.35"></div>
-          <div class="field"><label>预览条数</label><input id="tg-preview" type="number" value="5"></div>
-        </div>
-        <div class="field"><label>触发词</label><input id="tg-trigger" placeholder="mychar"></div>
-        <div class="field"><label>额外标签</label><input id="tg-extra" placeholder="1girl, solo"></div>
-        <label class="hint"><input id="tg-write" type="checkbox"> 直接写入 .txt（不勾只预览）</label>
-        <button class="primary wide" id="tg-run" style="margin-top:10px">开始打标</button>
-        <div class="hint" id="tg-msg" style="margin-top:8px"></div></div>
-      <div class="card"><div class="card-head"><h3>日志</h3></div>
-        <div id="tg-out" class="console" style="max-height:60vh;overflow:auto"></div></div>
-    </div>
-  </section>
-
-  <section id="view-train" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>训练 LoRA</h3><span class="hint" id="tr-sum"></span></div>
+<!-- ---------------- 训练 ---------------- -->
+<section id="view-train" class="view">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><h3>训练</h3><span class="hint" id="tr-profiles"></span></div>
+      <div class="row2">
         <div class="field"><label>数据集</label><select id="tr-dataset"></select></div>
-        <div class="row2">
-          <div class="field"><label>输出名</label><input id="tr-output" value="my_lora"></div>
-          <div class="field"><label>维度</label><input id="tr-dim" type="number" value="32"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>轮数</label><input id="tr-epochs" type="number" value="10"></div>
-          <div class="field"><label>batch</label><input id="tr-batch" type="number" value="1"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>学习率</label><input id="tr-lr" type="number" step="1e-5" value="0.0001"></div>
-          <div class="field"><label>底模（留空用配置）</label><input id="tr-base" placeholder="your-model.safetensors"></div>
-        </div>
-        <div class="field"><label>触发词</label><input id="tr-trigger"></div>
-        <button class="primary wide" id="tr-run">开始训练</button>
-        <div class="hint" id="tr-msg" style="margin-top:8px"></div>
-        <p class="hint">需要本机装好 kohya sd-scripts，并在 config.json 里写 kohya_dir。</p></div>
-      <div class="card"><div class="card-head"><h3>日志</h3></div>
-        <div id="tr-out" class="console" style="max-height:60vh;overflow:auto"></div></div>
-    </div>
-  </section>
-
-  <section id="view-engine" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>引擎</h3><span class="hint" id="eng-sum"></span>
-        <button class="ghost tiny" id="eng-free">释放显存</button>
-        <button class="ghost tiny" id="eng-start">启动</button>
-        <button class="ghost tiny" id="eng-open">打开 ComfyUI</button></div>
-        <div id="eng-kv" class="kv"></div>
-        <h4 style="margin:14px 0 6px">工作流</h4><div id="eng-wf"></div>
-        <button class="ghost" id="eng-check" style="margin-top:10px">运行环境自检</button>
-        <div id="eng-check-out" class="console" style="margin-top:10px;max-height:220px;overflow:auto;display:none"></div>
+        <div class="field"><label>档位</label>
+          <select id="tr-profile">
+            <option value="auto">auto</option><option value="local">local 8G</option>
+            <option value="local">本机</option>
+          </select></div>
       </div>
-      <div class="card"><div class="card-head"><h3>模型绑定</h3></div>
-        <div class="field"><label>UNet / checkpoint</label><input id="cf-unet"></div>
-        <div class="field"><label>文本编码器</label><input id="cf-clip"></div>
-        <div class="field"><label>VAE</label><input id="cf-vae"></div>
-        <div class="field"><label>CLIP 类型</label><input id="cf-cliptype" value="stable_diffusion"></div>
-        <div class="field"><label>ComfyUI 目录（用于 i2i 参考图）</label><input id="cf-dir"></div>
-        <button class="primary" id="cf-save">保存到 config.json</button>
-        <p class="hint" style="margin-top:8px">也可以用 install/bind_pipeline.ps1 自动写入。</p></div>
+      <div class="row2">
+        <div class="field"><label>steps</label><input id="tr-steps" type="number" value="100"></div>
+        <div class="field"><label>rank（0=档位默认）</label><input id="tr-rank" type="number" value="0"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>lr（0=默认）</label><input id="tr-lr" type="number" step="0.00001" value="0"></div>
+        <div class="field"><label>保留</label><input id="tr-keep" type="number" value="3"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>用缓存</label><select id="tr-cache"><option value="">不用</option></select></div>
+        <div class="field"><label>建缓存为</label><input id="tr-buildcache" placeholder="lora_xxx_cache"></div>
+      </div>
+      <div class="field"><label>续训 LoRA</label><select id="tr-existing"><option value="">不续训</option></select></div>
+      <div class="row2">
+        <button class="primary" id="tr-run">开始训练</button>
+        <button class="ghost" id="tr-dry">仅预演</button>
+      </div>
     </div>
-  </section>
+    <div class="card">
+      <div class="card-head"><h3>日志</h3></div>
+      <pre id="tr-log" class="console"></pre>
+    </div>
+  </div>
+</section>
 
-  <section id="view-maint" class="view">
-    <div class="two">
-      <div class="card"><div class="card-head"><h3>磁盘</h3><span class="hint" id="mt-sum"></span></div>
-        <div id="mt-kv" class="kv"></div>
-        <div class="row2" style="margin-top:10px"><button class="ghost" id="mt-clean">清空回收站</button>
-          <button class="ghost" id="mt-refresh">刷新</button></div></div>
-      <div class="card"><div class="card-head"><h3>回收站</h3><span class="hint" id="mt-trash-count"></span>
-        <button class="ghost tiny" id="mt-trash-restore-all" style="margin-left:auto">全部恢复</button>
-        <button class="ghost tiny" id="mt-trash-purge">清空</button></div>
-        <div id="mt-trash-list" style="max-height:40vh;overflow:auto"></div></div>
-      <div class="card"><div class="card-head"><h3>文档</h3></div>
-        <div id="doc-list" class="doc-list"></div></div>
+<!-- ---------------- 打标 ---------------- -->
+<section id="view-tag" class="view">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><h3>WD14 打标</h3></div>
+      <div class="field"><label>数据集</label><select id="tg-dataset"></select></div>
+      <div class="row2">
+        <div class="field"><label>触发词</label><input id="tg-trigger" placeholder="mychar"></div>
+        <div class="field"><label>附加</label><input id="tg-extra" value="1girl"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>阈值</label><input id="tg-threshold" type="number" step="0.05" value="0.35"></div>
+        <div class="field"><label>模式</label>
+          <select id="tg-write"><option value="0">预览</option><option value="1">写入 caption</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="tg-drop" checked> 删掉外观标签（角色 LoRA 专用）</label>
+      <button class="primary wide" id="tg-run">开始</button>
     </div>
-  </section>
+    <div class="card">
+      <div class="card-head"><h3>日志</h3></div>
+      <pre id="tg-log" class="console"></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- 维护 ---------------- -->
+
+
+<section id="view-repro" class="view">
+  <div class="two-col rp-top">
+    <div class="card">
+      <div class="card-head"><h3>复现模式</h3><span class="hint">换图不换人 / 换人不换图</span></div>
+      <div class="field"><label>底图路径（结果面板点「复现」会自动填）</label>
+        <input id="rp-ref" placeholder="A:\...\任意图.png"></div>
+      <div class="row2">
+        <div class="field"><label>模式</label>
+          <select id="rp-mode2">
+            <option value="keep_person">保人物 · 换画面</option>
+            <option value="keep_image">保画面 · 换人物</option>
+          </select></div>
+        <div class="field"><label>重绘幅度</label><input id="rp-d2" type="number" step="0.05" value="0.78"></div>
+      </div>
+      <div class="field"><label>目标描述 / 提示词</label><textarea id="rp-p2" rows="5"></textarea></div>
+      <div class="row2">
+        <div class="field"><label>步数</label><input id="rp-steps" type="number" value="28"></div>
+        <div class="field"><label>CFG</label><input id="rp-cfg" type="number" step="0.1" value="5.4"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>宽</label><input id="rp-w" type="number" value="1024"></div>
+        <div class="field"><label>高</label><input id="rp-h" type="number" value="1536"></div>
+      </div>
+      <button class="primary wide" id="rp-go2">开始复现</button>
+      <p class="hint" style="margin-top:8px">保人物：denoise 0.75–0.82，配合身份锁；保画面：denoise 0.6–0.72，但只有 h2 一个身份 LoRA 时换不了脸。</p>
+    </div>
+    <div class="card rp-result-card">
+      <div class="card-head"><h3>结果</h3><span class="hint" id="rp-status">就绪</span></div>
+      <div id="rp-result"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="card-head"><h3>局部重绘</h3>
+      <span class="hint" id="rp-inp-hint">载入底图后，在图上拖一个框</span></div>
+    <div class="mask-grid">
+      <div class="mask-preview">
+        <button class="ghost wide" id="rp-inp-load" style="margin-bottom:8px">载入底图</button>
+        <div class="hf-wrap" id="rp-inp-wrap"><img id="rp-inp-img" alt="">
+          <canvas id="rp-inp-canvas" class="mask-canvas"></canvas>
+          <div class="hf-sel" id="rp-inp-sel"></div></div>
+        <div class="mask-tools">
+          <button class="ghost tiny mode on" data-mask-mode="brush">画笔</button>
+          <button class="ghost tiny mode" data-mask-mode="erase">橡皮</button>
+          <button class="ghost tiny mode" data-mask-mode="box">框选</button>
+          <label class="brush-size">笔刷 <input type="range" id="rp-inp-size" min="4" max="90" value="26"></label>
+          <label class="brush-size">羽化 <input type="range" id="rp-inp-feather" min="0" max="40" value="10"></label>
+          <button class="ghost tiny" id="rp-inp-clearbtn">清空蒙版</button>
+          <button class="ghost tiny" id="rp-mask-save">存蒙版</button>
+          <button class="ghost tiny" id="rp-mask-open">调蒙版</button>
+        </div>
+        <div class="hf-readout" id="rp-inp-readout">载入底图后：画笔画蒙版，或切「框选」拖一个矩形</div>
+      </div>
+      <div class="mask-side">
+        <div class="row2">
+          <div class="field"><label>重绘幅度</label><input id="rp-inp-d" type="number" step="0.05" value="0.6"></div>
+          <div class="field"><label>步数</label><input id="rp-inp-steps" type="number" value="26"></div>
+        </div>
+        <div class="field"><label>重绘提示词（只描述框里要画的东西）</label>
+          <textarea id="rp-inp-p" rows="4" placeholder="(hand with five fingers:1.4), (detailed fingers:1.3), same art style"></textarea></div>
+        <div class="row2">
+          <button class="ghost" id="rp-inp-clear">重选</button>
+          <button class="primary" id="rp-inp-go" disabled>执行局部重绘</button>
+        </div>
+        <p class="hint" style="margin-top:8px">只改框内，框外保持原样；denoise 0.45–0.6 修细节，0.7–0.85 换内容。提示词默认取上方「目标描述」。</p>
+      </div>
+      <div class="mask-lib">
+        <div class="mask-lib-head">蒙版库 <span class="hint" id="rp-mask-count"></span></div>
+        <div id="rp-mask-list" class="mask-list"></div>
+        <p class="hint" style="margin-top:8px">存蒙版会按底图名前缀保存，只列这张图的蒙版；点缩略图直接套用。</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="view-engine" class="view">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head"><h3>ComfyUI 引擎</h3>
+        <span class="hint" id="eng-summary"></span>
+        <button class="ghost tiny" id="eng-free">释放显存</button>
+        <button class="ghost tiny" id="eng-restart">重启 ComfyUI</button>
+        <button class="ghost tiny" id="eng-open">在 ComfyUI 里打开 ↗</button></div>
+      <div id="eng-kv" class="kv"></div>
+      <hr>
+      <div class="card-head"><h3>工作流（数据化）</h3></div>
+      <div id="eng-wf"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>内部管线（最近提交的图）</h3><span class="hint" id="eng-pipe-hint"></span></div>
+      <pre id="eng-pipe" class="console small"></pre>
+    </div>
+  </div>
+  <div class="two-col" style="margin-top:14px">
+    <div class="card">
+      <div class="card-head"><h3>自定义节点</h3></div>
+      <div id="eng-custom" class="doc-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>一致性自检</h3><button class="ghost" id="regress-btn">运行</button></div>
+      <div id="regress-out" class="hint">点“运行”检查模板/积木/工作流是否互相一致。</div>
+    </div>
+  </div>
+</section>
+<section id="view-maint" class="view">
+  <div class="maint-grid">
+    <div class="card">
+      <div class="card-head"><h3>磁盘</h3><span class="hint" id="mt-disk"></span></div>
+      <div id="mt-sizes" class="kv"></div>
+      <hr>
+      <div class="row2">
+        <button class="ghost" id="mt-dry">清理预演</button>
+        <button class="danger" id="mt-run">执行清理</button>
+      </div>
+      <pre id="mt-log" class="console small"></pre>
+      <div class="row2" id="mt-trash-row">
+        <button class="ghost" id="mt-restore">恢复全部</button>
+        <button class="ghost danger" id="mt-purge">清空回收站</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>登记表</h3><span class="hint" id="rg-count"></span></div>
+      <div id="rg-table" class="rg-table"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-head"><h3>文档</h3></div>
+    <div id="doc-list" class="doc-list"></div>
+  </div>
+</section>
 </main>
 
-<div id="batch-modal" class="modal"><div class="modal-body card">
-  <div class="card-head"><h3>批量出图</h3><button class="ghost" id="batch-close">×</button></div>
-  <div class="row2">
-    <div class="field"><label>张数</label><input id="bt-count" type="number" value="4" min="1" max="32"></div>
-    <div class="field"><label>起始种子（0=随机）</label><input id="bt-seed" type="number" value="0"></div>
-  </div>
-  <div class="row2">
-    <div class="field"><label>步数</label><input id="bt-steps" type="number" value="28"></div>
-    <div class="field"><label>尺寸</label><select id="bt-size">
-      <option>1024x1536</option><option>832x1216</option><option>896x1152</option><option>1024x1024</option></select></div>
-  </div>
-  <div class="field"><label>前缀</label><input id="bt-prefix" value="batch"></div>
-  <button class="primary wide" id="bt-run">开始批量</button>
-  <div class="hint" id="bt-msg" style="margin-top:8px"></div>
-  <div id="bt-out" class="gallery" style="margin-top:10px"></div>
+<div id="modal" class="modal"><div class="modal-body card"><div class="card-head"><h3 id="modal-title"></h3><button class="ghost" id="modal-close">×</button></div><div id="modal-content"></div></div></div>
+
+<script>
+window.addEventListener('error', function (e) {
+  document.title = 'PARSE_ERR ' + (e.message || '') + ' @line ' + (e.lineno || 0) + ':' + (e.colno || 0);
+}, true);
+</script>
+<script src="/app.js?v=6"></script>
+<div id="cmdbar" class="cmdbar"><div class="cmd-box">
+  <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
+  <div id="cmd-list" class="cmd-list"></div>
 </div></div>
-
-<div id="modal" class="modal"><div class="modal-body card">
-  <div class="card-head"><h3 id="modal-title"></h3><button class="ghost" id="modal-close">×</button></div>
-  <div id="modal-content"></div></div></div>
-
-<script src="/static/app.js"></script>
 </body>
 </html>

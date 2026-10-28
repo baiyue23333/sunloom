@@ -229,6 +229,60 @@ def api_img(path: str):
 
 
 # ---------------- bootstrap / expand / validate ----------------
+
+
+_FEATURE_LIST = [
+    {"group": "拼装", "items": ["积木库：分类、收藏、拖拽添加", "正负向画布：权重、停用、删除、排序",
+                                 "描述卡片、文本块、标签块", "展开预览与结构检查", "快速模板"]},
+    {"group": "出图", "items": ["文生图 / 图生图", "LoRA 多行", "批量多 seed", "配方自动记录"]},
+    {"group": "重绘", "items": ["画笔 / 橡皮 / 框选、羽化", "蒙版库", "手部精修（框选）", "图生图复现"]},
+    {"group": "数据", "items": ["词库分类 / 导入导出", "服装默认 / 复制 / 导入导出", "配方回填"]},
+    {"group": "可选模块", "items": ["打标（WD14）", "训练（kohya），需要本机 kohya_dir"]},
+]
+
+
+def _defaults_superset(cfg):
+    d = dict(cfg.get("defaults") or {})
+    size = str(d.get("size") or "1024x1536")
+    try:
+        w, h = [int(x) for x in size.lower().split("x")]
+    except Exception:
+        w, h = 1024, 1536
+    d.setdefault("width", w)
+    d.setdefault("height", h)
+    d.setdefault("steps", 28)
+    d.setdefault("cfg", 5.5)
+    return d
+
+
+def _list_datasets():
+    base = os.path.join(DATA, "datasets")
+    items = []
+    if os.path.isdir(base):
+        for n in sorted(os.listdir(base)):
+            p = os.path.join(base, n)
+            if not os.path.isdir(p):
+                continue
+            imgs = [f for f in os.listdir(p) if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))]
+            items.append({"name": n, "path": p, "images": len(imgs)})
+    return items
+
+
+def _list_loras():
+    cfg = config.load()
+    root = cfg.get("comfy_dir") or ""
+    out = []
+    for sub in ("models/loras", "models/Lora", "models/lycoris"):
+        d = os.path.join(root, sub)
+        if not os.path.isdir(d):
+            continue
+        for base, dirs, files in os.walk(d):
+            for f in files:
+                if f.lower().endswith((".safetensors", ".pt", ".ckpt")):
+                    out.append({"name": f, "path": os.path.join(base, f)})
+    out.sort(key=lambda x: x["name"].lower())
+    return out
+
 @app.get("/api/bootstrap")
 def bootstrap():
     tokens, lib, ch = pt.load_tokens()
@@ -241,8 +295,13 @@ def bootstrap():
         "garments": ch.get("garments") or {},
         "garment_default": ch.get("garment_default") or "",
         "templates": tpl,
-        "defaults": cfg.get("defaults") or {},
+        "defaults": _defaults_superset(cfg),
         "model": cfg.get("model") or {},
+        "datasets": _list_datasets(),
+        "loras": _list_loras(),
+        "character": {k: v for k, v in (ch or {}).items() if k != "garments"},
+        "features": _FEATURE_LIST,
+        "registry": {"total": 0, "items": []},
         "comfy": dict(comfy_st, url=cf.COMFY),
         "queue": cf.queue_state(),
         "paths": {"root": HERE, "output": OUT_DIR},
@@ -626,3 +685,10 @@ app.include_router(_features_router)
 from features2 import router as _features2_router  # noqa: E402
 
 app.include_router(_features2_router)
+
+from features3 import router as _features3_router  # noqa: E402
+
+app.include_router(_features3_router)
+
+# 让旧版 UI 的 /app.js、/style.css 从 static 根路径访问
+app.mount("/", StaticFiles(directory=STATIC, html=True), name="root")

@@ -28,18 +28,18 @@ def validate(pos, neg, tokens=None):
     errors, warnings, hints = [], [], []
 
     if not any(w in p for w in SUBJECT_WORDS):
-        errors.append({"code": "NO_SUBJECT", "msg": "No subject block: add @SUBJ or describe the subject"})
+        errors.append({"code": "NO_SUBJECT", "msg": "缺主体：加 @SUBJ，或描述画面主体"})
     if not n.strip():
-        errors.append({"code": "NEG_EMPTY", "msg": "Negative prompt is empty: add @NEG_BASE"})
+        errors.append({"code": "NEG_EMPTY", "msg": "负向为空：至少加 @NEG_BASE"})
     if n.strip() and not any(w in n for w in QUALITY_NEG):
-        warnings.append({"code": "NO_QUALITY_NEG", "msg": "Negative lacks quality words (lowres/bad anatomy/...)"})
+        warnings.append({"code": "NO_QUALITY_NEG", "msg": "负向缺少质量词（lowres / bad anatomy 等）"})
     if CUP_HOLD.search(p) and re.search(r"\bcup\b|\bmug\b|\bglass\b", n):
-        hints.append({"code": "CUP_CONFLICT", "msg": "You hold a cup while the negative forbids it; the expander will drop cup terms automatically"})
+        hints.append({"code": "CUP_CONFLICT", "msg": "正向拿杯、负向禁杯：展开时会自动放宽杯具词"})
     if "@cam" not in p:
-        hints.append({"code": "NO_CAM", "msg": "Consider a camera block (@CAM_*) for framing control"})
+        hints.append({"code": "NO_CAM", "msg": "建议加机位积木（@CAM_*）"})
     if "@light" not in p:
-        hints.append({"code": "NO_LIGHT", "msg": "Consider a lighting block (@LIGHT_*) - it changes the image most"})
+        hints.append({"code": "NO_LIGHT", "msg": "建议加打光积木（@LIGHT_*），它影响最大"})
     if "@out" not in p:
-        hints.append({"code": "NO_OUTFIT", "msg": "Consider an outfit block (@OUT_*) or @OUTFIT"})
+        hints.append({"code": "NO_OUTFIT", "msg": "建议加服装积木（@OUT_* 或 @OUTFIT）"})
     ok = not errors
     return {"ok": ok, "errors": errors, "warnings": warnings, "hints": hints}

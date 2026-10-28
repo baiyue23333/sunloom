@@ -297,7 +297,7 @@ def api_train_start(req: TrainReq):
         raise HTTPException(400, "dataset not found")
     kohya = (S.CFG.get("kohya_dir") or "")
     if not kohya or not os.path.isfile(os.path.join(kohya, "train_network.py")):
-        raise HTTPException(400, "kohya sd-scripts not configured: set kohya_dir in data/config.json")
+        raise HTTPException(400, "kohya sd-scripts 未配置：先运行 tools/setup/install_kohya.ps1，或在 config.json 写 kohya_dir")
     script = os.path.join(TOOLS, "train_lora.ps1")
     args = ["powershell", "-ExecutionPolicy", "Bypass", "-File", script,
             "-Dataset", folder, "-OutputName", req.output, "-KohyaDir", kohya,
