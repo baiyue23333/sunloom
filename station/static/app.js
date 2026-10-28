@@ -1035,4 +1035,207 @@ switchTab = function (name, push) {
   if (name === "library") setTimeout(renderLibrary, 50);
 };
 
+
+/* ================= rich UI parity ================= */
+let LORA_CACHE = [];
+
+function loraRows() {
+  return $$("#lora-rows .lora-row").map(row => {
+    const name = row.querySelector("select").value;
+    const w = Number(row.querySelector("input").value || 0.8);
+    return name ? { name, weight: w } : null;
+  }).filter(Boolean);
+}
+function loraRowHtml(name, weight) {
+  const opts = LORA_CACHE.map(it => '<option value="' + esc(it.name) + '"' +
+    (it.name === name ? " selected" : "") + ">" + esc(it.name) + "</option>").join("");
+  return '<div class="lora-row"><select>' + opts + "</select>" +
+    '<input type="number" step="0.05" value="' + (weight || 0.8) + '">' +
+    '<button class="bx">×</button></div>';
+}
+async function initLoras() {
+  try {
+    const r = await api("/api/loras");
+    LORA_CACHE = r.items || [];
+    const box = $("#lora-rows");
+    if (!box) return;
+    box.innerHTML = "";
+    const defaults = r.defaults || [];
+    if (defaults.length) {
+      defaults.forEach(d => box.insertAdjacentHTML("beforeend", loraRowHtml(d.name, d.weight)));
+    } else if (LORA_CACHE.length) {
+      box.insertAdjacentHTML("beforeend", loraRowHtml(LORA_CACHE[0].name, 0.8));
+    }
+    bindLoraRows();
+  } catch (e) {}
+}
+function bindLoraRows() {
+  $$("#lora-rows .lora-row .bx").forEach(b => b.onclick = () => {
+    b.closest(".lora-row").remove();
+  });
+}
+$("#lora-add") && ($("#lora-add").onclick = () => {
+  if (!LORA_CACHE.length) return toast("没找到 LoRA 文件（先绑定 comfy_dir）");
+  $("#lora-rows").insertAdjacentHTML("beforeend", loraRowHtml(LORA_CACHE[0].name, 0.8));
+  bindLoraRows();
+});
+
+/* palette rail + drag & drop */
+const _palRich = renderPalette;
+renderPalette = function () {
+  _palRich();
+  const body = $("#pal-body"), rail = $("#pal-rail");
+  if (!body || !rail) return;
+  const heads = $$("#pal-body .pg-head");
+  rail.innerHTML = heads.map((h, i) =>
+    '<button class="rail-dot" data-i="' + i + '" title="' + esc(h.textContent) + '">' +
+    esc(h.textContent.replace("★ ", "").slice(0, 2)) + "</button>").join("");
+  $$("#pal-rail .rail-dot").forEach(btn => btn.onclick = () => {
+    const t = heads[Number(btn.dataset.i)];
+    if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $$("#pal-body .pg-item").forEach(b => {
+    b.setAttribute("draggable", "true");
+    b.ondragstart = e => e.dataTransfer.setData("text/plain", b.dataset.tok);
+  });
+};
+const _lanesRich = renderLanes;
+renderLanes = function () {
+  _lanesRich();
+  $$(".lane-body").forEach(el => {
+    el.ondragover = e => { e.preventDefault(); el.classList.add("drop-on"); };
+    el.ondragleave = () => el.classList.remove("drop-on");
+    el.ondrop = e => {
+      e.preventDefault(); el.classList.remove("drop-on");
+      const tok = e.dataTransfer.getData("text/plain");
+      if (!tok) return;
+      const neg = el.id === "lane-neg";
+      const lane = neg ? S.blocks.neg : S.blocks.pos;
+      if (!lane.find(b => b.token === tok)) lane.push({ token: tok, weight: 1 });
+      renderLanes(); doExpand();
+    };
+  });
+};
+
+/* lane tools */
+$$("[data-add]").forEach(btn => btn.onclick = () => {
+  const kind = btn.dataset.add;
+  if (kind === "desc") { $("#desc-text").focus(); return; }
+  const text = prompt(kind === "tag" ? "标签文本（会作为一个块加入）" : "文本块（会作为一个块加入）");
+  if (!text) return;
+  const neg = btn.closest(".lane") && btn.closest(".lane").querySelector("#lane-neg");
+  const lane = neg ? S.blocks.neg : S.blocks.pos;
+  lane.push({ token: "", text: text.trim(), weight: 1 });
+  renderLanes(); doExpand();
+});
+
+/* description card */
+function descAdd(neg) {
+  const text = $("#desc-text").value.trim();
+  if (!text) return toast("先写一段描述");
+  const w = Number($("#desc-weight").value || 1);
+  (neg ? S.blocks.neg : S.blocks.pos).push({ token: "", text, weight: w });
+  renderLanes(); doExpand();
+  toast("已插入" + (neg ? "负向" : "正向"));
+}
+$("#desc-pos") && ($("#desc-pos").onclick = () => descAdd(false));
+$("#desc-neg") && ($("#desc-neg").onclick = () => descAdd(true));
+$("#desc-save") && ($("#desc-save").onclick = async () => {
+  const text = $("#desc-text").value.trim();
+  if (!text) return toast("先写一段描述");
+  const name = prompt("存成积木，名字（@开头）", "@DESC_MY");
+  if (!name) return;
+  await api("/api/token/save", { method: "POST", body: JSON.stringify({
+    name, text, note: "来自描述卡片" }) });
+  const b = await api("/api/bootstrap");
+  S.tokens = b.tokens; S.notes = b.notes;
+  renderPalette(); renderLibrary(); toast("已保存为 " + name);
+});
+
+/* preview counts */
+const _expandRich = doExpand;
+doExpand = async function () {
+  const r = await _expandRich();
+  if (r && $("#prev-len")) {
+    $("#prev-len").textContent = "正向 " + r.pos_len + " / 负向 " + r.neg_len +
+      " / 用了 " + (r.used || []).length + " 个宏";
+  }
+  return r;
+};
+
+/* run with lora rows */
+runNow = async function () {
+  const v = await validateNow();
+  if (!v.ok) { toast("结构检查没过，先修错误"); return; }
+  const ex = await doExpand();
+  if (!ex) return;
+  const size = ($("#p-size").value || "1024x1536").split("x");
+  const body = {
+    prompt: ex.positive, negative: ex.negative,
+    width: Number(size[0]), height: Number(size[1]),
+    steps: Number($("#p-steps").value || 28), cfg: Number($("#p-cfg").value || 5.5),
+    seed: Number($("#p-seed").value || 0), prefix: $("#p-prefix").value || "img",
+    loras: loraRows(), mode: $("#p-mode").value, blocks_pos: S.blocks.pos, blocks_neg: S.blocks.neg,
+    reference: $("#p-ref").value || "", denoise: Number($("#p-denoise").value || 0.6)
+  };
+  $("#run").disabled = true; $("#run-msg").textContent = "提交中…";
+  try {
+    const r = await api("/api/run", { method: "POST", body: JSON.stringify(body) });
+    toast("已排队，seed " + r.seed);
+    pollJob(r.job_id);
+  } catch (e) { $("#run").disabled = false; $("#run-msg").textContent = ""; toast("提交失败：" + e.message); }
+};
+const _batchRich = typeof runBatch === "function" ? runBatch : null;
+runBatch = async function () {
+  const size = ($("#bt-size").value || "1024x1536").split("x");
+  const ex = await doExpand();
+  if (!ex) return;
+  const body = {
+    prompt: ex.positive, negative: ex.negative,
+    count: Number($("#bt-count").value || 4), seed: Number($("#bt-seed").value || 0),
+    width: Number(size[0]), height: Number(size[1]),
+    steps: Number($("#bt-steps").value || 28), cfg: Number($("#p-cfg").value || 5.5),
+    prefix: $("#bt-prefix").value || "batch", loras: loraRows(),
+    blocks_pos: S.blocks.pos, blocks_neg: S.blocks.neg
+  };
+  const r = await api("/api/batch", { method: "POST", body: JSON.stringify(body) });
+  $("#bt-msg").textContent = "开始 " + r.count + " 张…";
+  $("#bt-out").innerHTML = "";
+  const t = setInterval(async () => {
+    const j = await api("/api/job/" + r.job_id);
+    $("#bt-msg").textContent = j.status === "running"
+      ? "生成中 " + Math.round((j.progress || 0) * 100) + "%"
+      : (j.status === "done" ? "完成 " + ((j.result.images || []).length) + " 张" : "失败");
+    if (j.status !== "running") {
+      clearInterval(t);
+      const imgs = (j.result && j.result.images) || [];
+      $("#bt-out").innerHTML = imgs.map(p =>
+        '<div class="g-item"><img src="/api/img?path=' + encodeURIComponent(p) + '" data-p="' + esc(p) + '"></div>').join("");
+      $$("#bt-out img").forEach(im => im.onclick = () => showImage(im.dataset.p));
+      refreshGallery();
+    }
+  }, 1500);
+};
+
+/* self check + overview */
+$("#pill-selfcheck") && ($("#pill-selfcheck").onclick = async () => {
+  const r = await api("/api/pipeline/check");
+  openModal("环境自检",
+    '<div class="hint">' + r.total + " 项，失败 " + r.failed + "</div>" +
+    r.checks.map(c => '<div class="wf-row">' + (c.ok ? '<span class="ok">OK</span>' : '<span class="bad">FAIL</span>') +
+      " " + esc(c.name) + ' <span class="hint">' + esc(c.detail || "") + "</span></div>").join(""));
+});
+$("#pill-overview") && ($("#pill-overview").onclick = () => openModal("功能总览",
+  '<div class="hint" style="line-height:1.9">' +
+  "<b>拼装</b>：积木库（分类/收藏/拖拽）、正负向画布、描述卡片、模板、展开预览、结构检查<br>" +
+  "<b>出图</b>：文生图 / 图生图、LoRA 多行、批量多 seed<br>" +
+  "<b>重绘</b>：画笔/橡皮/框选、羽化、蒙版库、图生图复现、手部精修<br>" +
+  "<b>画廊</b>：筛选、多选导出 zip、大图操作<br>" +
+  "<b>词库</b>：分类、A→Z、导入导出<br><b>服装</b>：默认/复制/材质型态/导入导出<br>" +
+  "<b>配方</b>：回填、查看参数<br><b>打标/训练</b>：可选模块<br>" +
+  "<b>引擎</b>：状态、工作流检查、模型绑定、释放显存<br><b>维护</b>：磁盘、回收站、文档</div>"));
+
+/* init */
+setTimeout(initLoras, 100);
+
 boot();

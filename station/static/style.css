@@ -874,3 +874,19 @@ pre{white-space:pre-wrap}
 .cdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;vertical-align:middle}
 #lib-list .lib-row b{display:flex;align-items:center;gap:2px}
 label.hint{display:flex;align-items:center;gap:8px;margin-top:8px}
+
+/* rich UI */
+.pal-shell{display:flex;gap:8px;min-height:0}
+.pal-rail{display:flex;flex-direction:column;gap:4px;flex:0 0 40px;overflow:auto;padding-right:2px}
+.rail-dot{font-size:10px;padding:6px 0;border-radius:8px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.04);color:var(--muted)}
+.rail-dot:hover{color:var(--ink);border-color:var(--stroke-2)}
+#pal-body{flex:1;min-width:0}
+.lane-tools{display:flex;gap:6px;margin-left:8px}
+.lora-row{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.lora-row select{flex:1;min-width:0}
+.lora-row input{width:62px}
+.lora-row .bx{border:none;background:transparent;color:var(--muted);padding:0 4px}
+.lora-row .bx:hover{color:#ff9b8a}
+.lane-body.drop-on{outline:1px dashed rgba(255,198,92,.65);outline-offset:3px;border-radius:10px}
+.pg-item::after{content:"+";margin-left:8px;opacity:.35;font-size:12px}

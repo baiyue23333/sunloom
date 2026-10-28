@@ -28,6 +28,8 @@
   <div class="top-right">
     <button class="pillx" id="pill-comfy" title="点击打开 ComfyUI">ComfyUI ?</button>
     <button class="pillx" id="pill-queue" title="队列">队列 0</button>
+    <button class="pillx" id="pill-selfcheck" title="环境自检">自检</button>
+    <button class="pillx" id="pill-overview" title="功能总览">总览</button>
     <button class="pillx" id="pill-docs" title="文档">文档</button>
   </div>
 </header>
@@ -38,17 +40,26 @@
       <aside class="card palette">
         <div class="card-head"><h3>积木库</h3><button class="ghost tiny" id="pal-toggle">收起</button></div>
         <input id="pal-search" placeholder="搜索积木 / 分类…" style="width:100%;margin-bottom:10px">
-        <div id="pal-body"></div>
+        <div class="pal-shell"><div class="pal-rail" id="pal-rail"></div><div id="pal-body"></div></div>
       </aside>
 
       <div class="canvas">
         <div class="card lane">
           <div class="card-head"><h3>正向</h3><span class="hint" id="pos-count"></span>
+            <span class="lane-tools">
+              <button class="ghost tiny" data-add="desc">+ 描述</button>
+              <button class="ghost tiny" data-add="text">+ 文本</button>
+              <button class="ghost tiny" data-add="tag">+ 标签</button>
+            </span>
             <button class="ghost tiny" id="pos-clear" style="margin-left:auto">清空</button></div>
           <div class="lane-body" id="lane-pos"></div>
         </div>
         <div class="card lane" style="margin-top:14px">
           <div class="card-head"><h3>负向</h3><span class="hint" id="neg-count"></span>
+            <span class="lane-tools">
+              <button class="ghost tiny" data-add="text">+ 文本</button>
+              <button class="ghost tiny" data-add="tag">+ 标签</button>
+            </span>
             <button class="ghost tiny" id="neg-clear" style="margin-left:auto">清空</button></div>
           <div class="lane-body" id="lane-neg"></div>
         </div>
@@ -61,6 +72,17 @@
           <summary style="cursor:pointer"><b>展开预览</b> <span class="hint" id="prev-len"></span></summary>
           <div id="prev-body" style="margin-top:10px"></div>
         </details>
+        <div class="card" style="margin-top:14px">
+          <div class="card-head"><h3>描述</h3><span class="hint">写一段画面，带权重</span></div>
+          <textarea id="desc-text" rows="3" placeholder="例：她站在书店的旧木梯上，指尖划过书脊，暖黄的吊灯从上方打下来"></textarea>
+          <div class="row2" style="margin-top:8px">
+            <div class="field"><label>权重</label><input id="desc-weight" type="number" step="0.05" value="1.1"></div>
+            <div class="field"><label>&nbsp;</label>
+              <div class="row2"><button class="ghost" id="desc-pos">插入正向</button>
+              <button class="ghost" id="desc-neg">插入负向</button></div></div>
+          </div>
+          <button class="ghost wide" id="desc-save">存为积木</button>
+        </div>
       </div>
 
       <aside class="card params">
@@ -86,8 +108,10 @@
           <input id="p-ref" placeholder="A:\path\to\image.png"></div>
         <div class="field" id="denoise-field" style="display:none"><label>重绘幅度</label>
           <input id="p-denoise" type="number" step="0.05" value="0.6"></div>
-        <div class="field"><label>LoRA（name:weight，逗号分隔）</label>
-          <input id="p-loras" placeholder="my-style:0.7"></div>
+        <div class="field"><label>LoRA</label>
+          <div id="lora-rows"></div>
+          <button class="ghost wide" id="lora-add" style="margin-top:6px">+ 加 LoRA</button>
+        </div>
         <button class="primary wide" id="run">出图</button>
         <button class="ghost wide" id="batch-open" style="margin-top:8px">批量出图</button>
         <div class="hint" id="run-msg" style="margin-top:8px"></div>

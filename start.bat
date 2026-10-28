@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 set "PORT=%~1"
-if "%PORT%"=="" set "PORT=8770"
+if "%PORT%"=="" set "PORT=8790"
 
 set "PY="
 if exist "%~dp0.venv\Scripts\python.exe" set "PY=%~dp0.venv\Scripts\python.exe"

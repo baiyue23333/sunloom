@@ -329,3 +329,23 @@ def api_train_start(req: TrainReq):
 
     threading.Thread(target=work, daemon=True).start()
     return {"job_id": jid}
+
+# ---------------- loras ----------------
+@router.get("/api/loras")
+def api_loras():
+    cfg = __import__("config").load()
+    root = cfg.get("comfy_dir") or ""
+    found = []
+    for sub in ("models/loras", "models/Lora", "models/lycoris"):
+        d = os.path.join(root, sub)
+        if not os.path.isdir(d):
+            continue
+        for base, dirs, files in os.walk(d):
+            for f in files:
+                if f.lower().endswith((".safetensors", ".pt", ".ckpt")):
+                    rel = os.path.relpath(os.path.join(base, f), d).replace("\\", "/")
+                    found.append({"name": rel, "size": os.path.getsize(os.path.join(base, f))})
+    found.sort(key=lambda x: x["name"].lower())
+    defaults = (cfg.get("defaults") or {}).get("loras") or []
+    return {"items": found, "defaults": defaults,
+            "dir": os.path.join(root, "models/loras") if root else ""}
