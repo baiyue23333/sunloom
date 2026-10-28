@@ -465,7 +465,8 @@ renderPalette = function () {
     else items = (groups[c] || []);
     items = items.filter(k => !q || k.toLowerCase().includes(q) || (S.tokens[k] || "").toLowerCase().includes(q));
     if (!items.length) continue;
-    html += '<div class="pg"><div class="pg-head">' + (c === "收藏" ? "★ 收藏" : c) + '</div><div class="pg-items">';
+    html += '<div class="pg" style="--c:' + colorFor(c) + '"><div class="pg-head">' +
+      (c === "收藏" ? "★ 收藏" : c) + '</div><div class="pg-items">';
     for (const k of items) {
       const isFav = S.fav.has(k);
       html += '<button class="pg-item" data-tok="' + esc(k) + '" title="' + esc(S.notes[k] || "") + '">' +
@@ -1237,5 +1238,39 @@ $("#pill-overview") && ($("#pill-overview").onclick = () => openModal("功能总
 
 /* init */
 setTimeout(initLoras, 100);
+
+
+/* category colors */
+function colorFor(cat) {
+  const map = {
+    "主体": "#7fd7ff", "姿势": "#ffd166", "表情": "#ff9fc4", "手发": "#c9a7ff", "手/发": "#c9a7ff",
+    "机位": "#9be7c4", "打光": "#ffe08a", "氛围": "#8ecbff", "服装": "#ffb37a",
+    "场景": "#a8e6a1", "道具": "#f2c0ff", "构图": "#8fd3d3", "风格": "#ffcf9e",
+    "负向": "#ff9b9b", "收藏": "#ffd98a", "其他": "#b8c0cc"
+  };
+  return map[cat] || "#b8c0cc";
+}
+function colorBlocks() {
+  [["#lane-pos", S.blocks.pos], ["#lane-neg", S.blocks.neg]].forEach(([sel, lane]) => {
+    $$(sel + " .blk").forEach((el, i) => {
+      const b = lane[i];
+      if (!b) return;
+      const c = b.token ? colorFor(catOf(b.token)) : "#8a93a3";
+      el.style.setProperty("--c", c);
+      el.style.borderLeft = "3px solid " + c;
+      el.style.background = "linear-gradient(180deg, color-mix(in srgb, " + c + " 14%, rgba(255,255,255,.05)), rgba(255,255,255,.03))";
+    });
+  });
+}
+const _lanesColor = renderLanes;
+renderLanes = function () { _lanesColor(); colorBlocks(); };
+const _palColor = renderPalette;
+renderPalette = function () {
+  _palColor();
+  $$("#pal-rail .rail-dot").forEach((b, i) => {
+    const head = $$("#pal-body .pg-head")[i];
+    if (head) b.style.setProperty("--c", colorFor((head.textContent || "").replace("★ ", "")));
+  });
+};
 
 boot();

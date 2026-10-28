@@ -890,3 +890,13 @@ label.hint{display:flex;align-items:center;gap:8px;margin-top:8px}
 .lora-row .bx:hover{color:#ff9b8a}
 .lane-body.drop-on{outline:1px dashed rgba(255,198,92,.65);outline-offset:3px;border-radius:10px}
 .pg-item::after{content:"+";margin-left:8px;opacity:.35;font-size:12px}
+
+/* category colors (restored) */
+.pg-head:before{background:var(--c,var(--accent)) !important}
+.pg-item{--c:#b8c0cc;border:1px solid var(--stroke) !important;
+  border-left:3px solid var(--c) !important;border-radius:3px 10px 10px 3px !important;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--c) 16%, rgba(255,255,255,.05)), rgba(255,255,255,.03)) !important}
+.pg-item:hover{border-color:var(--stroke-2) !important;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--c) 30%, rgba(255,255,255,.06)), rgba(255,255,255,.03)) !important}
+.rail-dot{--c:#b8c0cc;border-left:3px solid var(--c)}
+.rail-dot:hover{border-color:var(--stroke-2);border-left-color:var(--c)}
