@@ -49,6 +49,20 @@ function tokenCat(name) {
 }
 
 /* ---------- 初始化 ---------- */
+function persistParams() {
+  try {
+    localStorage.setItem('loom.params', JSON.stringify({
+      size: ($('#p-size') || {}).value,
+      steps: Number(($('#p-steps') || {}).value) || undefined,
+      cfg: Number(($('#p-cfg') || {}).value) || undefined,
+      seed: ($('#p-seed') || {}).value,
+      prefix: ($('#p-prefix') || {}).value,
+      mode: ($('#p-mode') || {}).value,
+      loras: S.loras || []
+    }));
+  } catch (e) {}
+}
+
 function persistLanes() {
   try { localStorage.setItem('loom.lanes', JSON.stringify({ p: S.pos || [], n: S.neg || [] })); } catch (e) {}
 }
@@ -69,6 +83,18 @@ async function boot() {
     const saved = JSON.parse(localStorage.getItem('loom.lanes') || 'null');
     if (saved && ((saved.p && saved.p.length) || (saved.n && saved.n.length))) {
       S.pos = saved.p || []; S.neg = saved.n || [];
+    }
+  } catch (e) {}
+  try {
+    const sp = JSON.parse(localStorage.getItem('loom.params') || 'null');
+    if (sp) {
+      if (sp.size && $('#p-size')) $('#p-size').value = sp.size;
+      if (sp.steps) $('#p-steps').value = sp.steps;
+      if (sp.cfg) $('#p-cfg').value = sp.cfg;
+      if (sp.seed !== undefined && $('#p-seed')) $('#p-seed').value = sp.seed;
+      if (sp.prefix && $('#p-prefix')) $('#p-prefix').value = sp.prefix;
+      if (sp.mode && $('#p-mode')) $('#p-mode').value = sp.mode;
+      if (Array.isArray(sp.loras) && sp.loras.length) S.loras = sp.loras;
     }
   } catch (e) {}
   renderPalette(); renderLanes(); renderLoras(); renderParams();
@@ -432,6 +458,7 @@ function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&l
 
 async function expandPreview() {
   persistLanes();
+  persistParams();
   try {
     const r = await api('/api/expand', { method:'POST', body: JSON.stringify({ positive: S.pos, negative: S.neg }) });
     $('#preview-pos').textContent = r.positive || '（空）';
@@ -2601,3 +2628,12 @@ async function saveCurrentAsTemplate() {
     };
   }
 }
+
+(function bindParamPersistence() {
+  const wrap = renderLoras;
+  renderLoras = function () { wrap(); persistParams(); };
+  ['#p-size', '#p-steps', '#p-cfg', '#p-seed', '#p-prefix', '#p-mode'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.addEventListener('change', persistParams);
+  });
+})();
