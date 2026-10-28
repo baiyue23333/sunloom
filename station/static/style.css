@@ -769,3 +769,17 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
 /* 品牌图标 */
 .brand .logo{width:28px;height:28px;border-radius:9px;object-fit:cover;
   box-shadow:0 2px 8px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.12)}
+
+/* template create dialog */
+.tpl-editor{display:grid;grid-template-columns:1fr 1fr;gap:14px;min-width:min(860px,88vw)}
+.tpl-col{border:1px solid var(--stroke);border-radius:12px;padding:10px;background:rgba(0,0,0,.22)}
+.tpl-col h4{margin:0 0 8px;font-size:13px}
+.tpl-list{max-height:42vh;overflow:auto}
+.tpl-row2{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px dashed rgba(255,255,255,.08)}
+.tpl-row2 .tpl-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.tpl-row2 input{width:64px}
+.tpl-row2 .tpl-del{border:none;background:transparent;color:var(--muted);padding:0 4px}
+.tpl-row2 .tpl-del:hover{color:#ff9b8a}
+.tpl-params{display:flex;gap:14px;margin:12px 0;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.tpl-params label{display:flex;align-items:center;gap:6px}
+.modal-body:has(.tpl-editor){max-width:min(980px,94vw)!important}

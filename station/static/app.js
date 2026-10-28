@@ -2496,26 +2496,57 @@ function tplLine(b) {
   return (name || txt) + w;
 }
 
+function tplEditorHtml() {
+  const col = (title, arr, key) =>
+    '<div class="tpl-col"><h4>' + title + ' <span class="hint">' + arr.length + ' 块</span></h4>' +
+    '<div class="tpl-list" id="tpl-' + key + '-list">' +
+    (arr.length ? arr.map((b, i) =>
+      '<div class="tpl-row2" data-i="' + i + '">' +
+      '<span class="tpl-name" title="' + esc(tplLine(b)) + '">' + esc(tplLine(b)) + '</span>' +
+      '<input class="tpl-w" type="number" step="0.05" min="0.1" max="2" value="' + (b.weight || 1) + '">' +
+      '<button class="tpl-del bx" data-i="' + i + '">×</button></div>').join('')
+      : '<div class="hint" style="padding:8px">（空）</div>') +
+    '</div></div>';
+  return '<div class="tpl-editor">' + col('正向', S.pos, 'pos') + col('负向', S.neg, 'neg') + '</div>' +
+    '<div class="tpl-params">' +
+    '<label>尺寸 <input id="tpl-size" value="' + ($('#p-size').value || '1024x1536') + '" style="width:120px"></label>' +
+    '<label>步数 <input id="tpl-steps" type="number" value="' + ($('#p-steps').value || 28) + '" style="width:70px"></label>' +
+    '<label>CFG <input id="tpl-cfg" type="number" step="0.1" value="' + ($('#p-cfg').value || 5.5) + '" style="width:70px"></label>' +
+    '</div>';
+}
+
 async function saveCurrentAsTemplate() {
   if (!S.pos.length && !S.neg.length) { alert('先把积木摆好，再创造模板'); return; }
-  const list = arr => arr.length
-    ? arr.map(b => '<div class="tpl-li">• ' + esc(tplLine(b)) + '</div>').join('')
-    : '<div class="hint">（空）</div>';
-  const params = { size: ($('#p-size').value || '1024x1536'),
-                   steps: Number($('#p-steps').value || 28),
-                   cfg: Number($('#p-cfg').value || 5.5) };
   openModal('创造模板',
     '<div class="field"><label>模板名</label><input id="tpl-name" placeholder="例如：夜雨·伞"></div>' +
-    '<div class="hint" style="margin:8px 0">当前参数：' + params.size + ' · ' + params.steps + ' 步 · CFG ' + params.cfg + '</div>' +
-    '<div class="row2"><div><b>正向 ' + S.pos.length + ' 块</b>' + list(S.pos) + '</div>' +
-    '<div><b>负向 ' + S.neg.length + ' 块</b>' + list(S.neg) + '</div></div>' +
-    '<div class="row2" style="margin-top:12px"><button class="ghost" id="tpl-cancel">取消</button>' +
+    tplEditorHtml() +
+    '<div class="hint" style="margin:6px 0 10px">权重与删除只影响这次保存，不改画布</div>' +
+    '<div class="row2"><button class="ghost" id="tpl-cancel">取消</button>' +
     '<button class="primary" id="tpl-ok">确认创建</button></div>');
+  const modal = $('#modal-content') || document;
+  modal.querySelector('.modal-body') || null;
+  const bindCol = (key, arr) => {
+    $$('#tpl-' + key + '-list .tpl-row2').forEach(row => {
+      const i = Number(row.dataset.i);
+      row.querySelector('.tpl-w').onchange = e => {
+        const v = Math.max(0.1, Math.min(2, Number(e.target.value) || 1));
+        arr[i].weight = v;
+      };
+      row.querySelector('.tpl-del').onclick = () => {
+        arr.splice(i, 1);
+        openTplEditorRefresh();
+      };
+    });
+  };
+  bindCol('pos', S.pos);
+  bindCol('neg', S.neg);
   $('#tpl-cancel').onclick = closeModal;
   $('#tpl-ok').onclick = async () => {
     const name = ($('#tpl-name').value || '').trim();
     if (!name) { alert('模板名不能空'); return; }
     const pick = b => ({ token: b.token || '', text: b.text || '', weight: b.weight || 1 });
+    const params = { size: $('#tpl-size').value, steps: Number($('#tpl-steps').value || 28),
+                     cfg: Number($('#tpl-cfg').value || 5.5) };
     try {
       const r = await api('/api/template/save', { method: 'POST', body: JSON.stringify({
         name, params, positive: S.pos.map(pick), negative: S.neg.map(pick) }) });
@@ -2525,4 +2556,34 @@ async function saveCurrentAsTemplate() {
       toast('已保存模板：' + name);
     } catch (e) { alert('保存模板失败：' + e.message); }
   };
+
+  function openTplEditorRefresh() {
+    const nameEl = $('#tpl-name');
+    const keep = nameEl ? nameEl.value : '';
+    openModal('创造模板',
+      '<div class="field"><label>模板名</label><input id="tpl-name" value="' + esc(keep) + '" placeholder="例如：夜雨·伞"></div>' +
+      tplEditorHtml() +
+      '<div class="hint" style="margin:6px 0 10px">权重与删除只影响这次保存，不改画布</div>' +
+      '<div class="row2"><button class="ghost" id="tpl-cancel">取消</button>' +
+      '<button class="primary" id="tpl-ok">确认创建</button></div>');
+    bindCol('pos', S.pos);
+    bindCol('neg', S.neg);
+    $('#tpl-cancel').onclick = closeModal;
+    $('#tpl-ok').onclick = async () => {
+      const nm = ($('#tpl-name').value || '').trim();
+      if (!nm) { alert('模板名不能空'); return; }
+      const pick = b => ({ token: b.token || '', text: b.text || '', weight: b.weight || 1 });
+      const params = { size: $('#tpl-size').value, steps: Number($('#tpl-steps').value || 28),
+                       cfg: Number($('#tpl-cfg').value || 5.5) };
+      try {
+        const r = await api('/api/template/save', { method: 'POST', body: JSON.stringify({
+          name: nm, params, positive: S.pos.map(pick), negative: S.neg.map(pick) }) });
+        S.templates = r.items || [];
+        await loadTemplates();
+        closeModal();
+        toast('已保存模板：' + nm);
+      } catch (e) { alert('保存模板失败：' + e.message); }
+    };
+  }
 }
+
