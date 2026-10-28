@@ -850,4 +850,189 @@ async function runHandfix(path) {
   } catch (e) { $("#im-msg").textContent = "失败：" + e.message; }
 }
 
+
+/* ================= library / outfit / training parity ================= */
+const CATS_UI = ["主体","姿势","表情","手发","机位","打光","氛围","服装","场景","道具","构图","风格","负向","其他"];
+const CAT_COLOR = {"主体":"#7fd7ff","姿势":"#ffd166","表情":"#ff9fc4","手发":"#c9a7ff",
+  "机位":"#9be7c4","打光":"#ffe08a","氛围":"#8ecbff","服装":"#ffb37a","场景":"#a8e6a1",
+  "道具":"#f2c0ff","构图":"#8fd3d3","风格":"#ffcf9e","负向":"#ff9b9b","其他":"#b8c0cc"};
+const _libCtx = { q: "", cat: "", sort: true };
+
+function fillCatSelects() {
+  const opts = CATS_UI.map(c => '<option value="' + c + '">' + c + "</option>").join("");
+  const lc = $("#lib-cat");
+  if (lc && lc.options.length <= 1) lc.insertAdjacentHTML("beforeend", opts);
+  const tc = $("#tk-cat");
+  if (tc && tc.options.length === 0) tc.innerHTML = opts;
+}
+
+renderLibrary = async function () {
+  fillCatSelects();
+  const q = ($("#lib-q").value || "");
+  const r = await api("/api/library?q=" + encodeURIComponent(q) + "&cat=" + encodeURIComponent($("#lib-cat").value || ""));
+  $("#lib-count").textContent = r.total + " 条";
+  const items = r.items.slice();
+  if (_libCtx.sort) items.sort((a, b) => a.name.localeCompare(b.name));
+  else items.sort((a, b) => (a.category + a.name).localeCompare(b.category + b.name));
+  $("#lib-list").innerHTML = items.map(it =>
+    '<div class="lib-row" data-tok="' + esc(it.name) + '">' +
+      '<b><i class="cdot" style="background:' + (CAT_COLOR[it.category] || "#888") + '"></i>' +
+      esc(it.name) + ' <span class="hint">' + esc(it.category) + "</span></b>" +
+      '<span class="hint">' + esc((it.note || it.text || "").slice(0, 78)) + "</span></div>").join("");
+  $$("#lib-list .lib-row").forEach(row => row.onclick = () => {
+    const k = row.dataset.tok;
+    $("#tk-name").value = k; $("#tk-text").value = S.tokens[k] || "";
+    $("#tk-note").value = S.notes[k] || "";
+    const it = items.find(x => x.name === k);
+    if (it) $("#tk-cat").value = it.category;
+  });
+};
+
+/* library actions */
+$("#lib-sort") && ($("#lib-sort").onclick = () => {
+  _libCtx.sort = !_libCtx.sort;
+  $("#lib-sort").textContent = _libCtx.sort ? "A→Z" : "分组";
+  renderLibrary();
+});
+$("#lib-cat") && ($("#lib-cat").onchange = () => renderLibrary());
+$("#lib-export") && ($("#lib-export").onclick = () => { window.location = "/api/library/export"; });
+$("#lib-import") && ($("#lib-import").onclick = async () => {
+  const txt = prompt("粘贴词库 JSON（或填本地路径）");
+  if (!txt) return;
+  const isPath = txt.length < 300 && !txt.trim().startsWith("{");
+  const r = await api("/api/library/import", { method: "POST",
+    body: JSON.stringify(isPath ? { path: txt.trim() } : { data: txt }) });
+  toast("导入完成，新增 " + r.added + " 条");
+  const b = await api("/api/bootstrap");
+  S.tokens = b.tokens; S.notes = b.notes;
+  renderPalette(); renderLibrary();
+});
+$("#tk-save") && ($("#tk-save").addEventListener("click", async () => {
+  const name = $("#tk-name").value.trim();
+  if (!name) return toast("名字不能空");
+  await api("/api/token/save", { method: "POST", body: JSON.stringify({
+    name, text: $("#tk-text").value, note: $("#tk-note").value }) });
+  await api("/api/token/meta", { method: "POST", body: JSON.stringify({
+    name: name.startsWith("@") ? name : "@" + name.toUpperCase(),
+    category: $("#tk-cat").value, note: $("#tk-note").value }) });
+  const b = await api("/api/bootstrap");
+  S.tokens = b.tokens; S.notes = b.notes;
+  renderPalette(); renderLibrary(); toast("已保存");
+}));
+
+/* outfit full */
+const _origEditGarment = editGarment;
+editGarment = function (key) {
+  _origEditGarment(key);
+  const g = S.garments[key] || {};
+  if ($("#gm-material")) $("#gm-material").value = g.material || "";
+  if ($("#gm-drape")) $("#gm-drape").value = g.drape || "";
+  if ($("#gm-preview")) $("#gm-preview").textContent =
+    "展开预览：" + [g.prompt, g.material, g.drape].filter(Boolean).join(", ");
+  if ($("#gm-default")) $("#gm-default").textContent =
+    (S.garmentDefault === key) ? "★ 当前默认" : "设为默认";
+};
+const _origRenderGarments = renderGarments;
+renderGarments = function () {
+  _origRenderGarments();
+  $$("#gm-list .gm-item").forEach((el, i) => {
+    const keys = Object.keys(S.garments);
+    if (keys[i] === S.garmentDefault) el.innerHTML = el.innerHTML.replace("<b>", '<b style="color:#ffd98a">★ ');
+  });
+};
+$("#gm-default") && ($("#gm-default").onclick = async () => {
+  const key = $("#gm-key").value.trim();
+  if (!key) return;
+  const r = await api("/api/garment/default", { method: "POST", body: JSON.stringify({ key }) });
+  S.garmentDefault = r.default;
+  renderGarments(); editGarment(key); toast("默认套装：" + key);
+});
+$("#gm-dup") && ($("#gm-dup").onclick = async () => {
+  const key = $("#gm-key").value.trim();
+  if (!key) return;
+  const r = await api("/api/garment/duplicate", { method: "POST", body: JSON.stringify({ key }) });
+  S.garments = r.garments; renderGarments(); editGarment(r.key); toast("已复制为 " + r.key);
+});
+$("#gm-export") && ($("#gm-export").onclick = () => { window.location = "/api/garments/export"; });
+$("#gm-import") && ($("#gm-import").onclick = async () => {
+  const txt = prompt("粘贴套装 JSON（或填本地路径）");
+  if (!txt) return;
+  const isPath = txt.length < 300 && !txt.trim().startsWith("{");
+  const r = await api("/api/garments/import", { method: "POST",
+    body: JSON.stringify(isPath ? { path: txt.trim() } : { data: txt }) });
+  S.garments = r.garments; renderGarments(); toast("导入 " + r.added + " 套");
+});
+const _origGmSave = $("#gm-save") && $("#gm-save").onclick;
+$("#gm-save") && ($("#gm-save").onclick = async () => {
+  const key = $("#gm-key").value.trim();
+  if (!key) return toast("key 不能空");
+  const r = await api("/api/garment/save", { method: "POST", body: JSON.stringify({
+    key, label: $("#gm-label").value, use_for: $("#gm-use").value,
+    prompt: $("#gm-prompt").value, negative: $("#gm-negative").value,
+    material: $("#gm-material").value, drape: $("#gm-drape").value }) });
+  S.garments = r.garments; S.garmentDefault = r.default || S.garmentDefault;
+  renderGarments(); editGarment(key); toast("已保存");
+});
+
+/* datasets / train / tag */
+async function refreshDatasets() {
+  const r = await api("/api/datasets");
+  const opts = r.items.map(d => '<option value="' + esc(d.name) + '">' + esc(d.name) + " (" + d.images + " 张)</option>").join("") ||
+    '<option value="">先放数据集到 station/data/datasets/</option>';
+  ["#tg-dataset", "#tr-dataset"].forEach(sel => { const el = $(sel); if (el) el.innerHTML = opts; });
+  if ($("#tr-sum")) {
+    const c = await api("/api/train/check");
+    $("#tr-sum").textContent = c.ok ? "kohya 就绪" : "kohya 未配置";
+  }
+  if ($("#tg-sum")) {
+    const c = await api("/api/tag/check");
+    $("#tg-sum").textContent = c.ok ? "onnxruntime 就绪" : ("缺依赖：" + (c.error || "").slice(0, 40));
+  }
+}
+function pollLogs(jid, outSel, msgSel, onDone) {
+  const t = setInterval(async () => {
+    const j = await api("/api/job/" + jid);
+    const el = $(outSel);
+    if (el) {
+      el.textContent = (j.logs || []).join("\n");
+      el.scrollTop = el.scrollHeight;
+    }
+    if (msgSel) $(msgSel).textContent = j.status === "running" ? "运行中 " + Math.round((j.progress || 0) * 100) + "%" : "";
+    if (j.status !== "running") {
+      clearInterval(t);
+      if (msgSel) $(msgSel).textContent = j.status === "done" ? "完成" : ("失败：" + ((j.result && (j.result.error || j.result.exit)) || ""));
+      if (onDone) onDone(j);
+    }
+  }, 1500);
+}
+$("#tg-run") && ($("#tg-run").onclick = async () => {
+  try {
+    const r = await api("/api/tag/start", { method: "POST", body: JSON.stringify({
+      dataset: $("#tg-dataset").value, threshold: Number($("#tg-thresh").value || 0.35),
+      trigger: $("#tg-trigger").value, extra: $("#tg-extra").value,
+      write: $("#tg-write").checked, preview: Number($("#tg-preview").value || 5) }) });
+    $("#tg-out").textContent = "";
+    pollLogs(r.job_id, "#tg-out", "#tg-msg");
+  } catch (e) { $("#tg-msg").textContent = "失败：" + e.message; }
+});
+$("#tr-run") && ($("#tr-run").onclick = async () => {
+  try {
+    const r = await api("/api/train/start", { method: "POST", body: JSON.stringify({
+      dataset: $("#tr-dataset").value, output: $("#tr-output").value || "my_lora",
+      dim: Number($("#tr-dim").value || 32), epochs: Number($("#tr-epochs").value || 10),
+      batch: Number($("#tr-batch").value || 1), lr: Number($("#tr-lr").value || 1e-4),
+      trigger: $("#tr-trigger").value, base_model: $("#tr-base").value }) });
+    $("#tr-out").textContent = "";
+    pollLogs(r.job_id, "#tr-out", "#tr-msg");
+  } catch (e) { $("#tr-msg").textContent = "失败：" + e.message; }
+});
+
+/* tab hook */
+const _origSwitchTab2 = switchTab;
+switchTab = function (name, push) {
+  _origSwitchTab2(name, push);
+  if (name === "tag" || name === "train") setTimeout(refreshDatasets, 50);
+  if (name === "library") setTimeout(renderLibrary, 50);
+};
+
 boot();

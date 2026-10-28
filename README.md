@@ -16,6 +16,13 @@
 
 ![engine](docs/images/station-engine.jpg)
 
+## 可选模块
+
+- 打标：tools/tag_wd14.py（onnxruntime + WD14），工作站「打标」页可直接跑
+- 训练：tools/train_lora.ps1（kohya sd-scripts），需在 config.json 写 kohya_dir
+
+两个模块默认不参与出图，关掉不影响主流程。
+
 ## 它解决什么问题
 
 扩散模型出图时，提示词往往是几十个标签的字符串，改一个词就得从头排版。

@@ -20,6 +20,8 @@
     <button data-tab="outfit">服装</button>
     <button data-tab="recipe">配方</button>
     <button data-tab="paint">重绘</button>
+    <button data-tab="tag">打标</button>
+    <button data-tab="train">训练</button>
     <button data-tab="engine">引擎</button>
     <button data-tab="maint">维护</button>
   </nav>
@@ -108,11 +110,18 @@
 
   <section id="view-library" class="view">
     <div class="two">
-      <div class="card"><div class="card-head"><h3>词库</h3><span class="hint" id="lib-count"></span></div>
-        <input id="lib-q" placeholder="搜索…" style="width:100%;margin-bottom:10px">
-        <div id="lib-list" style="max-height:62vh;overflow:auto"></div></div>
+      <div class="card"><div class="card-head"><h3>词库</h3><span class="hint" id="lib-count"></span>
+        <button class="ghost tiny" id="lib-export" style="margin-left:auto">导出</button>
+        <button class="ghost tiny" id="lib-import">导入</button></div>
+        <div class="toolbar">
+          <input id="lib-q" placeholder="搜索…">
+          <select id="lib-cat"><option value="">全部分类</option></select>
+          <button class="ghost tiny" id="lib-sort">A→Z</button>
+        </div>
+        <div id="lib-list" style="max-height:58vh;overflow:auto"></div></div>
       <div class="card"><div class="card-head"><h3>编辑词条</h3></div>
         <div class="field"><label>名字（@开头）</label><input id="tk-name" placeholder="@POSE_STAND"></div>
+        <div class="field"><label>分类</label><select id="tk-cat"></select></div>
         <div class="field"><label>提示词</label><textarea id="tk-text" rows="4"></textarea></div>
         <div class="field"><label>备注</label><textarea id="tk-note" rows="2"></textarea></div>
         <div class="row2"><button class="primary" id="tk-save">保存</button>
@@ -133,8 +142,21 @@
         <div class="field"><label>用途</label><input id="gm-use"></div>
         <div class="field"><label>正向</label><textarea id="gm-prompt" rows="4"></textarea></div>
         <div class="field"><label>负向</label><textarea id="gm-negative" rows="2"></textarea></div>
+        <div class="row2">
+          <div class="field"><label>材质</label><input id="gm-material" placeholder="silk / wool …"></div>
+          <div class="field"><label>型态</label><input id="gm-drape" placeholder="slipping off one shoulder"></div>
+        </div>
         <div class="row2"><button class="primary" id="gm-save">保存</button>
-          <button class="ghost" id="gm-del">删除</button></div></div>
+          <button class="ghost" id="gm-del">删除</button></div>
+        <div class="row2" style="margin-top:8px">
+          <button class="ghost" id="gm-default">设为默认</button>
+          <button class="ghost" id="gm-dup">复制</button>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <button class="ghost" id="gm-export">导出</button>
+          <button class="ghost" id="gm-import">导入</button>
+        </div>
+        <div class="hint" id="gm-preview" style="margin-top:8px"></div></div>
     </div>
   </section>
 
@@ -190,6 +212,49 @@
         <div class="hint" id="rp-msg" style="margin-top:8px"></div>
         <div id="rp-out"></div>
       </div>
+    </div>
+  </section>
+
+  <section id="view-tag" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>打标</h3><span class="hint" id="tg-sum"></span></div>
+        <div class="field"><label>数据集</label><select id="tg-dataset"></select></div>
+        <div class="row2">
+          <div class="field"><label>阈值</label><input id="tg-thresh" type="number" step="0.05" value="0.35"></div>
+          <div class="field"><label>预览条数</label><input id="tg-preview" type="number" value="5"></div>
+        </div>
+        <div class="field"><label>触发词</label><input id="tg-trigger" placeholder="mychar"></div>
+        <div class="field"><label>额外标签</label><input id="tg-extra" placeholder="1girl, solo"></div>
+        <label class="hint"><input id="tg-write" type="checkbox"> 直接写入 .txt（不勾只预览）</label>
+        <button class="primary wide" id="tg-run" style="margin-top:10px">开始打标</button>
+        <div class="hint" id="tg-msg" style="margin-top:8px"></div></div>
+      <div class="card"><div class="card-head"><h3>日志</h3></div>
+        <div id="tg-out" class="console" style="max-height:60vh;overflow:auto"></div></div>
+    </div>
+  </section>
+
+  <section id="view-train" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>训练 LoRA</h3><span class="hint" id="tr-sum"></span></div>
+        <div class="field"><label>数据集</label><select id="tr-dataset"></select></div>
+        <div class="row2">
+          <div class="field"><label>输出名</label><input id="tr-output" value="my_lora"></div>
+          <div class="field"><label>维度</label><input id="tr-dim" type="number" value="32"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>轮数</label><input id="tr-epochs" type="number" value="10"></div>
+          <div class="field"><label>batch</label><input id="tr-batch" type="number" value="1"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>学习率</label><input id="tr-lr" type="number" step="1e-5" value="0.0001"></div>
+          <div class="field"><label>底模（留空用配置）</label><input id="tr-base" placeholder="your-model.safetensors"></div>
+        </div>
+        <div class="field"><label>触发词</label><input id="tr-trigger"></div>
+        <button class="primary wide" id="tr-run">开始训练</button>
+        <div class="hint" id="tr-msg" style="margin-top:8px"></div>
+        <p class="hint">需要本机装好 kohya sd-scripts，并在 config.json 里写 kohya_dir。</p></div>
+      <div class="card"><div class="card-head"><h3>日志</h3></div>
+        <div id="tr-out" class="console" style="max-height:60vh;overflow:auto"></div></div>
     </div>
   </section>
 

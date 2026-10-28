@@ -6,3 +6,5 @@ station/masks/
 station/data/recipes.json
 .env
 venv/
+station/data/train/
+station/data/datasets/

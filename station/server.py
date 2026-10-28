@@ -102,6 +102,8 @@ class GarmentReq(BaseModel):
     use_for: str = ""
     prompt: str = ""
     negative: str = ""
+    material: str = ""
+    drape: str = ""
 
 
 class DeleteReq(BaseModel):
@@ -474,6 +476,10 @@ def api_garment_save(req: GarmentReq):
         g["prompt"] = req.prompt
     if req.negative:
         g["negative"] = req.negative
+    if getattr(req, "material", ""):
+        g["material"] = req.material
+    if getattr(req, "drape", ""):
+        g["drape"] = req.drape
     write_json(p, ch)
     return {"ok": True, "garments": gs}
 
@@ -616,3 +622,7 @@ def api_pipeline():
 from features import router as _features_router  # noqa: E402
 
 app.include_router(_features_router)
+
+from features2 import router as _features2_router  # noqa: E402
+
+app.include_router(_features2_router)
