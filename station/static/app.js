@@ -49,6 +49,10 @@ function tokenCat(name) {
 }
 
 /* ---------- 初始化 ---------- */
+function persistLanes() {
+  try { localStorage.setItem('loom.lanes', JSON.stringify({ p: S.pos || [], n: S.neg || [] })); } catch (e) {}
+}
+
 async function boot() {
   const b = await api('/api/bootstrap');
   S.tokens = b.tokens; S.notes = b.notes || {}; S.garments = b.garments; S.comfy = b.comfy;
@@ -61,6 +65,12 @@ async function boot() {
   $('#pill-reg').textContent = '登记 ' + reg.total;
 
   S.loras = (b.defaults.loras || []).map(x => ({...x}));
+  try {
+    const saved = JSON.parse(localStorage.getItem('loom.lanes') || 'null');
+    if (saved && ((saved.p && saved.p.length) || (saved.n && saved.n.length))) {
+      S.pos = saved.p || []; S.neg = saved.n || [];
+    }
+  } catch (e) {}
   renderPalette(); renderLanes(); renderLoras(); renderParams();
   await loadPresets();
   await loadTemplates();
@@ -421,6 +431,7 @@ function editFreeText(chipEl) {
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 async function expandPreview() {
+  persistLanes();
   try {
     const r = await api('/api/expand', { method:'POST', body: JSON.stringify({ positive: S.pos, negative: S.neg }) });
     $('#preview-pos').textContent = r.positive || '（空）';
@@ -2501,7 +2512,7 @@ function tplEditorHtml() {
     const cat = b.token ? tokenCat(b.token) : 'custom';
     const label = b.token || b.text || '';
     return '<div class="tpl-row2" data-i="' + i + '">' +
-      '<span class="chip tpl-chip" data-cat="' + cat + '" title="' + esc(tplLine(b)) + '">' +
+      '<span class="chip tpl-chip" data-cat="' + cat + '" title="' + esc(tplLine(b) + (S.notes[b.token] ? ' · ' + S.notes[b.token] : '')) + '">' +
       '<span class="nm">' + esc(label) + '</span></span>' +
       '<input class="tpl-w" type="number" step="0.05" min="0.1" max="2" value="' + (b.weight || 1) + '">' +
       '<button class="tpl-del bx" data-i="' + i + '">×</button></div>';

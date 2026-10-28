@@ -790,3 +790,12 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
   border-left:3px solid var(--c,#7d8798);background:rgba(255,255,255,.045);overflow:hidden}
 .tpl-row2 .tpl-chip .nm{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tpl-row2 .tpl-w{width:64px}
+
+/* template dialog: never stack row children */
+.tpl-editor{display:grid!important;grid-template-columns:1fr 1fr!important;gap:14px!important}
+.tpl-row2{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;
+  align-items:center!important;gap:8px!important}
+.tpl-row2 .tpl-chip{flex:1 1 auto!important;min-width:0!important;display:flex!important}
+.tpl-row2 .tpl-w{flex:0 0 60px!important;width:60px!important}
+.tpl-row2 .tpl-del{flex:0 0 26px!important}
+@media(max-width:900px){.tpl-editor{grid-template-columns:1fr!important}}
