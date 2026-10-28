@@ -2112,8 +2112,11 @@ async function loadTemplates() {
   const r = await api('/api/templates');
   S.templates = r.items || [];
   $('#tpl-row').innerHTML = S.templates.map((t, i) =>
-    '<button class="ghost" data-tpl="' + i + '">' + t.name + '</button>').join('');
-  $$('#tpl-row button').forEach(el => el.onclick = () => applyTemplate(S.templates[Number(el.dataset.tpl)]));
+    '<button class="ghost" data-tpl="' + i + '">' + t.name + '</button>').join('') +
+    '<button class="ghost" id="tpl-create">＋ 创造</button>';
+  $$('#tpl-row button[data-tpl]').forEach(el => el.onclick = () => applyTemplate(S.templates[Number(el.dataset.tpl)]));
+  const tc = $('#tpl-create');
+  if (tc) tc.onclick = saveCurrentAsTemplate;
 }
 
 async function loadPresets() {
@@ -2474,3 +2477,19 @@ boot().then(async () => {
     } catch (e) {}
   }, 15000);
 });
+
+async function saveCurrentAsTemplate() {
+  const name = prompt('新模板名字（例如：夜雨·伞）');
+  if (!name) return;
+  const pick = b => ({ token: b.token || '', text: b.text || '', weight: b.weight || 1 });
+  const params = { size: ($('#p-size').value || '1024x1536'), steps: Number($('#p-steps').value || 28),
+                   cfg: Number($('#p-cfg').value || 5.5) };
+  const body = { name: name.trim(), params,
+                 positive: (S.pos || []).map(pick), negative: (S.neg || []).map(pick) };
+  try {
+    const r = await api('/api/template/save', { method: 'POST', body: JSON.stringify(body) });
+    S.templates = r.items || [];
+    await loadTemplates();
+    toast('已保存模板：' + name);
+  } catch (e) { alert('保存模板失败：' + e.message); }
+}

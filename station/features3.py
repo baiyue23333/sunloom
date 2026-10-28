@@ -2,6 +2,7 @@
 """features3.py - compatibility endpoints for the ported private UI."""
 import json
 import os
+from typing import Any, List, Dict
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -124,3 +125,21 @@ def api_env_requirements():
     add("comfy", "ComfyUI 在线", st.get("up"), st.get("version") or "offline",
         "tools/setup/install_comfyui.ps1")
     return {"checks": checks}
+
+class TplSaveReq(BaseModel):
+    name: str
+    params: dict = {}
+    positive: List[Any] = []
+    negative: List[Any] = []
+
+
+@router.post("/api/template/save")
+def api_template_save(req: TplSaveReq):
+    path = os.path.join(S.DATA, "templates.json")
+    items = S.read_json(path, []) or []
+    entry = {"name": req.name.strip(), "params": req.params or {},
+             "positive": req.positive or [], "negative": req.negative or []}
+    items = [it for it in items if it.get("name") != entry["name"]]
+    items.append(entry)
+    S.write_json(path, items)
+    return {"ok": True, "items": items}
