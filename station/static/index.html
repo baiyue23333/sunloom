@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUNLOOM · block studio</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/static/icon_64.png">
+<link rel="stylesheet" href="/static/style.css?v=6">
+</head>
+<body>
+<div class="bg-orbs"><i></i><i></i><i></i></div>
+
+<header class="topbar">
+  <div class="brand"><img src="/static/icon_dark.png" alt="" style="width:26px;height:26px;border-radius:8px">
+    <b>SUNLOOM</b><span class="sub" style="display:none">block studio</span></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="build" class="on">拼装</button>
+    <button data-tab="gallery">画廊</button>
+    <button data-tab="library">词库</button>
+    <button data-tab="outfit">服装</button>
+    <button data-tab="recipe">配方</button>
+    <button data-tab="engine">引擎</button>
+    <button data-tab="maint">维护</button>
+  </nav>
+  <div class="top-right">
+    <button class="pillx" id="pill-comfy" title="点击打开 ComfyUI">ComfyUI ?</button>
+    <button class="pillx" id="pill-queue" title="队列">队列 0</button>
+    <button class="pillx" id="pill-docs" title="文档">文档</button>
+  </div>
+</header>
+
+<main>
+  <section id="view-build" class="view" style="display:block">
+    <div class="builder">
+      <aside class="card palette">
+        <div class="card-head"><h3>积木库</h3><button class="ghost tiny" id="pal-toggle">收起</button></div>
+        <input id="pal-search" placeholder="搜索积木 / 分类…" style="width:100%;margin-bottom:10px">
+        <div id="pal-body"></div>
+      </aside>
+
+      <div class="canvas">
+        <div class="card lane">
+          <div class="card-head"><h3>正向</h3><span class="hint" id="pos-count"></span>
+            <button class="ghost tiny" id="pos-clear" style="margin-left:auto">清空</button></div>
+          <div class="lane-body" id="lane-pos"></div>
+        </div>
+        <div class="card lane" style="margin-top:14px">
+          <div class="card-head"><h3>负向</h3><span class="hint" id="neg-count"></span>
+            <button class="ghost tiny" id="neg-clear" style="margin-left:auto">清空</button></div>
+          <div class="lane-body" id="lane-neg"></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="card-head"><h3>结构检查</h3><span class="hint" id="val-summary">—</span>
+            <button class="ghost tiny" id="val-run" style="margin-left:auto">重新检查</button></div>
+          <div id="val-body" class="hint">点「出图」前会先检查；也可以手动点重新检查。</div>
+        </div>
+        <details class="card" style="margin-top:14px">
+          <summary style="cursor:pointer"><b>展开预览</b> <span class="hint" id="prev-len"></span></summary>
+          <div id="prev-body" style="margin-top:10px"></div>
+        </details>
+      </div>
+
+      <aside class="card params">
+        <div class="card-head"><h3>参数</h3><span class="hint" id="eta"></span></div>
+        <div class="row2">
+          <div class="field"><label>模式</label>
+            <select id="p-mode"><option value="t2i">文生图</option><option value="i2i">图生图</option></select></div>
+          <div class="field"><label>尺寸</label>
+            <select id="p-size">
+              <option>1024x1536</option><option>832x1216</option><option>896x1152</option>
+              <option>1024x1024</option><option>1536x1024</option><option>1216x832</option>
+            </select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>步数</label><input id="p-steps" type="number" value="28"></div>
+          <div class="field"><label>CFG</label><input id="p-cfg" type="number" step="0.1" value="5.5"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>种子</label><input id="p-seed" type="number" value="0" placeholder="0=随机"></div>
+          <div class="field"><label>前缀</label><input id="p-prefix" value="img"></div>
+        </div>
+        <div class="field" id="ref-field" style="display:none"><label>参考图（图生图）</label>
+          <input id="p-ref" placeholder="A:\path\to\image.png"></div>
+        <div class="field" id="denoise-field" style="display:none"><label>重绘幅度</label>
+          <input id="p-denoise" type="number" step="0.05" value="0.6"></div>
+        <div class="field"><label>LoRA（name:weight，逗号分隔）</label>
+          <input id="p-loras" placeholder="my-style:0.7"></div>
+        <button class="primary wide" id="run">出图</button>
+        <div class="hint" id="run-msg" style="margin-top:8px"></div>
+        <div id="result" style="margin-top:10px"></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="view-gallery" class="view">
+    <div class="card"><div class="card-head"><h3>画廊</h3><span class="hint" id="g-count"></span>
+      <input id="g-q" placeholder="搜索文件名…" style="margin-left:auto;width:220px"></div>
+      <div id="g-grid" class="gallery"></div></div>
+  </section>
+
+  <section id="view-library" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>词库</h3><span class="hint" id="lib-count"></span></div>
+        <input id="lib-q" placeholder="搜索…" style="width:100%;margin-bottom:10px">
+        <div id="lib-list" style="max-height:62vh;overflow:auto"></div></div>
+      <div class="card"><div class="card-head"><h3>编辑词条</h3></div>
+        <div class="field"><label>名字（@开头）</label><input id="tk-name" placeholder="@POSE_STAND"></div>
+        <div class="field"><label>提示词</label><textarea id="tk-text" rows="4"></textarea></div>
+        <div class="field"><label>备注</label><textarea id="tk-note" rows="2"></textarea></div>
+        <div class="row2"><button class="primary" id="tk-save">保存</button>
+          <button class="ghost" id="tk-del">删除</button></div>
+        <p class="hint" style="margin-top:8px">保存后立即生效，所有模板与拼装共用同一份词库。</p></div>
+    </div>
+  </section>
+
+  <section id="view-outfit" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>套装库</h3>
+        <button class="ghost tiny" id="gm-new" style="margin-left:auto">+ 新建</button></div>
+        <div id="gm-list"></div>
+        <p class="hint">默认套装会替换 @OUTFIT 宏，出图会写进配方。</p></div>
+      <div class="card"><div class="card-head"><h3>编辑套装</h3><span class="hint" id="gm-cur"></span></div>
+        <div class="field"><label>key（英文，保存后不建议改）</label><input id="gm-key"></div>
+        <div class="field"><label>名称</label><input id="gm-label"></div>
+        <div class="field"><label>用途</label><input id="gm-use"></div>
+        <div class="field"><label>正向</label><textarea id="gm-prompt" rows="4"></textarea></div>
+        <div class="field"><label>负向</label><textarea id="gm-negative" rows="2"></textarea></div>
+        <div class="row2"><button class="primary" id="gm-save">保存</button>
+          <button class="ghost" id="gm-del">删除</button></div></div>
+    </div>
+  </section>
+
+  <section id="view-recipe" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>配方记录</h3><span class="hint" id="rc-count"></span></div>
+        <div id="rc-list" style="max-height:66vh;overflow:auto"></div></div>
+      <div class="card"><div class="card-head"><h3>这张图的配方</h3></div>
+        <div id="rc-detail" class="hint">在左边点一张图，或者在画廊里点「参数」。</div></div>
+    </div>
+  </section>
+
+  <section id="view-engine" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>引擎</h3><span class="hint" id="eng-sum"></span>
+        <button class="ghost tiny" id="eng-free">释放显存</button>
+        <button class="ghost tiny" id="eng-start">启动</button>
+        <button class="ghost tiny" id="eng-open">打开 ComfyUI</button></div>
+        <div id="eng-kv" class="kv"></div>
+        <h4 style="margin:14px 0 6px">工作流</h4><div id="eng-wf"></div>
+        <button class="ghost" id="eng-check" style="margin-top:10px">运行环境自检</button>
+        <div id="eng-check-out" class="console" style="margin-top:10px;max-height:220px;overflow:auto;display:none"></div>
+      </div>
+      <div class="card"><div class="card-head"><h3>模型绑定</h3></div>
+        <div class="field"><label>UNet / checkpoint</label><input id="cf-unet"></div>
+        <div class="field"><label>文本编码器</label><input id="cf-clip"></div>
+        <div class="field"><label>VAE</label><input id="cf-vae"></div>
+        <div class="field"><label>CLIP 类型</label><input id="cf-cliptype" value="stable_diffusion"></div>
+        <div class="field"><label>ComfyUI 目录（用于 i2i 参考图）</label><input id="cf-dir"></div>
+        <button class="primary" id="cf-save">保存到 config.json</button>
+        <p class="hint" style="margin-top:8px">也可以用 install/bind_pipeline.ps1 自动写入。</p></div>
+    </div>
+  </section>
+
+  <section id="view-maint" class="view">
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>磁盘</h3><span class="hint" id="mt-sum"></span></div>
+        <div id="mt-kv" class="kv"></div>
+        <div class="row2" style="margin-top:10px"><button class="ghost" id="mt-clean">清空回收站</button>
+          <button class="ghost" id="mt-refresh">刷新</button></div></div>
+      <div class="card"><div class="card-head"><h3>文档</h3></div>
+        <div id="doc-list" class="doc-list"></div></div>
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal"><div class="modal-body card">
+  <div class="card-head"><h3 id="modal-title"></h3><button class="ghost" id="modal-close">×</button></div>
+  <div id="modal-content"></div></div></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

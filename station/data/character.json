@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "generic",
+  "name": "Generic Character",
+  "settings": {
+    "note": "这里是通用占位角色。你可以把它替换成自己的 OC 设定。"
+  },
+  "garment_default": "casual",
+  "garments": {
+    "casual": {
+      "label": "日常便装",
+      "use_for": "通用 / 全身",
+      "prompt": "(white shirt:1.25), (blue jeans:1.2), (casual outfit:1.2), (sneakers:1.1)",
+      "negative": "formal wear, armor, swimsuit, school uniform"
+    },
+    "dress": {
+      "label": "黑色连衣裙",
+      "use_for": "半身 / 夜景",
+      "prompt": "(elegant black dress:1.3), (thin straps:1.2), (soft fabric folds:1.15)",
+      "negative": "jeans, sneakers, school uniform, armor"
+    },
+    "uniform": {
+      "label": "制服",
+      "use_for": "全身 / 校园",
+      "prompt": "(school blazer:1.25), (pleated skirt:1.2), (ribbon tie:1.15), (loafers:1.1)",
+      "negative": "jeans, armor, swimsuit, evening gown"
+    }
+  }
+}

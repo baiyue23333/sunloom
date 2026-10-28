@@ -1,0 +1,128 @@
+{
+  "id": "i2i",
+  "version": 1,
+  "kind": "i2i",
+  "requires": [
+    "UNETLoader",
+    "CLIPLoader",
+    "VAELoader",
+    "CLIPTextEncode",
+    "LoadImage",
+    "VAEEncode",
+    "KSampler",
+    "VAEDecode",
+    "SaveImage"
+  ],
+  "nodes": {
+    "1": {
+      "type": "UNETLoader",
+      "inputs": {
+        "unet_name": "{{unet}}",
+        "weight_dtype": "default"
+      }
+    },
+    "2": {
+      "type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "{{clip}}",
+        "type": "{{clip_type}}",
+        "device": "default"
+      }
+    },
+    "3": {
+      "type": "VAELoader",
+      "inputs": {
+        "vae_name": "{{vae}}"
+      }
+    },
+    "4": {
+      "type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{negative}}",
+        "clip": [
+          "2",
+          0
+        ]
+      }
+    },
+    "5": {
+      "type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{positive}}",
+        "clip": [
+          "2",
+          0
+        ]
+      }
+    },
+    "6": {
+      "type": "LoadImage",
+      "inputs": {
+        "image": "{{reference}}"
+      }
+    },
+    "7": {
+      "type": "VAEEncode",
+      "inputs": {
+        "pixels": [
+          "6",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "8": {
+      "type": "KSampler",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "5",
+          0
+        ],
+        "negative": [
+          "4",
+          0
+        ],
+        "latent_image": [
+          "7",
+          0
+        ],
+        "seed": "{{seed}}",
+        "steps": "{{steps}}",
+        "cfg": "{{cfg}}",
+        "sampler_name": "{{sampler}}",
+        "scheduler": "{{scheduler}}",
+        "denoise": "{{denoise}}"
+      }
+    },
+    "9": {
+      "type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "8",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "10": {
+      "type": "SaveImage",
+      "inputs": {
+        "images": [
+          "9",
+          0
+        ],
+        "filename_prefix": "{{prefix}}"
+      }
+    }
+  }
+}

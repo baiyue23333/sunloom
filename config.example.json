@@ -1,0 +1,18 @@
+{
+  "comfy_url": "http://127.0.0.1:8188",
+  "model": {
+    "unet_name": "your-model.safetensors",
+    "clip_name": "your-text-encoder.safetensors",
+    "vae_name": "your-vae.safetensors",
+    "clip_type": "stable_diffusion"
+  },
+  "defaults": {
+    "size": "1024x1536",
+    "steps": 28,
+    "cfg": 5.5,
+    "sampler": "euler",
+    "scheduler": "simple",
+    "loras": []
+  },
+  "output_dir": "output"
+}

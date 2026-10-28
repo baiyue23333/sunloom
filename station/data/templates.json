@@ -1,0 +1,374 @@
+[
+  {
+    "name": "胸像·窗光",
+    "params": {
+      "size": "1024x1536",
+      "steps": 28,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SUBJ",
+        "weight": 1
+      },
+      {
+        "token": "@CAM_BUST",
+        "weight": 1
+      },
+      {
+        "token": "@FACE",
+        "weight": 1
+      },
+      {
+        "token": "@OUT_DRESS",
+        "weight": 1
+      },
+      {
+        "token": "@DRAPE_OFF",
+        "weight": 1
+      },
+      {
+        "token": "@BODY",
+        "weight": 1
+      },
+      {
+        "token": "@MOOD_CALM",
+        "weight": 1
+      },
+      {
+        "text": "sitting by a window in the afternoon",
+        "weight": 1
+      },
+      {
+        "token": "@LIGHT_WIN",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_BASE",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_EXPO",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_CUP",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "半身·室内",
+    "params": {
+      "size": "1024x1536",
+      "steps": 28,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SUBJ",
+        "weight": 1
+      },
+      {
+        "token": "@CAM_MEDIUM",
+        "weight": 1
+      },
+      {
+        "token": "@FACE",
+        "weight": 1
+      },
+      {
+        "token": "@OUT_CASUAL",
+        "weight": 1
+      },
+      {
+        "token": "@BODY",
+        "weight": 1
+      },
+      {
+        "token": "@MOOD_SMILE",
+        "weight": 1
+      },
+      {
+        "text": "standing in a simple room",
+        "weight": 1
+      },
+      {
+        "token": "@LIGHT_SOFT",
+        "weight": 1
+      },
+      {
+        "token": "@SET_ROOM",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_BASE",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_EXPO",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "全身·街景",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SUBJ",
+        "weight": 1
+      },
+      {
+        "token": "@CAM_FULL",
+        "weight": 1
+      },
+      {
+        "token": "@FACE",
+        "weight": 1
+      },
+      {
+        "token": "@OUT_CASUAL",
+        "weight": 1
+      },
+      {
+        "token": "@BODY",
+        "weight": 1
+      },
+      {
+        "token": "@POSE_STAND",
+        "weight": 1
+      },
+      {
+        "token": "@SET_STREET",
+        "weight": 1
+      },
+      {
+        "token": "@TIME_DUSK",
+        "weight": 1
+      },
+      {
+        "token": "@STYLE_ANIME",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_BASE",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_EXPO",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "坐姿·咖啡馆",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SUBJ",
+        "weight": 1
+      },
+      {
+        "token": "@CAM_MEDIUM",
+        "weight": 1
+      },
+      {
+        "token": "@FACE",
+        "weight": 1
+      },
+      {
+        "token": "@OUT_CASUAL",
+        "weight": 1
+      },
+      {
+        "token": "@BODY",
+        "weight": 1
+      },
+      {
+        "token": "@POSE_SIT",
+        "weight": 1
+      },
+      {
+        "token": "@SET_CAFE",
+        "weight": 1
+      },
+      {
+        "token": "@LIGHT_SOFT",
+        "weight": 1
+      },
+      {
+        "text": "sitting at a wooden table",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_BASE",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_EXPO",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "卧室·夜景",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SUBJ",
+        "weight": 1
+      },
+      {
+        "token": "@CAM_BUST",
+        "weight": 1
+      },
+      {
+        "token": "@FACE",
+        "weight": 1
+      },
+      {
+        "token": "@OUT_DRESS",
+        "weight": 1
+      },
+      {
+        "token": "@BODY",
+        "weight": 1
+      },
+      {
+        "token": "@MOOD_CALM",
+        "weight": 1
+      },
+      {
+        "token": "@SET_ROOM",
+        "weight": 1
+      },
+      {
+        "token": "@TIME_NIGHT",
+        "weight": 1
+      },
+      {
+        "token": "@LIGHT_NIGHT",
+        "weight": 1
+      },
+      {
+        "token": "@ATMO_DUST",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_BASE",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_EXPO",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "持物·画室",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SUBJ",
+        "weight": 1
+      },
+      {
+        "token": "@CAM_MEDIUM",
+        "weight": 1
+      },
+      {
+        "token": "@FACE",
+        "weight": 1
+      },
+      {
+        "token": "@OUT_CASUAL",
+        "weight": 1
+      },
+      {
+        "token": "@BODY",
+        "weight": 1
+      },
+      {
+        "token": "@POSE_SIT",
+        "weight": 1
+      },
+      {
+        "token": "@PROP_PALETTE",
+        "weight": 1
+      },
+      {
+        "token": "@PROP_BOOK",
+        "weight": 1
+      },
+      {
+        "token": "@SET_STUDIO",
+        "weight": 1
+      },
+      {
+        "token": "@LIGHT_SOFT",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_BASE",
+        "weight": 1
+      },
+      {
+        "token": "@NEG_EXPO",
+        "weight": 1
+      }
+    ]
+  }
+]

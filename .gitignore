@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+station/data/config.json
+station/output/
+station/data/recipes.json
+.env
+venv/

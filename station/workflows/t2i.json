@@ -1,0 +1,116 @@
+{
+  "id": "t2i",
+  "version": 1,
+  "kind": "t2i",
+  "requires": [
+    "UNETLoader",
+    "CLIPLoader",
+    "VAELoader",
+    "CLIPTextEncode",
+    "EmptyLatentImage",
+    "KSampler",
+    "VAEDecode",
+    "SaveImage"
+  ],
+  "nodes": {
+    "1": {
+      "type": "UNETLoader",
+      "inputs": {
+        "unet_name": "{{unet}}",
+        "weight_dtype": "default"
+      }
+    },
+    "2": {
+      "type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "{{clip}}",
+        "type": "{{clip_type}}",
+        "device": "default"
+      }
+    },
+    "3": {
+      "type": "VAELoader",
+      "inputs": {
+        "vae_name": "{{vae}}"
+      }
+    },
+    "4": {
+      "type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{negative}}",
+        "clip": [
+          "2",
+          0
+        ]
+      }
+    },
+    "5": {
+      "type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{positive}}",
+        "clip": [
+          "2",
+          0
+        ]
+      }
+    },
+    "6": {
+      "type": "EmptyLatentImage",
+      "inputs": {
+        "width": "{{width}}",
+        "height": "{{height}}",
+        "batch_size": 1
+      }
+    },
+    "7": {
+      "type": "KSampler",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "5",
+          0
+        ],
+        "negative": [
+          "4",
+          0
+        ],
+        "latent_image": [
+          "6",
+          0
+        ],
+        "seed": "{{seed}}",
+        "steps": "{{steps}}",
+        "cfg": "{{cfg}}",
+        "sampler_name": "{{sampler}}",
+        "scheduler": "{{scheduler}}",
+        "denoise": 1.0
+      }
+    },
+    "8": {
+      "type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "7",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "9": {
+      "type": "SaveImage",
+      "inputs": {
+        "images": [
+          "8",
+          0
+        ],
+        "filename_prefix": "{{prefix}}"
+      }
+    }
+  }
+}
