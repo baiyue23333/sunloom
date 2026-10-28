@@ -293,6 +293,11 @@ function cmdAdd(i) {
 
 /* ---------- 画布 ---------- */
 function addBlock(lane, tokenOrObj) {
+  // 负向积木永远进负向，避免 @NEG_* 跑到正向
+  if (lane === 'positive') {
+    const nm = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
+    if (nm && tokenCat(nm) === 'neg') lane = 'negative';
+  }
   pushHistory();
   const arr = lane === 'positive' ? S.pos : S.neg;
   if (typeof tokenOrObj === 'string') {
@@ -2100,6 +2105,12 @@ function applyTemplate(tpl) {
   pushHistory();
   S.pos = (tpl.positive || []).map(b => Object.assign({ id: uid(), weight: 1, enabled: true, text: '' }, b));
   S.neg = (tpl.negative || []).map(b => Object.assign({ id: uid(), weight: 1, enabled: true, text: '' }, b));
+  // 模板里混进正向的负向积木，自动挪回负向
+  const moved = S.pos.filter(b => b.token && tokenCat(b.token) === 'neg');
+  if (moved.length) {
+    S.pos = S.pos.filter(b => !(b.token && tokenCat(b.token) === 'neg'));
+    S.neg = S.neg.concat(moved);
+  }
   if (tpl.params) {
     if (tpl.params.size) $('#p-size').value = tpl.params.size;
     if (tpl.params.steps) $('#p-steps').value = tpl.params.steps;
@@ -2478,18 +2489,40 @@ boot().then(async () => {
   }, 15000);
 });
 
+function tplLine(b) {
+  const name = b.token || '';
+  const txt = b.text ? (name ? ' ' : '') + b.text : '';
+  const w = (b.weight && Math.abs(b.weight - 1) > 0.001) ? '  ×' + b.weight : '';
+  return (name || txt) + w;
+}
+
 async function saveCurrentAsTemplate() {
-  const name = prompt('新模板名字（例如：夜雨·伞）');
-  if (!name) return;
-  const pick = b => ({ token: b.token || '', text: b.text || '', weight: b.weight || 1 });
-  const params = { size: ($('#p-size').value || '1024x1536'), steps: Number($('#p-steps').value || 28),
+  if (!S.pos.length && !S.neg.length) { alert('先把积木摆好，再创造模板'); return; }
+  const list = arr => arr.length
+    ? arr.map(b => '<div class="tpl-li">• ' + esc(tplLine(b)) + '</div>').join('')
+    : '<div class="hint">（空）</div>';
+  const params = { size: ($('#p-size').value || '1024x1536'),
+                   steps: Number($('#p-steps').value || 28),
                    cfg: Number($('#p-cfg').value || 5.5) };
-  const body = { name: name.trim(), params,
-                 positive: (S.pos || []).map(pick), negative: (S.neg || []).map(pick) };
-  try {
-    const r = await api('/api/template/save', { method: 'POST', body: JSON.stringify(body) });
-    S.templates = r.items || [];
-    await loadTemplates();
-    toast('已保存模板：' + name);
-  } catch (e) { alert('保存模板失败：' + e.message); }
+  openModal('创造模板',
+    '<div class="field"><label>模板名</label><input id="tpl-name" placeholder="例如：夜雨·伞"></div>' +
+    '<div class="hint" style="margin:8px 0">当前参数：' + params.size + ' · ' + params.steps + ' 步 · CFG ' + params.cfg + '</div>' +
+    '<div class="row2"><div><b>正向 ' + S.pos.length + ' 块</b>' + list(S.pos) + '</div>' +
+    '<div><b>负向 ' + S.neg.length + ' 块</b>' + list(S.neg) + '</div></div>' +
+    '<div class="row2" style="margin-top:12px"><button class="ghost" id="tpl-cancel">取消</button>' +
+    '<button class="primary" id="tpl-ok">确认创建</button></div>');
+  $('#tpl-cancel').onclick = closeModal;
+  $('#tpl-ok').onclick = async () => {
+    const name = ($('#tpl-name').value || '').trim();
+    if (!name) { alert('模板名不能空'); return; }
+    const pick = b => ({ token: b.token || '', text: b.text || '', weight: b.weight || 1 });
+    try {
+      const r = await api('/api/template/save', { method: 'POST', body: JSON.stringify({
+        name, params, positive: S.pos.map(pick), negative: S.neg.map(pick) }) });
+      S.templates = r.items || [];
+      await loadTemplates();
+      closeModal();
+      toast('已保存模板：' + name);
+    } catch (e) { alert('保存模板失败：' + e.message); }
+  };
 }

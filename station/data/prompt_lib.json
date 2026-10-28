@@ -90,7 +90,12 @@
     "@WEAPON_SPEAR": "(a long spear:1.25)",
     "@WEAPON_BOW": "(a bow:1.25)",
     "@WEAPON_STAFF": "(a wooden staff:1.25)",
-    "@WEAPON_GRIP": "(both hands on the hilt:1.3), (weapon held point-down:1.2)"
+    "@WEAPON_GRIP": "(both hands on the hilt:1.3), (weapon held point-down:1.2)",
+    "@ATMO_MOON": "111",
+    "@ATMO_MOON2332": "111",
+    "@CUSTOM_NOTE": "(a small handwritten note tucked in the frame:1.2)",
+    "@CUSTOM_GLOW": "(soft magical glow around the subject:1.2)",
+    "@CUSTOM_PETAL": "(a few flower petals drifting:1.15)"
   },
   "notes": {
     "@SUBJ": "主体锁：单人。所有模板的第一块。",
@@ -182,7 +187,10 @@
     "@WEAPON_SPEAR": "长枪",
     "@WEAPON_BOW": "弓",
     "@WEAPON_STAFF": "法杖",
-    "@WEAPON_GRIP": "正确握持；与武器一起用"
+    "@WEAPON_GRIP": "正确握持；与武器一起用",
+    "@CUSTOM_NOTE": "自定义：画面里加一张便签",
+    "@CUSTOM_GLOW": "自定义：主体柔和光晕",
+    "@CUSTOM_PETAL": "自定义：飘落花瓣"
   },
   "meta": {
     "cats": {

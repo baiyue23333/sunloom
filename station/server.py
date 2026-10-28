@@ -500,6 +500,8 @@ def api_token_save(req: TokenReq):
     lib.setdefault("tokens", {})[name] = req.text
     if req.note:
         lib.setdefault("notes", {})[name] = req.note
+    if req.category:
+        lib.setdefault("meta", {}).setdefault("cats", {})[name] = req.category
     pt.write_json(pt.LIB, lib)
     return {"ok": True, "name": name}
 
