@@ -847,3 +847,8 @@ pre{white-space:pre-wrap}
   border:1px solid var(--stroke) !important;background:rgba(255,255,255,.055) !important;
   color:var(--ink);transform:none !important}
 .pg-item:hover{border-color:rgba(255,198,92,.5) !important;background:rgba(255,198,92,.12) !important}
+
+/* block chips: never squeeze the label */
+.blk{max-width:100%}
+.blk .bt{flex:0 0 auto;width:auto;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blk input{flex:0 0 52px}

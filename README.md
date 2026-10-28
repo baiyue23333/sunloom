@@ -6,6 +6,16 @@
 - 不打包 ComfyUI，也不含任何模型权重
 - 纯本地：一个 FastAPI 进程 + 你自己的 ComfyUI
 
+## 截图
+
+拼装页（左侧积木库、中间正负向画布、右侧参数）：
+
+![build](docs/images/station-build.jpg)
+
+引擎页（ComfyUI 状态、工作流节点检查、模型绑定）：
+
+![engine](docs/images/station-engine.jpg)
+
 ## 它解决什么问题
 
 扩散模型出图时，提示词往往是几十个标签的字符串，改一个词就得从头排版。

@@ -294,8 +294,9 @@ async function refreshEngine() {
     '<span>地址</span><b>' + esc(e.url) + "</b><span>设备</span><b>" + esc(dev.name || "-") + "</b>" +
     '<span>显存</span><b>' + (dev.vram_free ? Math.round(dev.vram_free / 1073741824) + " / " + Math.round(dev.vram_total / 1073741824) + " GB" : "-") + "</b>";
   $("#eng-wf").innerHTML = (e.workflows || []).map(w =>
-    '<div class="wf-row">' + esc(w.name) + ' <span class="hint">' + esc(w.kind) + "</span>" +
-    (w.missing.length ? ' <span class="bad">缺节点：' + esc(w.missing.join(", ")) + "</span>" : ' <span class="ok">OK</span>') + "</div>").join("");
+    '<div class="wf-row"><b>' + esc(w.name) + "</b>" +
+    (w.kind && w.kind !== w.name ? ' <span class="hint">' + esc(w.kind) + "</span>" : "") +
+    (w.missing.length ? ' <span class="bad">missing: ' + esc(w.missing.join(", ")) + "</span>" : ' <span class="ok">OK</span>') + "</div>").join("");
   if (!$("#cf-unet").value) $("#cf-unet").value = S.model.unet_name || "";
   if (!$("#cf-clip").value) $("#cf-clip").value = S.model.clip_name || "";
   if (!$("#cf-vae").value) $("#cf-vae").value = S.model.vae_name || "";
@@ -334,6 +335,9 @@ async function boot() {
   $("#pill-comfy").textContent = r.comfy.up ? ("ComfyUI " + r.comfy.version) : "ComfyUI 离线";
   $("#eta").textContent = "预计 " + Math.round(Number(($("#p-size").value || "1024x1536").split("x")[0]) * Number(($("#p-size").value || "1024x1536").split("x")[1]) * Number($("#p-steps").value) * 1.6e-6 + 1.5) + "s";
   renderPalette(); renderTemplates(); renderLanes(); renderLibrary(); renderGarments(); refreshGallery(); refreshRecipes(); refreshMaint();
+  const startTab = (location.hash || "").replace("#", "");
+  if (startTab && $("#view-" + startTab)) switchTab(startTab, false);
+  if (new URLSearchParams(location.search).get("demo")) applyTemplate(0);
   $("#pill-comfy").onclick = async () => {
     const b = await api("/api/bootstrap");
     if (b.comfy.up) window.open(b.comfy.url, "_blank", "noopener");
@@ -343,16 +347,22 @@ async function boot() {
     try { const q = await api("/api/bootstrap"); $("#pill-comfy").textContent = q.comfy.up ? ("ComfyUI " + q.comfy.version) : "ComfyUI 离线"; } catch (e) {}
   }, 15000);
 }
-$$("#tabs button").forEach(b => b.onclick = () => {
-  $$("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+function switchTab(name, push) {
+  $$("#tabs button").forEach(x => x.classList.toggle("on", x.dataset.tab === name));
   $$(".view").forEach(v => v.style.display = "none");
-  const v = $("#view-" + b.dataset.tab); if (v) v.style.display = "block";
-  if (b.dataset.tab === "gallery") refreshGallery();
-  if (b.dataset.tab === "recipe") refreshRecipes();
-  if (b.dataset.tab === "engine") refreshEngine();
-  if (b.dataset.tab === "maint") refreshMaint();
-  if (b.dataset.tab === "library") renderLibrary();
-  if (b.dataset.tab === "outfit") renderGarments();
+  const v = $("#view-" + name); if (v) v.style.display = "block";
+  if (push !== false && location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  if (name === "gallery") refreshGallery();
+  if (name === "recipe") refreshRecipes();
+  if (name === "engine") refreshEngine();
+  if (name === "maint") refreshMaint();
+  if (name === "library") renderLibrary();
+  if (name === "outfit") renderGarments();
+}
+$$("#tabs button").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+window.addEventListener("hashchange", () => {
+  const n = (location.hash || "").replace("#", "");
+  if (n && $("#view-" + n)) switchTab(n, false);
 });
 $("#pal-toggle").onclick = e => {
   const body = $("#pal-body"), hidden = body.style.display === "none";
