@@ -58,6 +58,11 @@ SUNLOOM 把它拆成积木：机位、光、姿势、服装、场景、道具各
 
 ### 3. 启动
 
+双击仓库根目录的 start.bat（需要换端口就 start.bat 8771），它会自动找 Python、
+检查依赖、打开浏览器；找不到 config.json 时会提示先跑 install.ps1。
+
+也可以在终端里：
+
     powershell -ExecutionPolicy Bypass -File station/start.ps1
 
 浏览器打开 http://127.0.0.1:8770/ ，先在「引擎」页确认 ComfyUI 在线，
