@@ -2403,6 +2403,11 @@ function bindUI() {
 
 boot().then(async () => {
   bindUI();
+  const tabParam = new URLSearchParams(location.search).get('tab');
+  if (tabParam) {
+    const tabBtn2 = document.querySelector('#tabs button[data-tab="' + tabParam + '"]');
+    if (tabBtn2) tabBtn2.click();
+  }
   if (location.search.includes('demo') && S.templates && S.templates.length) {
     applyTemplate(S.templates[0]);
     try {

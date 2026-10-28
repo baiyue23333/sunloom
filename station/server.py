@@ -576,7 +576,18 @@ def api_config(req: ConfigReq):
 
 @app.get("/api/engine")
 def api_engine():
-    return gf.engine_info()
+    info = gf.engine_info()
+    info["comfy"] = info.get("url")
+    info["queue"] = cf.queue_state()
+    info["frontend"] = "ComfyUI"
+    info["system"] = {}
+    for w in info.get("workflows") or []:
+        try:
+            wf = gf.load(w["name"])
+            w["requires"] = wf.get("requires") or []
+        except Exception:
+            w["requires"] = []
+    return info
 
 
 @app.post("/api/comfy/free")

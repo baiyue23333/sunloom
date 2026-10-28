@@ -47,7 +47,7 @@ def api_presets():
 
 @router.get("/api/last-graph")
 def api_last_graph():
-    return {"ok": False, "graph": None}
+    return None
 
 
 @router.get("/api/reliability")
