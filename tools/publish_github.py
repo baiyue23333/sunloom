@@ -32,7 +32,16 @@ def main():
 
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if not token:
-        print("GITHUB_TOKEN is not set")
+        # .env in the repository root: GITHUB_TOKEN=xxx
+        env_path = os.path.join(ROOT, ".env")
+        if os.path.isfile(env_path):
+            for line in open(env_path, encoding="utf-8"):
+                line = line.strip()
+                if line.startswith("GITHUB_TOKEN=") or line.startswith("GH_TOKEN="):
+                    token = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+    if not token:
+        print("GITHUB_TOKEN is not set (env var or .env)")
         return 2
 
     def call(method, path, payload=None):

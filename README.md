@@ -80,6 +80,14 @@ SUNLOOM 把它拆成积木：机位、光、姿势、服装、场景、道具各
 
 它只新增/覆盖文件，不删除远端已有文件。
 
+### Token 安全
+
+- 只用 fine-grained PAT，仓库选 sunloom，权限只给 Contents: Read and write；
+- 设置 30-90 天过期；
+- 放在环境变量 GITHUB_TOKEN 或仓库根目录的 .env（.env 已在 .gitignore）；
+- 不要提交到仓库，也不要贴进聊天/截图；
+- 如果 token 曾经泄露，先去 GitHub 设置里吊销。
+
 ## 发布前自检
 
     python tools/check_clean.py
