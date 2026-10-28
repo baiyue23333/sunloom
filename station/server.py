@@ -372,7 +372,13 @@ def api_job(jid: str):
 
 # ---------------- gallery / recipes ----------------
 @app.get("/api/gallery")
-def api_gallery(limit: int = 200, q: str = ""):
+def api_gallery(limit: int = 300, q: str = "", since: str = "", recipe: str = ""):
+    db = read_json(RECIPES, {}) or {}
+    cutoff = 0
+    if since == "today":
+        cutoff = time.time() - 86400
+    elif since == "week":
+        cutoff = time.time() - 7 * 86400
     items = []
     for name in os.listdir(OUT_DIR):
         if not name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
@@ -380,8 +386,16 @@ def api_gallery(limit: int = 200, q: str = ""):
         if q and q.lower() not in name.lower():
             continue
         p = os.path.join(OUT_DIR, name)
-        items.append({"path": p, "name": name, "mtime": int(os.path.getmtime(p)),
-                      "size": os.path.getsize(p)})
+        mt = os.path.getmtime(p)
+        if cutoff and mt < cutoff:
+            continue
+        has = p in db
+        if recipe == "yes" and not has:
+            continue
+        if recipe == "no" and has:
+            continue
+        items.append({"path": p, "name": name, "mtime": int(mt),
+                      "size": os.path.getsize(p), "has_recipe": has})
     items.sort(key=lambda x: -x["mtime"])
     return {"items": items[:limit], "total": len(items)}
 
@@ -597,3 +611,8 @@ def api_pipeline():
                 "update ComfyUI or install missing custom nodes")
     return {"ok": all(c["ok"] for c in checks), "total": len(checks),
             "failed": sum(0 if c["ok"] else 1 for c in checks), "checks": checks}
+
+# ---------------- parity features ----------------
+from features import router as _features_router  # noqa: E402
+
+app.include_router(_features_router)

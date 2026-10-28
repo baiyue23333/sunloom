@@ -852,3 +852,20 @@ pre{white-space:pre-wrap}
 .blk{max-width:100%}
 .blk .bt{flex:0 0 auto;width:auto;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .blk input{flex:0 0 52px}
+
+/* parity UI */
+.toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.toolbar input{max-width:220px}
+.toolbar select{max-width:170px}
+.g-item{position:relative}
+.g-sel{position:absolute;left:8px;top:8px;width:16px;height:16px;z-index:3;accent-color:#ffc65c}
+.paint-wrap{position:relative;margin-top:10px;min-height:120px;max-width:100%;border-radius:12px;overflow:hidden;
+  background:rgba(0,0,0,.35);display:inline-block}
+.paint-wrap img{display:block;max-width:100%;max-height:56vh}
+#pt-canvas{position:absolute;left:0;top:0;cursor:crosshair}
+.mask-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.mask-thumb{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--stroke);
+  cursor:pointer;background:#000}
+.fav{opacity:.35;margin-right:6px;font-size:11px}
+.pg-item:hover .fav{opacity:.85}
+#batch-modal .gallery{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}

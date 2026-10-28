@@ -8,6 +8,7 @@
     "VAELoader",
     "CLIPTextEncode",
     "LoadImage",
+    "LoadImageMask",
     "VAEEncode",
     "SetLatentNoiseMask",
     "KSampler",
@@ -63,9 +64,10 @@
       }
     },
     "7": {
-      "type": "LoadImage",
+      "type": "LoadImageMask",
       "inputs": {
-        "image": "{{mask}}"
+        "image": "{{mask}}",
+        "channel": "red"
       }
     },
     "8": {

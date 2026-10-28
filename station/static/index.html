@@ -19,6 +19,7 @@
     <button data-tab="library">词库</button>
     <button data-tab="outfit">服装</button>
     <button data-tab="recipe">配方</button>
+    <button data-tab="paint">重绘</button>
     <button data-tab="engine">引擎</button>
     <button data-tab="maint">维护</button>
   </nav>
@@ -86,6 +87,7 @@
         <div class="field"><label>LoRA（name:weight，逗号分隔）</label>
           <input id="p-loras" placeholder="my-style:0.7"></div>
         <button class="primary wide" id="run">出图</button>
+        <button class="ghost wide" id="batch-open" style="margin-top:8px">批量出图</button>
         <div class="hint" id="run-msg" style="margin-top:8px"></div>
         <div id="result" style="margin-top:10px"></div>
       </aside>
@@ -93,8 +95,14 @@
   </section>
 
   <section id="view-gallery" class="view">
-    <div class="card"><div class="card-head"><h3>画廊</h3><span class="hint" id="g-count"></span>
-      <input id="g-q" placeholder="搜索文件名…" style="margin-left:auto;width:220px"></div>
+    <div class="card"><div class="card-head"><h3>画廊</h3><span class="hint" id="g-count"></span></div>
+      <div class="toolbar">
+        <input id="g-q" placeholder="搜索文件名…">
+        <select id="g-since"><option value="">全部时间</option><option value="today">今天</option><option value="week">近 7 天</option></select>
+        <select id="g-recipe"><option value="">全部配方</option><option value="yes">有配方</option><option value="no">无配方</option></select>
+        <button class="ghost tiny" id="g-select">选择导出</button>
+        <button class="ghost tiny" id="g-export" style="display:none">导出选中</button>
+      </div>
       <div id="g-grid" class="gallery"></div></div>
   </section>
 
@@ -132,10 +140,56 @@
 
   <section id="view-recipe" class="view">
     <div class="two">
-      <div class="card"><div class="card-head"><h3>配方记录</h3><span class="hint" id="rc-count"></span></div>
+      <div class="card"><div class="card-head"><h3>配方记录</h3><span class="hint" id="rc-count"></span>
+        <button class="ghost tiny" id="rc-backfill" style="margin-left:auto">回填历史</button></div>
         <div id="rc-list" style="max-height:66vh;overflow:auto"></div></div>
       <div class="card"><div class="card-head"><h3>这张图的配方</h3></div>
         <div id="rc-detail" class="hint">在左边点一张图，或者在画廊里点「参数」。</div></div>
+    </div>
+  </section>
+
+  <section id="view-paint" class="view">
+    <div class="two">
+      <div class="card">
+        <div class="card-head"><h3>局部重绘</h3><span class="hint" id="pt-hint">先载入一张图</span></div>
+        <div class="row2">
+          <button class="ghost" id="pt-load">载入图片路径</button>
+          <button class="ghost" id="pt-clear">清空蒙版</button>
+        </div>
+        <div class="paint-wrap" id="pt-wrap">
+          <img id="pt-img" alt="">
+          <canvas id="pt-canvas"></canvas>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <div class="field"><label>笔刷 / 羽化</label>
+            <div class="row2"><input id="pt-size" type="number" value="30" min="4" max="120">
+            <input id="pt-feather" type="number" value="10" min="0" max="60"></div></div>
+          <div class="field"><label>模式</label>
+            <select id="pt-mode"><option value="brush">画笔</option><option value="erase">橡皮</option><option value="box">框选</option></select></div>
+        </div>
+        <div class="field"><label>重绘提示词（只写框里要出现的东西）</label>
+          <textarea id="pt-prompt" rows="3" placeholder="(detailed hand:1.4), same art style"></textarea></div>
+        <div class="row2">
+          <div class="field"><label>重绘幅度</label><input id="pt-denoise" type="number" step="0.05" value="0.55"></div>
+          <div class="field"><label>步数</label><input id="pt-steps" type="number" value="26"></div>
+        </div>
+        <div class="row2"><button class="ghost" id="pt-mask-save">存蒙版</button>
+          <button class="primary" id="pt-run" disabled>执行重绘</button></div>
+        <div class="hint" id="pt-msg" style="margin-top:8px"></div>
+        <div id="pt-mask-list" class="mask-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h3>图生图 / 复现</h3></div>
+        <div class="field"><label>参考图</label><input id="rp-ref2" placeholder="A:\path\to\image.png"></div>
+        <div class="row2">
+          <div class="field"><label>重绘幅度</label><input id="rp-denoise" type="number" step="0.05" value="0.55"></div>
+          <div class="field"><label>步数</label><input id="rp-steps" type="number" value="30"></div>
+        </div>
+        <div class="field"><label>提示词</label><textarea id="rp-prompt" rows="3"></textarea></div>
+        <button class="primary wide" id="rp-run">开始复现</button>
+        <div class="hint" id="rp-msg" style="margin-top:8px"></div>
+        <div id="rp-out"></div>
+      </div>
     </div>
   </section>
 
@@ -167,11 +221,32 @@
         <div id="mt-kv" class="kv"></div>
         <div class="row2" style="margin-top:10px"><button class="ghost" id="mt-clean">清空回收站</button>
           <button class="ghost" id="mt-refresh">刷新</button></div></div>
+      <div class="card"><div class="card-head"><h3>回收站</h3><span class="hint" id="mt-trash-count"></span>
+        <button class="ghost tiny" id="mt-trash-restore-all" style="margin-left:auto">全部恢复</button>
+        <button class="ghost tiny" id="mt-trash-purge">清空</button></div>
+        <div id="mt-trash-list" style="max-height:40vh;overflow:auto"></div></div>
       <div class="card"><div class="card-head"><h3>文档</h3></div>
         <div id="doc-list" class="doc-list"></div></div>
     </div>
   </section>
 </main>
+
+<div id="batch-modal" class="modal"><div class="modal-body card">
+  <div class="card-head"><h3>批量出图</h3><button class="ghost" id="batch-close">×</button></div>
+  <div class="row2">
+    <div class="field"><label>张数</label><input id="bt-count" type="number" value="4" min="1" max="32"></div>
+    <div class="field"><label>起始种子（0=随机）</label><input id="bt-seed" type="number" value="0"></div>
+  </div>
+  <div class="row2">
+    <div class="field"><label>步数</label><input id="bt-steps" type="number" value="28"></div>
+    <div class="field"><label>尺寸</label><select id="bt-size">
+      <option>1024x1536</option><option>832x1216</option><option>896x1152</option><option>1024x1024</option></select></div>
+  </div>
+  <div class="field"><label>前缀</label><input id="bt-prefix" value="batch"></div>
+  <button class="primary wide" id="bt-run">开始批量</button>
+  <div class="hint" id="bt-msg" style="margin-top:8px"></div>
+  <div id="bt-out" class="gallery" style="margin-top:10px"></div>
+</div></div>
 
 <div id="modal" class="modal"><div class="modal-body card">
   <div class="card-head"><h3 id="modal-title"></h3><button class="ghost" id="modal-close">×</button></div>

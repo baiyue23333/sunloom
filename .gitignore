@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 station/data/config.json
 station/output/
+station/masks/
 station/data/recipes.json
 .env
 venv/
