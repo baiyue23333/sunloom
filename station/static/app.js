@@ -526,6 +526,8 @@ async function run() {
       seed: Number($('#p-seed').value) || 0,
       prefix: $('#p-prefix').value || 'st',
       loras: S.loras.map(l => ({ name: l.name, weight: Number(l.weight) })),
+      blocks_pos: S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
+      blocks_neg: S.neg.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
     })});
     S.last = { job: r.job_id, seed: r.seed };
     $('#run-status').textContent = '排队中 · seed ' + r.seed + ' · 预计 ' + r.estimate + ' 秒';
@@ -2076,8 +2078,8 @@ function fmtTime(ts) {
     p2(d.getHours()) + ':' + p2(d.getMinutes());
 }
 
-function blockChips(blocks, lane) {
-  if (!blocks || !blocks.length) return '<span class="hint">（没有记录积木）</span>';
+function blockChips(blocks, lane, emptyHint) {
+  if (!blocks || !blocks.length) return '<span class="hint">' + (emptyHint || '（没有记录积木）') + '</span>';
   return blocks.map(b => {
     const name = b.token || '文本';
     const w = b.weight === undefined ? 1 : b.weight;
@@ -2122,6 +2124,10 @@ async function openRecipe(path, stay) {
   }
   const nameEl = $('#rc-name');
   if (nameEl) nameEl.textContent = path.split('\\').pop();
+  const local = ['inpaint', 'repaint', 'handfix', 'i2i', 'repro'].includes(String(r.mode || ''));
+  const emptyHint = local
+    ? '（' + (r.mode || '局部重绘') + ' 只记录局部提示词，没有整图积木）'
+    : '（这张图生成时没带积木记录：可能是旧版本或非拼装页入口）';
   const loras = (r.loras || []).map(l => '<span class="rc-chip" data-cat="id">' +
     esc(l.name) + '<i>×' + (l.weight !== undefined ? l.weight : '?') + '</i></span>').join('') || '<span class="hint">无</span>';
   body.innerHTML =
@@ -2129,6 +2135,7 @@ async function openRecipe(path, stay) {
       '<div class="rc-kv">' +
         '<span class="k">时间</span><span class="v">' + fmtTime(r.ts) + '</span>' +
         (r.inferred ? '<span class="k">来源</span><span class="v" style="color:#ffcf70">推断 · ' + esc(r.source_template || '手动') + '</span>' : '') +
+        (r.blocks_guess ? '<span class="k">积木</span><span class="v" style="color:#ffcf70">按提示词反推 · 权重不精确</span>' : '') +
         '<span class="k">模式</span><span class="v">' + esc(r.mode || '') + '</span>' +
         '<span class="k">工作流</span><span class="v">' + esc(r.workflow || '') + '</span>' +
         '<span class="k">尺寸</span><span class="v">' + (r.size || []).join(' × ') + '</span>' +
@@ -2137,8 +2144,8 @@ async function openRecipe(path, stay) {
         '<span class="k">denoise</span><span class="v">' + (r.denoise === null || r.denoise === undefined ? '-' : r.denoise) + '</span>' +
         (r.reference ? '<span class="k">底图</span><span class="v">' + esc(String(r.reference).split('\\').pop()) + '</span>' : '') +
       '</div></div>' +
-    '<h4 class="rc-h">正向积木</h4><div class="rc-chips">' + blockChips(r.blocks_pos) + '</div>' +
-    '<h4 class="rc-h">负向积木</h4><div class="rc-chips">' + blockChips(r.blocks_neg) + '</div>' +
+    '<h4 class="rc-h">正向积木</h4><div class="rc-chips">' + blockChips(r.blocks_pos, null, emptyHint) + '</div>' +
+    '<h4 class="rc-h">负向积木</h4><div class="rc-chips">' + blockChips(r.blocks_neg, null, emptyHint) + '</div>' +
     '<h4 class="rc-h">LoRA</h4><div class="rc-chips">' + loras + '</div>' +
     '<h4 class="rc-h">展开后的正向</h4><pre class="prompt-preview">' + esc(r.positive || '') + '</pre>' +
     '<h4 class="rc-h">展开后的负向</h4><pre class="prompt-preview neg">' + esc(r.negative || '') + '</pre>' +

@@ -405,6 +405,21 @@ def api_download(path: str):
 
 
 # ---------------- recipe backfill from PNG ----------------
+from prompts import load_tokens as _load_tokens
+
+
+def _match_blocks(text, tokens):
+    """把展开后的提示词按积木原文从长到短匹配回去。"""
+    blocks, rest = [], text or ""
+    for tok, txt in sorted(tokens.items(), key=lambda kv: -len(kv[1] or "")):
+        frag = (txt or "")[:60]
+        if not frag or frag not in rest:
+            continue
+        rest = rest.replace(frag, "\u0000", 1)
+        blocks.append({"token": tok, "weight": 1, "enabled": True})
+    return blocks
+
+
 def _parse_png_prompt(path):
     try:
         from PIL import Image
@@ -454,10 +469,13 @@ def _parse_png_prompt(path):
             i = n.get("inputs") or {}
             if i.get("lora_name"):
                 loras.append({"name": i.get("lora_name"), "weight": i.get("strength_model", 1.0)})
+    tokens, _, _ = _load_tokens()
     return {"ts": os.path.getmtime(path), "mode": "png_metadata", "seed": ins.get("seed"),
             "size": [width, height], "steps": ins.get("steps"), "cfg": ins.get("cfg"),
             "denoise": ins.get("denoise"), "loras": loras,
             "positive": pos, "negative": neg, "workflow": "png_metadata",
+            "blocks_pos": _match_blocks(pos, tokens), "blocks_neg": _match_blocks(neg, tokens),
+            "blocks_guess": True,
             "exact": True, "inferred": False}
 
 

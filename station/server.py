@@ -489,6 +489,24 @@ def api_recipe(path: str):
     r = db.get(path)
     if not r:
         raise HTTPException(404, "no recipe for this image")
+    r = dict(r)
+    # 老记录没存积木：从 PNG 元数据反推（正负两向），标注为近似
+    if (not r.get("blocks_pos") or not r.get("blocks_neg")) and os.path.isfile(path):
+        try:
+            import features as _F
+            pr = _F._parse_png_prompt(path)
+            if pr:
+                if not r.get("blocks_pos") and pr.get("blocks_pos"):
+                    r["blocks_pos"] = pr["blocks_pos"]
+                    r["blocks_guess"] = True
+                if not r.get("blocks_neg") and pr.get("blocks_neg"):
+                    r["blocks_neg"] = pr["blocks_neg"]
+                    r["blocks_guess"] = True
+                if r.get("blocks_guess"):
+                    db[path] = dict(r)
+                    write_json(RECIPES, db)
+        except Exception:
+            pass
     return dict(r, path=path)
 
 
