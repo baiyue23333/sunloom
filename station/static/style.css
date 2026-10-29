@@ -606,16 +606,16 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
 .brush-size{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
 .brush-size input{width:110px}
 /* 局部重绘：图别太高，工具栏要露出来 */
-#rp-inp-wrap{max-height:44vh}
-#rp-inp-wrap img{max-height:44vh;width:auto;max-width:100%}
+#rp-inp-wrap{max-height:58vh}
+#rp-inp-wrap img{max-height:58vh;width:auto;max-width:100%}
 /* ---------- 复现页排版：三栏 + 蒙版库 ---------- */
 .rp-result-card{position:sticky;top:84px}
-.mask-grid{display:grid;grid-template-columns:320px minmax(280px,1fr) 210px;gap:16px;align-items:start}
+.mask-grid{display:grid;grid-template-columns:minmax(380px,1.3fr) minmax(300px,1fr) 210px;gap:16px;align-items:start}
 .mask-preview,.mask-side,.mask-lib{min-width:0}
 .mask-lib{border-left:1px solid var(--stroke);padding-left:14px}
 .mask-lib-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
   letter-spacing:.6px;color:#ffe6b3;margin-bottom:8px}
-.mask-list{display:flex;flex-direction:column;gap:6px;max-height:44vh;overflow:auto}
+.mask-list{display:flex;flex-direction:column;gap:6px;max-height:58vh;overflow:auto}
 .mask-item{display:grid;grid-template-columns:42px 1fr;gap:8px;align-items:center;padding:5px;
   border:1px solid var(--stroke);border-radius:10px;cursor:pointer;background:rgba(255,255,255,.02)}
 .mask-item:hover{border-color:var(--stroke-2);transform:translateX(2px)}

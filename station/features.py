@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """features.py - parity features: batch, inpaint, handfix, reproduce, masks, trash, export, backfill."""
 import base64
+from PIL import Image
 import io
 import json
 import os
@@ -96,7 +97,11 @@ def _mask_from_b64(ref_path, mask_b64, feather):
         data = base64.b64decode(raw)
     except Exception:
         raise HTTPException(400, "mask decode failed")
-    mask = Image.open(io.BytesIO(data)).convert("L")
+    src = Image.open(io.BytesIO(data))
+    if src.mode == "RGBA":
+        src = Image.alpha_composite(Image.new("RGBA", src.size, (0, 0, 0, 255)), src)
+    # 画笔是红笔迹、框选是白块：统一取红通道再二值化（按亮度算会把红笔迹削成 44%）
+    mask = src.convert("RGB").getchannel("R").point(lambda v: 255 if v >= 24 else 0)
     ref = Image.open(ref_path)
     if mask.size != ref.size:
         mask = mask.resize(ref.size, Image.LANCZOS)
@@ -257,8 +262,17 @@ def api_mask_save(req: MaskSaveReq):
     stem = re.sub(r"[^A-Za-z0-9_-]", "", os.path.splitext(os.path.basename(req.image))[0])[:40] or "mask"
     tag = re.sub(r"[^A-Za-z0-9_-]", "", req.name or "")[:20]
     name = "%s_%s.png" % (stem, tag or time.strftime("%H%M%S"))
-    with open(os.path.join(MASKS, name), "wb") as f:
-        f.write(data)
+    try:
+        src = Image.open(io.BytesIO(data))
+        if src.mode == "RGBA":
+            src = Image.alpha_composite(Image.new("RGBA", src.size, (0, 0, 0, 255)), src)
+        m = src.convert("RGB").getchannel("R").point(lambda v: 255 if v >= 24 else 0)
+        rgba = Image.new("RGBA", src.size, (0, 0, 0, 0))
+        rgba.paste((255, 45, 85, 255), mask=m)
+        rgba.save(os.path.join(MASKS, name))
+    except Exception:
+        with open(os.path.join(MASKS, name), "wb") as fh:
+            fh.write(data)
     return {"ok": True, "name": name}
 
 

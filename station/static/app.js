@@ -1424,13 +1424,13 @@ function openReproPage(path) {
 }
 
 /* ---------- 复现页：局部重绘 ---------- */
-let RP = { path: null, box: null, mode: 'brush', ink: false };
+let RP = { path: null, box: null, mode: 'brush', ink: false, undo: [] };
 
 function rpLoadImage() {
   const path = ($('#rp-ref') || {}).value || '';
   const img = $('#rp-inp-img'), sel = $('#rp-inp-sel');
   if (!path) { toast('先填底图路径', true); return; }
-  RP = { path, box: null };
+  RP = { path, box: null, mode: RP.mode || 'brush', ink: false, undo: [] };
   if (sel) { sel.style.display = 'none'; sel.style.width = '0px'; sel.style.height = '0px'; }
   if (img) img.src = '/api/img?path=' + encodeURIComponent(path);
   const ro = $('#rp-inp-readout');
@@ -1462,6 +1462,42 @@ function rpSetMode(mode) {
   const ro = $('#rp-inp-readout');
   if (ro) ro.textContent = mode === 'box' ? '框选模式：拖一个矩形' :
     (mode === 'erase' ? '橡皮：擦掉蒙版' : '画笔：在要重画的地方涂');
+}
+
+function rpHasInk() {
+  const cv = $('#rp-inp-canvas');
+  if (!cv || !cv.width) return 0;
+  const t = document.createElement('canvas');
+  t.width = 96; t.height = Math.max(1, Math.round(96 * cv.height / cv.width));
+  const c = t.getContext('2d');
+  c.drawImage(cv, 0, 0, t.width, t.height);
+  const d = c.getImageData(0, 0, t.width, t.height).data;
+  let n = 0;
+  for (let i = 3; i < d.length; i += 4) if (d[i] > 12) n++;
+  return n / (t.width * t.height);
+}
+
+function rpPushUndo() {
+  const cv = $('#rp-inp-canvas');
+  if (!cv) return;
+  RP.undo = RP.undo || [];
+  RP.undo.push(cv.getContext('2d').getImageData(0, 0, cv.width, cv.height));
+  if (RP.undo.length > 10) RP.undo.shift();
+}
+
+function rpUpdateInk() {
+  const ratio = rpHasInk();
+  RP.ink = ratio > 0.0005;
+  const btn = $('#rp-inp-go'); if (btn) btn.disabled = !RP.ink && !RP.box;
+  const ro = $('#rp-inp-readout');
+  if (ro) ro.textContent = RP.ink ? ('蒙版覆盖 ' + (ratio * 100).toFixed(1) + '%') : '蒙版为空，请画或改框选';
+}
+
+function rpUndo() {
+  const cv = $('#rp-inp-canvas');
+  if (!cv || !RP.undo || !RP.undo.length) { toast('没有可撤销的笔迹'); return; }
+  cv.getContext('2d').putImageData(RP.undo.pop(), 0, 0);
+  rpUpdateInk();
 }
 
 function rpBindBrush() {
@@ -1496,6 +1532,7 @@ function rpBindBrush() {
   cv.addEventListener('mousedown', e => {
     if (RP.mode === 'box') return;
     e.preventDefault();
+    rpPushUndo();
     drawing = true;
     last = toCanvas(e);
     line(last, last);
@@ -1510,9 +1547,7 @@ function rpBindBrush() {
   window.addEventListener('mouseup', () => {
     if (!drawing) return;
     drawing = false;
-    const btn = $('#rp-inp-go'); if (btn) btn.disabled = !RP.ink && !RP.box;
-    const ro = $('#rp-inp-readout');
-    if (ro) ro.textContent = RP.ink ? '蒙版已画（画笔）' : '蒙版为空，请画或改框选';
+    rpUpdateInk();
   });
 
   $$('.mask-tools .mode').forEach(b => b.onclick = () => rpSetMode(b.dataset.maskMode));
@@ -1520,11 +1555,13 @@ function rpBindBrush() {
   const mo = $('#rp-mask-open'); if (mo) mo.onclick = rpMaskRefresh;
   const cb = $('#rp-inp-clearbtn');
   if (cb) cb.onclick = () => {
+    rpPushUndo();
     ctx.clearRect(0, 0, cv.width, cv.height);
-    RP.ink = false;
-    const btn = $('#rp-inp-go'); if (btn) btn.disabled = !RP.box;
-    const ro = $('#rp-inp-readout'); if (ro) ro.textContent = '蒙版已清空';
+    rpUpdateInk();
+    const ro = $('#rp-inp-readout'); if (ro) ro.textContent = RP.box ? '蒙版已清空（仍有框选）' : '蒙版已清空';
   };
+  const ub = $('#rp-inp-undo');
+  if (ub) ub.onclick = rpUndo;
 }
 
 async function rpMaskSave() {
@@ -2381,6 +2418,13 @@ function bindUI() {
       return;
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      // 手修弹窗里画布可见时，Ctrl+Z 撤笔迹，而不是撤积木
+      const cv = $('#rp-inp-canvas');
+      if (!e.shiftKey && cv && cv.width && cv.getBoundingClientRect().width > 0) {
+        e.preventDefault();
+        rpUndo();
+        return;
+      }
       e.preventDefault();
       if (e.shiftKey) redo(); else undo();
       return;
