@@ -576,7 +576,7 @@ function showResult(path, seed, elapsed) {
     '<img class="clickable" id="result-img" src="/api/img?path=' + encodeURIComponent(path) + '">' +
     (square ? '<div class="warn">方图更容易出双人分屏；若出现两个人物，建议换 1024×1536 或点「重抽」。</div>' : '') +
     '<div class="logbar">' +
-    '<input id="log-note" placeholder="备注（可空，例如：外套长度对">' +
+    '<input id="log-note" placeholder="备注（可空，例如：外套长度对）">' +
     '<div class="verdicts">' +
     '<button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button>' +
     '</div></div>' +
@@ -595,7 +595,7 @@ function showResult(path, seed, elapsed) {
     '<div class="hint">seed ' + seed + ' · ' + elapsed + 's · ' + path.split('\\').pop() + '</div>';
   const ri = $('#result-img');
   if (ri) ri.onclick = () => openImage(path);
-  $('#result .verdicts button').forEach(b => b.onclick = () => {
+  $$('#result .verdicts button').forEach(b => b.onclick = () => {
     logPick(path, b.dataset.v, ($('#log-note') || {}).value || '');
   });
   $('#rerun').onclick = () => { $('#p-seed').value = ''; run(); };
