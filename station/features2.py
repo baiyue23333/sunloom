@@ -349,3 +349,74 @@ def api_loras():
     defaults = (cfg.get("defaults") or {}).get("loras") or []
     return {"items": found, "defaults": defaults,
             "dir": os.path.join(root, "models/loras") if root else ""}
+
+# ---------------- character cards ----------------
+class CardReq(BaseModel):
+    name: str
+    loras: List[Dict[str, Any]] = []
+    tokens: List[str] = []
+    note: str = ""
+
+
+class CardImportReq(BaseModel):
+    data: str = ""
+    path: str = ""
+
+
+def _cards_path():
+    return os.path.join(S.DATA, "cards.json")
+
+
+@router.get("/api/cards")
+def api_cards():
+    return {"items": S.read_json(_cards_path(), []) or []}
+
+
+@router.post("/api/card/save")
+def api_card_save(req: CardReq):
+    items = S.read_json(_cards_path(), []) or []
+    entry = {"name": req.name.strip(), "loras": req.loras or [],
+             "tokens": req.tokens or [], "note": req.note or ""}
+    items = [it for it in items if it.get("name") != entry["name"]]
+    items.append(entry)
+    S.write_json(_cards_path(), items)
+    return {"ok": True, "items": items}
+
+
+@router.post("/api/card/delete")
+def api_card_delete(req: CardReq):
+    items = S.read_json(_cards_path(), []) or []
+    items = [it for it in items if it.get("name") != req.name]
+    S.write_json(_cards_path(), items)
+    return {"ok": True, "items": items}
+
+
+@router.get("/api/cards/export")
+def api_cards_export():
+    return FileResponse(_cards_path(), filename="character_cards.json",
+                        media_type="application/json")
+
+
+@router.post("/api/cards/import")
+def api_cards_import(req: CardImportReq):
+    raw = req.data
+    if not raw and req.path and os.path.isfile(req.path):
+        raw = open(req.path, encoding="utf-8").read()
+    if not raw:
+        raise HTTPException(400, "empty import")
+    try:
+        data = json.loads(raw)
+    except Exception:
+        raise HTTPException(400, "import must be JSON")
+    incoming = data.get("items") if isinstance(data, dict) else data
+    if not isinstance(incoming, list):
+        raise HTTPException(400, "expect a list of cards")
+    items = S.read_json(_cards_path(), []) or []
+    names = {it.get("name") for it in items}
+    added = 0
+    for c in incoming:
+        if isinstance(c, dict) and c.get("name") and c["name"] not in names:
+            items.append(c)
+            added += 1
+    S.write_json(_cards_path(), items)
+    return {"ok": True, "added": added, "items": items}

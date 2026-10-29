@@ -119,6 +119,22 @@
         <button class="ghost wide" id="lora-add">+ 加 LoRA</button>
       </details>
 
+      <details class="fold" open><summary>角色卡</summary>
+        <div class="row2">
+          <select id="card-sel"></select>
+          <button class="ghost" id="card-apply">应用</button>
+        </div>
+        <div class="row2" style="margin-top:6px">
+          <button class="ghost" id="card-save">保存当前</button>
+          <button class="ghost" id="card-del">删除</button>
+        </div>
+        <div class="row2" style="margin-top:6px">
+          <button class="ghost" id="card-export">导出</button>
+          <button class="ghost" id="card-import">导入</button>
+        </div>
+        <p class="hint">保存当前 LoRA 与身份类积木；应用时一键恢复</p>
+      </details>
+
       <details class="fold" open><summary>出图</summary>
         <button class="primary wide" id="run-btn">▶ 出图</button>
         <button class="ghost wide" id="batch-btn2" style="margin-top:8px">批量出图（多 seed）</button>

@@ -2642,3 +2642,78 @@ async function saveCurrentAsTemplate() {
     if (el) el.addEventListener('change', persistParams);
   });
 })();
+
+/* ---------- character cards ---------- */
+async function loadCards() {
+  try {
+    const r = await api('/api/cards');
+    S.cards = r.items || [];
+  } catch (e) { S.cards = []; }
+  const sel = $('#card-sel');
+  if (!sel) return;
+  sel.innerHTML = (S.cards.length
+    ? S.cards.map(c => '<option>' + esc(c.name) + '</option>').join('')
+    : '<option value="">（还没有角色卡）</option>');
+}
+
+function cardApply() {
+  const sel = $('#card-sel');
+  const c = (S.cards || []).find(x => x.name === (sel && sel.value));
+  if (!c) { toast('先保存一张角色卡'); return; }
+  S.loras = (c.loras || []).map(l => ({ name: l.name, weight: Number(l.weight) || 0.5 }));
+  (c.loras || []).forEach(l => { if (!S.loraFiles.includes(l.name)) S.loraFiles.push(l.name); });
+  renderLoras();
+  (c.tokens || []).forEach(tok => {
+    if (!S.pos.some(b => b.token === tok)) {
+      S.pos.push({ id: uid(), token: tok, text: '', weight: 1, enabled: true });
+    }
+  });
+  renderLanes(); expandPreview();
+  toast('已应用角色卡：' + c.name);
+}
+
+async function cardSave() {
+  const name = prompt('角色卡名字');
+  if (!name) return;
+  const keep = ['id', 'body', 'face', 'hair', 'custom'];
+  const tokens = [...new Set(S.pos.filter(b => b.token && keep.includes(tokenCat(b.token)))
+    .map(b => b.token))];
+  const loras = (S.loras || []).map(l => ({ name: l.name, weight: l.weight }));
+  const r = await api('/api/card/save', { method: 'POST',
+    body: JSON.stringify({ name: name.trim(), loras, tokens }) });
+  S.cards = r.items || [];
+  await loadCards();
+  toast('已保存角色卡：' + name + '（' + loras.length + ' LoRA / ' + tokens.length + ' 标签）');
+}
+
+async function cardDelete() {
+  const name = ($('#card-sel') || {}).value;
+  if (!name) return;
+  if (!confirm('删除角色卡 ' + name + '？')) return;
+  const r = await api('/api/card/delete', { method: 'POST', body: JSON.stringify({ name }) });
+  S.cards = r.items || [];
+  await loadCards();
+  toast('已删除');
+}
+
+(async function bindCards() {
+  await new Promise(r => setTimeout(r, 400));
+  await loadCards();
+  const bind = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
+  bind('#card-apply', cardApply);
+  bind('#card-save', cardSave);
+  bind('#card-del', cardDelete);
+  bind('#card-export', () => { window.location = '/api/cards/export'; });
+  bind('#card-import', async () => {
+    const txt = prompt('粘贴角色卡 JSON（或填本地路径）');
+    if (!txt) return;
+    const isPath = txt.length < 300 && !txt.trim().startsWith('{');
+    try {
+      const r = await api('/api/cards/import', { method: 'POST',
+        body: JSON.stringify(isPath ? { path: txt.trim() } : { data: txt }) });
+      S.cards = r.items || [];
+      await loadCards();
+      toast('导入完成，新增 ' + r.added + ' 张');
+    } catch (e) { alert('导入失败：' + e.message); }
+  });
+})();
