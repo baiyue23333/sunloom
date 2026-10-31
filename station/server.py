@@ -17,6 +17,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core import store
 import comfy as cf
 import config
 import graph as gf
@@ -31,6 +33,9 @@ CFG = config.load()
 OUT_DIR = os.path.join(HERE, CFG.get("output_dir") or "output")
 TRASH = os.path.join(OUT_DIR, "_trash")
 RECIPES = os.path.join(DATA, "recipes.json")
+TPL_PATH = os.path.join(DATA, "templates.json")
+store.set_db(os.path.join(DATA, "station.db"))
+store.init(recipes_json=RECIPES, templates_json=TPL_PATH)
 
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(DATA, exist_ok=True)
@@ -204,12 +209,12 @@ def save_result(im, label, seed):
 
 
 def add_recipe(path, data):
-    db = read_json(RECIPES, {}) or {}
+    db = store.load_recipes()
     db[path] = data
     if len(db) > 500:
         for k in sorted(db, key=lambda k: db[k].get("ts", 0))[: len(db) - 500]:
             db.pop(k, None)
-    write_json(RECIPES, db)
+    store.save_recipes(db)
 
 
 # ---------------- static ----------------
@@ -288,7 +293,7 @@ def bootstrap():
     tokens, lib, ch = pt.load_tokens()
     cfg = config.load()
     comfy_st = cf.system_stats()
-    tpl = read_json(os.path.join(DATA, "templates.json"), []) or []
+    tpl = store.load_templates()
     return {
         "tokens": tokens,
         "notes": lib.get("notes") or {},
@@ -434,7 +439,7 @@ def api_job(jid: str):
 # ---------------- gallery / recipes ----------------
 @app.get("/api/gallery")
 def api_gallery(limit: int = 300, q: str = "", since: str = "", recipe: str = ""):
-    db = read_json(RECIPES, {}) or {}
+    db = store.load_recipes()
     cutoff = 0
     if since == "today":
         cutoff = time.time() - 86400
@@ -476,7 +481,7 @@ def api_delete_image(req: DeleteReq):
 
 @app.get("/api/recipes")
 def api_recipes(limit: int = 100):
-    db = read_json(RECIPES, {}) or {}
+    db = store.load_recipes()
     items = [{"path": p, "name": os.path.basename(p), "ts": r.get("ts", 0)}
              for p, r in db.items() if os.path.isfile(p)]
     items.sort(key=lambda x: -x["ts"])
@@ -485,7 +490,7 @@ def api_recipes(limit: int = 100):
 
 @app.get("/api/recipe")
 def api_recipe(path: str):
-    db = read_json(RECIPES, {}) or {}
+    db = store.load_recipes()
     r = db.get(path)
     if not r:
         raise HTTPException(404, "no recipe for this image")
@@ -504,7 +509,7 @@ def api_recipe(path: str):
                     r["blocks_guess"] = True
                 if r.get("blocks_guess"):
                     db[path] = dict(r)
-                    write_json(RECIPES, db)
+                    store.save_recipes(db)
         except Exception:
             pass
     return dict(r, path=path)

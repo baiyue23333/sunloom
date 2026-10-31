@@ -10,3 +10,8 @@ station/data/train/
 station/data/datasets/
 *.bak
 *.bak2
+station/data/station.db
+station/data/station.db-wal
+station/data/station.db-shm
+core/__pycache__/
+core/data/
