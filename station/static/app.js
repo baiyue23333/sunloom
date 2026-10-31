@@ -328,6 +328,28 @@ function cmdAdd(i) {
 }
 
 /* ---------- 画布 ---------- */
+/* 配套积木：加正向时顺手把对偶/配套的一起放好（已有的跳过） */
+function companionsOf(token) {
+  const out = [];
+  const has = t => !!(t && S.tokens && S.tokens[t]);
+  if (!token) return out;
+  if (token === '@OUTFIT') {
+    if (has('@NEG_OUTFIT')) out.push({ lane: 'negative', token: '@NEG_OUTFIT' });
+  } else if (token.startsWith('@OUT_')) {
+    const neg = token.replace('@OUT_', '@NEG_');
+    if (has(neg)) out.push({ lane: 'negative', token: neg });
+  }
+  if (token.startsWith('@DRAPE_')) {
+    const worn = ['@DRAPE_WORN'].includes(token);
+    const target = worn ? '@NEG_DRAPE_OFF' : '@NEG_DRAPE_ON';
+    if (has(target)) out.push({ lane: 'negative', token: target });
+  }
+  if (token.startsWith('@WEAPON_') && token !== '@WEAPON_GRIP' && has('@WEAPON_GRIP')) {
+    out.push({ lane: 'positive', token: '@WEAPON_GRIP' });
+  }
+  return out;
+}
+
 function addBlock(lane, tokenOrObj) {
   // 负向积木永远进负向，避免 @NEG_* 跑到正向
   if (lane === 'positive') {
@@ -336,12 +358,24 @@ function addBlock(lane, tokenOrObj) {
   }
   pushHistory();
   const arr = lane === 'positive' ? S.pos : S.neg;
+  const token = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
   if (typeof tokenOrObj === 'string') {
     arr.push({ id: uid(), token: tokenOrObj, text: '', weight: 1, enabled: true });
   } else {
     arr.push(Object.assign({ id: uid(), token:'', text:'', weight:1, enabled:true }, tokenOrObj));
   }
+  // 加正向时同步配套（服装→负向、型态→对偶负向、武器→GRIP）
+  const extra = [];
+  if (lane === 'positive' && token) {
+    for (const c of companionsOf(token)) {
+      const target = c.lane === 'positive' ? S.pos : S.neg;
+      if (target.some(b => b.token === c.token)) continue;
+      target.push({ id: uid(), token: c.token, text: '', weight: 1, enabled: true });
+      extra.push(c.token);
+    }
+  }
   renderLanes(); expandPreview();
+  if (extra.length) toast('已同步加入配套：' + extra.join('、'));
 }
 
 function renderLanes() {

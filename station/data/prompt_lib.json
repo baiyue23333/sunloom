@@ -41,9 +41,6 @@
   "@TIME_MORNING": "(morning light:1.2)",
   "@TIME_DUSK": "(dusk:1.2), (warm sky:1.1)",
   "@TIME_NIGHT": "(night:1.2)",
-  "@OUT_CASUAL": "(white shirt:1.25), (blue jeans:1.2), (casual outfit:1.2)",
-  "@OUT_DRESS": "(elegant black dress:1.3), (thin straps:1.2)",
-  "@OUT_UNIFORM": "(school blazer:1.25), (pleated skirt:1.2), (ribbon tie:1.15)",
   "@FAB_LINEN": "(linen texture:1.2)",
   "@FAB_SILK": "(silk sheen:1.25)",
   "@FAB_WOOL": "(wool texture:1.2)",
@@ -124,7 +121,9 @@
   "@COMP_MACRO": "(macro shot, extreme close-up of one small detail:1.4), (shallow focus on a single detail:1.3)",
   "@COMP_FILL": "(subject fills the frame:1.45), (tight framing with almost no background:1.3), (face and shoulders filling the image:1.2)",
   "@COMP_REFLECTION": "(her reflection mirrored on the wet ground below her feet:1.35), (puddle reflecting her from below:1.3), (single figure standing above her own reflection:1.25)",
-  "@COMP_SILHOUETTE": "(silhouette against the light:1.45), (backlit figure, rim light only:1.35), (dark shape against a bright background:1.3)"
+  "@COMP_SILHOUETTE": "(silhouette against the light:1.45), (backlit figure, rim light only:1.35), (dark shape against a bright background:1.3)",
+  "@NEG_DRAPE_ON": "jacket worn on both shoulders, sleeves on her arms, collar closed",
+  "@NEG_DRAPE_OFF": "jacket slipping off her shoulders, bare shoulders, empty sleeves"
  },
  "notes": {
   "@SUBJ": "主体锁：单人。所有模板的第一块。",
@@ -167,9 +166,6 @@
   "@TIME_MORNING": "早晨。",
   "@TIME_DUSK": "黄昏。",
   "@TIME_NIGHT": "夜晚。",
-  "@OUT_CASUAL": "日常便装。",
-  "@OUT_DRESS": "连衣裙。",
-  "@OUT_UNIFORM": "制服。",
   "@FAB_LINEN": "亚麻。",
   "@FAB_SILK": "丝绸。",
   "@FAB_WOOL": "羊毛。",
@@ -221,7 +217,7 @@
   "@CUSTOM_GLOW": "自定义：主体柔和光晕",
   "@CUSTOM_PETAL": "自定义：飘落花瓣",
   "@COMP_FOREGROUND": "前景遮挡虚化。立刻有电影感。 实测(T5)：前景虚化叶片成立，立刻有层次。",
-  "@COMP_LOW": "低机位。显腿长，但容易脸变形，别配 @CAM_BUST。 实测(2026-10-28 自动探针｜期望 from_below|low_angle｜命中 [1girl, flower, hair_flower, hair_ornament, full_body, solo, pantyhose, heterochromia]｜失败) 【2026-10-28 加强】自动探针首轮未命中，已补视觉线索，待复测。 实测(2026-10-28 加强后复测 640×896｜命中 [1girl, pantyhose, full_body, solo, heterochromia, flower, lace-up_boots, bloomers]｜失败) 【结论】仰角在竖构图里被人物比例吃掉，建议配 1536×1024 或 @CAM_FULL。 实测(2026-10-28 自动探针｜期望 from_below|low_angle｜命中 [1girl, pantyhose, full_body, solo, heterochromia, flower, lace-up_boots, bloomers]｜失败)",
+  "@COMP_LOW": "低机位：显腿长，但容易脸变形，别配 @CAM_BUST。竖构图里仰角常被人物比例吃掉，建议配横构图或 @CAM_FULL；实测竖构图下「低机位」标签不稳定，出图靠肉眼确认。",
   "@COMP_OVERHEAD": "俯拍。适合坐姿/仰头，顶光配合。",
   "@COMP_OVER_SHOULDER": "过肩。需要前景人物，单人时容易变双人，慎用。",
   "@COMP_MIRROR": "镜中像。构图有趣，但容易出两个“她”（模型会当双人画）。",
@@ -248,7 +244,9 @@
   "@COMP_MACRO": "微距特写：只拍眼睛/手/饰品/锁骨，背景全虚。与 @CAM_FULL 互斥；配 @COMP_DOF 更干净。",
   "@COMP_FILL": "满幅：人把画面填满，几乎没背景。与 @COMP_WIDE、@COMP_NEGATIVE 互斥。 实测(2026-10-29)：人填满画面、背景几乎消失，成立。",
   "@COMP_REFLECTION": "倒影：水面/湿地/玻璃。容易出两个她（模型当双人画），配 @NEG_BASE 的分屏负向。 实测(2026-10-29)：第一版正向写「her reflection in the water」直接画出两个并排的人；改成「reflection on the wet ground below her feet + single figure above her own reflection」后成立，水里是倒着的她，且只有一个人。",
-  "@COMP_SILHOUETTE": "剪影：逆光只剩轮廓。**会吃掉脸和异瞳**，@ID 基本失效——只在明确要剪影时用。"
+  "@COMP_SILHOUETTE": "剪影：逆光只剩轮廓。**会吃掉脸和异瞳**，@ID 基本失效——只在明确要剪影时用。",
+  "@NEG_DRAPE_ON": "型态配套负向：当正向要「半脱/披肩/滑到肘」时，用它压住「好好穿着」。",
+  "@NEG_DRAPE_OFF": "型态配套负向：当正向要「穿好」时，用它压住「滑肩/空袖」。"
  },
  "meta": {
   "cats": {

@@ -34,11 +34,23 @@ def load_tokens():
         key = ch.get("garment_default") or list(gs)[0]
         if key in gs:
             tokens["@OUTFIT"] = gs[key].get("prompt", "")
-            notes["@OUTFIT"] = "Current outfit prompt (chosen on the Outfit page)"
+            notes["@OUTFIT"] = "当前默认套装（服装页可切换默认套）"
         negs = [g.get("negative", "") for g in gs.values() if g.get("negative")]
         if negs:
             tokens["@NEG_OUTFIT"] = ", ".join(negs)
-            notes["@NEG_OUTFIT"] = "Union of all outfit negatives"
+            notes["@NEG_OUTFIT"] = "所有服装负向的并集：不确定穿哪套时兜底用"
+        # 每套服装同时暴露正向与配套负向，供「加正向自动带配套」使用
+        for k2, g2 in gs.items():
+            tk = "@OUT_" + str(k2).upper()
+            nk = "@NEG_" + str(k2).upper()
+            if (g2.get("prompt") or "").strip():
+                tokens[tk] = g2["prompt"].strip()
+                notes[tk] = (g2.get("label") or k2) + "：" + (g2.get("use_for") or "服装页可编辑")
+            if (g2.get("negative") or "").strip():
+                tokens[nk] = g2["negative"].strip()
+                notes[nk] = (g2.get("label") or k2) + " 的配套负向"
+    lib = dict(lib)
+    lib["notes"] = notes
     return tokens, lib, ch
 
 

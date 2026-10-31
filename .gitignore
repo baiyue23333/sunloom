@@ -8,3 +8,5 @@ station/data/recipes.json
 venv/
 station/data/train/
 station/data/datasets/
+*.bak
+*.bak2
