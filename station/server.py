@@ -369,7 +369,7 @@ def submit_job(req: RunReq, mode: str):
     cfg = config.load()
     seed = req.seed or int(time.time()) % 1000000
     prefix = re.sub(r"[^A-Za-z0-9_-]", "_", req.prefix or "img")[:40]
-    params = {"prompt": req.prompt, "negative": req.negative, "width": req.width,
+    params = {"prompt": req.prompt, "positive": req.prompt, "negative": req.negative, "width": req.width,
               "height": req.height, "steps": req.steps, "cfg": req.cfg, "seed": seed,
               "prefix": prefix, "loras": req.loras,
               "sampler": (cfg.get("defaults") or {}).get("sampler", "euler"),

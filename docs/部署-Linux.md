@@ -71,6 +71,14 @@ cp config.example.json station/data/config.json
 
 > `model` 里的名字必须和 ComfyUI `models/` 下的**文件名**完全一致。
 
+再补一个 `comfy_output`——ComfyUI 的出图目录，站点要从这里把结果拷进自己的 `output_dir`：
+
+```json
+"comfy_output": "/root/ComfyUI/output"
+```
+
+不填会报 `result file not found`：ComfyUI 其实已经出图了，只是站点找不到。
+
 ## 5. 启动
 
 ```bash
