@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="256x256" href="/icon_256.png?v=3">
   <link rel="apple-touch-icon" href="/icon_256.png?v=3">
 <title>SUNLOOM · block studio</title>
-<link rel="stylesheet" href="/style.css?v=12">
+<link rel="stylesheet" href="/style.css?v=13">
 <style>.build-badge{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;color:#ffd98a;border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.12)}</style>
 </head>
 <body>
@@ -17,6 +17,7 @@
   <div class="brand"><img class="logo" src="/icon_dark.png" alt=""><b>SUNLOOM</b><span class="sub">block studio</span></div>
   <nav class="tabs" id="tabs">
     <button data-tab="build" class="active">拼装</button>
+    <button data-tab="guide">向导</button>
     <button data-tab="gallery">画廊</button>
     <button data-tab="library">词库</button>
     <button data-tab="garment">服装</button>
@@ -42,8 +43,11 @@
 <section id="view-build" class="view active">
   <div class="builder">
     <aside class="palette card">
-      <div class="card-head"><h3>积木库</h3><input id="palette-search" placeholder="搜索…">
+      <div class="card-head"><h3>积木库</h3>
+        <label class="pal-toggle" title="由正向块配对的专属负向（默认隐藏，加入正向块后自动出现）">
+          <input type="checkbox" id="pal-show-neg"><span>专属负向</span></label>
         <button class="ghost tiny" id="pal-collapse" title="收起积木库">‹</button></div>
+      <div class="pal-search"><input id="palette-search" placeholder="搜索…"></div>
       <div class="pal-wrap"><div id="pal-rail" class="pal-rail"></div><div id="palette" class="palette-body"></div></div>
     </aside>
 
@@ -67,6 +71,10 @@
           </div>
         </div>
         <div class="lane-body" id="lane-negative"></div>
+      </div>
+      <div class="card guide-entry">
+        <div class="card-head"><h3>工作流向导</h3><span class="hint">不知道从哪块开始？跟着走 9 步</span></div>
+        <button class="primary wide" id="open-guide">打开向导 →</button>
       </div>
       <div class="row2-cards">
         <div class="card tpl-card">
@@ -145,6 +153,56 @@
       <details class="fold" open><summary>结果</summary>
         <div id="result" class="result"></div>
       </details>
+    </aside>
+  </div>
+</section>
+
+<!-- ---------------- 工作流向导 ---------------- -->
+<section id="view-guide" class="view">
+  <div class="guide-wrap">
+    <aside class="card guide-steps-card">
+      <div class="card-head"><h3>工作流向导</h3></div>
+      <ol id="guide-steps" class="guide-steps"></ol>
+      <p class="hint">选完最后一步，积木会直接进「拼装」画布；配套负向自动补。</p>
+    </aside>
+    <div class="guide-col2">
+    <div class="card guide-main">
+      <div class="card-head"><h3 id="guide-title">第 1 步</h3><span class="hint" id="guide-sub"></span></div>
+      <div class="guide-progress"><i id="guide-bar" style="width:11%"></i></div>
+      <div id="guide-options" class="guide-options"></div>
+      <div class="field"><label>本次选择</label><div id="guide-picked" class="chip-row"></div></div>
+      <div class="field"><label>展开预览</label><pre id="guide-preview" class="guide-preview">选几块试试…</pre></div>
+      <div class="row2">
+        <button class="ghost" id="guide-prev">← 上一步</button>
+        <button class="ghost" id="guide-skip">跳过这步</button>
+        <button class="primary" id="guide-next">下一步 →</button>
+      </div>
+    </div>
+    <div class="card guide-current-panel">
+      <div class="card-head"><h3>当前正负项</h3><span class="hint">选积木时实时更新，配套负向会自动计入</span></div>
+      <div class="gc-lanes">
+        <div class="lane card" data-lane="positive">
+          <div class="card-head">
+            <h3>正向 <span class="hint" id="gc-pos-n">0 块</span></h3>
+            <div class="head-actions"><button class="ghost" id="gc-pos-clear">清空</button></div>
+          </div>
+          <div class="lane-body" id="gc-pos"></div>
+        </div>
+        <div class="lane card neg" data-lane="negative">
+          <div class="card-head">
+            <h3>负向 <span class="hint" id="gc-neg-n">0 块</span></h3>
+            <div class="head-actions"><button class="ghost" id="gc-neg-clear">清空</button></div>
+          </div>
+          <div class="lane-body" id="gc-neg"></div>
+        </div>
+      </div>
+    </div>
+    </div>
+    <aside class="card guide-pal">
+      <div class="card-head"><h3>积木库</h3></div>
+      <input id="guide-search" placeholder="搜索积木…" style="margin:0 12px 8px">
+      <div id="guide-pal-body" class="guide-pal-body"></div>
+      <p class="hint" style="padding:0 12px 10px">点积木直接加进当前这步；悬停看备注。</p>
     </aside>
   </div>
 </section>
@@ -473,7 +531,7 @@ window.addEventListener('error', function (e) {
   document.title = 'PARSE_ERR ' + (e.message || '') + ' @line ' + (e.lineno || 0) + ':' + (e.colno || 0);
 }, true);
 </script>
-<script src="/app.js?v=12"></script>
+<script src="/app.js?v=13"></script>
 <div id="cmdbar" class="cmdbar"><div class="cmd-box">
   <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
   <div id="cmd-list" class="cmd-list"></div>

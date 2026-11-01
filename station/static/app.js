@@ -168,8 +168,9 @@ function renderPalette() {
                  'outfit','fabric','drape','set','prop','comp','style','neg','custom'];
   const collapsed = S.collapsedCats || (S.collapsedCats = loadJSON('loom.collapsedCats', {}));
   let html = '', railHtml = '';
+  const hiddenNeg = S.showCompanionNeg ? new Set() : companionNegSet();
   // 收藏组（置顶）
-  const favs = (S.fav || []).filter(k => S.tokens[k]);
+  const favs = (S.fav || []).filter(k => S.tokens[k] && !hiddenNeg.has(k));
   if (favs.length) {
     html += '<div class="pal-group fav-group" data-cat="custom"><span class="caret">▾</span>收藏' +
       '<span class="num">' + favs.length + '</span></div><div class="pal-items" data-items="fav">';
@@ -187,6 +188,7 @@ function renderPalette() {
       const f = S.paletteFilter.toLowerCase();
       items = items.filter(([n, tx]) => n.toLowerCase().includes(f) || (tx || '').toLowerCase().includes(f));
     }
+    if (hiddenNeg.size) items = items.filter(([n]) => !hiddenNeg.has(n));
     if (!items.length) continue;
     const label = CAT_LABEL[key] || key;
     const closed = !!collapsed[key];
@@ -328,6 +330,21 @@ function cmdAdd(i) {
 }
 
 /* ---------- 画布 ---------- */
+/* 专属负向：由某个正向块配对产生（服装→@NEG_<KEY>、型态→@NEG_DRAPE_* 等），
+   默认在积木库隐藏，加入正向块后自动出现在负向泳道。 */
+function companionNegSet() {
+  const set = new Set();
+  const has = t => !!(t && S.tokens && S.tokens[t]);
+  for (const k of Object.keys(S.tokens || {})) {
+    if (k.startsWith('@OUT_')) {
+      const neg = k.replace('@OUT_', '@NEG_');
+      if (has(neg)) set.add(neg);
+    }
+  }
+  ['@NEG_OUTFIT', '@NEG_DRAPE_ON', '@NEG_DRAPE_OFF', '@NEG_HAND_ART'].forEach(k => { if (has(k)) set.add(k); });
+  return set;
+}
+
 /* 配套积木：加正向时顺手把对偶/配套的一起放好（已有的跳过） */
 function companionsOf(token) {
   const out = [];
@@ -346,6 +363,9 @@ function companionsOf(token) {
   }
   if (token.startsWith('@WEAPON_') && token !== '@WEAPON_GRIP' && has('@WEAPON_GRIP')) {
     out.push({ lane: 'positive', token: '@WEAPON_GRIP' });
+  }
+  if (token.startsWith('@HAND_') && has('@NEG_HAND_ART')) {
+    out.push({ lane: 'negative', token: '@NEG_HAND_ART' });
   }
   return out;
 }
@@ -370,7 +390,7 @@ function addBlock(lane, tokenOrObj) {
     for (const c of companionsOf(token)) {
       const target = c.lane === 'positive' ? S.pos : S.neg;
       if (target.some(b => b.token === c.token)) continue;
-      target.push({ id: uid(), token: c.token, text: '', weight: 1, enabled: true });
+      target.push({ id: uid(), token: c.token, text: '', weight: 1, enabled: true, auto: true });
       extra.push(c.token);
     }
   }
@@ -424,7 +444,13 @@ function bindLaneEvents() {
     const arr = el.dataset.lane === 'positive' ? S.pos : S.neg;
     pushHistory();
     const i = arr.findIndex(b => b.id === el.dataset.del);
-    if (i >= 0) arr.splice(i, 1);
+    if (i < 0) return;
+    const gone = arr.splice(i, 1)[0];
+    // 联动删除：删正向块时，把它自动带出来的配套负向一起删掉（手动加的不动）
+    if (el.dataset.lane === 'positive' && gone && gone.token) {
+      const want = companionsOf(gone.token).filter(c => c.lane === 'negative').map(c => c.token);
+      S.neg = S.neg.filter(b => !(b.auto && want.indexOf(b.token) >= 0));
+    }
     renderLanes(); expandPreview();
   });
   $$('[data-toggle]').forEach(el => el.onclick = () => {
@@ -1191,10 +1217,11 @@ function setMaintLog(txt) {
 async function refreshMaint() {
   const m = await api('/api/maintenance');
   $('#mt-disk').textContent = '可用 ' + m.disk.free_gb + ' GB / ' + m.disk.total_gb + ' GB';
-  $('#mt-sizes').innerHTML = Object.entries(m.sizes).map(([k, v]) =>
+  const sizes = m.sizes || { '输出': m.output_mb || 0, '回收站': m.trash_mb || 0 };
+  $('#mt-sizes').innerHTML = Object.entries(sizes).map(([k, v]) =>
     '<span class="k">' + k + '</span><span class="v">' + v + ' MB</span>').join('');
-  $('#rg-count').textContent = m.registry + ' 条';
   const reg = await api('/api/registry?limit=80');
+  $('#rg-count').textContent = (reg.total != null ? reg.total : (m.registry || 0)) + ' 条';
   $('#rg-table').innerHTML = reg.items.map(e =>
     '<div class="rg-row" data-path="' + (e.file || '') + '"><span>' + (e.ts || '').slice(5, 16) + '</span>' +
     '<span class="v v-' + (e.verdict || '') + '">' + (e.verdict || '') + '</span>' +
@@ -2251,6 +2278,263 @@ async function loadPresets() {
   S.presets = r.items || [];
 }
 
+
+/* ---------- 工作流向导 ---------- */
+function guideSteps() {
+  const has = t => !!(S.tokens && S.tokens[t]);
+  const pick = arr => arr.filter(has);
+  const outfits = Object.keys(S.garments || {}).map(k => '@OUT_' + k.toUpperCase()).filter(has);
+  return [
+    { key:'subject', title:'主体与身份', sub:'先定是谁、几个人', multi:1, cats:['id'], items: pick(['@SUBJ']) },
+    { key:'cam', title:'机位', sub:'构图的第一刀，先选一个', multi:1, cats:['cam'],
+      items: pick(['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_HIGH','@CAM_LOW','@CAM_BACK']) },
+    { key:'set', title:'场景', sub:'可选；没有场景也能出图', multi:1, skip:true, cats:['set'],
+      items: pick(['@SET_ROOM','@SET_CAFE','@SET_STREET','@SET_PARK','@SET_LIBRARY','@SET_STUDIO']) },
+    { key:'light', title:'打光', sub:'影响最大的一项', multi:1, cats:['light'],
+      items: pick(['@LIGHT_WIN','@LIGHT_SOFT','@LIGHT_RIM','@LIGHT_BACK','@LIGHT_NIGHT']) },
+    { key:'time', title:'时间', sub:'可选', multi:1, skip:true, cats:['time'],
+      items: pick(['@TIME_MORNING','@TIME_DUSK','@TIME_NIGHT']) },
+    { key:'outfit', title:'服装', sub:'一套就够，换衣服会自动补负向', multi:1, cats:['outfit'], items: outfits },
+    { key:'mood', title:'表情与视线', sub:'可选，最多两块', multi:2, skip:true, cats:['mood','gaze'],
+      items: pick(['@MOOD_CALM','@MOOD_SMILE','@MOOD_SAD','@MOOD_SURPRISED','@GAZE_CAM','@GAZE_DOWN','@GAZE_CLOSED']) },
+    { key:'comp', title:'构图与风格', sub:'可选', multi:2, skip:true, cats:['comp','style'],
+      items: pick(['@COMP_CENTER','@COMP_THIRDS','@COMP_FRAME','@COMP_NEGATIVE','@COMP_DIAGONAL','@STYLE_ANIME','@STYLE_CEL']) },
+    { key:'neg', title:'负向底线', sub:'建议保持默认两块', multi:2, fixed:true, cats:['neg'],
+      items: pick(['@NEG_BASE','@NEG_HANDS']) },
+  ];
+}
+
+function scrollGuidePaletteTo(st) {
+  if (!st || !st.cats || !S.guide) return;
+  if (S.guide._scrolledStep === S.guide.step) return;
+  const box = document.querySelector('#guide-pal-body');
+  if (!box) return;
+  let target = null;
+  for (const c of st.cats) {
+    const el = box.querySelector('.pal-group[data-cat="' + c + '"]');
+    if (el) { target = el; break; }
+  }
+  if (!target) return;
+  const top = target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 6;
+  box.scrollTop = Math.max(0, top);
+  S.guide._scrolledStep = S.guide.step;
+}
+
+function guidePick(tok) {
+  const steps = guideSteps();
+  if (!S.guide) S.guide = { step: 0, picks: {} };
+  const g = S.guide;
+  const st = steps[g.step];
+  let arr = (g.picks[st.key] || (st.key === 'neg' ? st.items.slice() : [])).slice();
+  if (arr.includes(tok)) arr = arr.filter(x => x !== tok);
+  else {
+    if (st.multi === 1) arr = [tok];
+    else if (arr.length >= st.multi) arr.shift();
+    arr.push(tok);
+  }
+  if (st.fixed) arr = arr.length ? arr : st.items.slice();
+  g.picks[st.key] = arr;
+  if (st.key !== 'neg') {
+    const comps = companionsOf(tok).filter(c => c.lane === 'negative').map(c => c.token);
+    if (comps.length && g.suppressNeg) g.suppressNeg = g.suppressNeg.filter(x => comps.indexOf(x) < 0);
+  }
+  renderGuide();
+  renderGuidePalette();
+}
+
+function renderGuideCurrent() {
+  const steps = guideSteps();
+  const g = S.guide || { picks: {} };
+  const pos = [], neg = [];
+  steps.forEach(st => {
+    const arr = g.picks[st.key] || (st.key === 'neg' ? st.items : []);
+    if (st.key === 'neg') arr.forEach(t => { if (!neg.includes(t)) neg.push(t); });
+    else arr.forEach(t => { if (!pos.includes(t)) pos.push(t); });
+  });
+  pos.forEach(t => companionsOf(t).forEach(c => {
+    if (c.lane !== 'negative') return;
+    if (S.guide.suppressNeg && S.guide.suppressNeg.indexOf(c.token) >= 0) return;
+    if (!neg.includes(c.token)) neg.push(c.token);
+  }));
+  const chip = (t, isNeg) => {
+    const cat = tokenCat(t);
+    return '<span class="gc-chip' + (isNeg ? ' neg' : '') + '" data-cat="' + cat + '" data-token="' + t + '">' + t +
+      '<span class="gc-x" data-gc-del="' + t + '" data-gc-lane="' + (isNeg ? 'neg' : 'pos') + '" title="移除">×</span></span>';
+  };
+  const boxP = document.querySelector('#gc-pos'), boxN = document.querySelector('#gc-neg');
+  if (boxP) boxP.innerHTML = pos.length ? pos.map(t => chip(t, false)).join('') : '<span class="hint">还没选，从右侧积木库点选</span>';
+  if (boxN) boxN.innerHTML = neg.length ? neg.map(t => chip(t, true)).join('') : '<span class="hint">自动补配套负向</span>';
+  const np = document.querySelector('#gc-pos-n'), nn = document.querySelector('#gc-neg-n');
+  if (np) np.textContent = pos.length + ' 块';
+  if (nn) nn.textContent = neg.length + ' 块';
+  [boxP, boxN].forEach(box => box && box.querySelectorAll('.gc-chip').forEach(el => {
+    el.onmouseenter = ev => showTip(ev, el.dataset.token);
+    el.onmousemove = ev => moveTip(ev);
+    el.onmouseleave = () => hideTip();
+  }));
+  document.querySelectorAll('[data-gc-del]').forEach(x => {
+    x.onclick = ev => {
+      ev.stopPropagation();
+      const t = x.getAttribute('data-gc-del');
+      if (x.dataset.gcLane === 'pos') {
+        steps.forEach(st => {
+          if (st.key === 'neg') return;
+          const arr = S.guide.picks[st.key] || [];
+          if (arr.indexOf(t) >= 0) S.guide.picks[st.key] = arr.filter(v => v !== t);
+        });
+      } else {
+        const negArr = S.guide.picks['neg'] || [];
+        if (negArr.indexOf(t) >= 0) S.guide.picks['neg'] = negArr.filter(v => v !== t);
+        else { S.guide.suppressNeg = S.guide.suppressNeg || []; if (S.guide.suppressNeg.indexOf(t) < 0) S.guide.suppressNeg.push(t); }
+      }
+      renderGuide();
+    };
+  });
+}
+
+function renderGuidePalette() {
+  renderGuideCurrent();
+  const box = document.querySelector('#guide-pal-body');
+  if (!box) return;
+  const q = ((S.guideFilter || '')).toLowerCase();
+  const hidden = S.showCompanionNeg ? new Set() : companionNegSet();
+  const order = ['id','body','pose','face','mood','gaze','hand','hold','weapon','hair','cam','light','atmo','time',
+                 'outfit','fabric','drape','set','prop','comp','style','neg','custom'];
+  const groups = {};
+  Object.keys(S.tokens || {}).forEach(k => {
+    if (hidden.has(k)) return;
+    if (q && !k.toLowerCase().includes(q)) return;
+    const c = tokenCat(k);
+    (groups[c] = groups[c] || []).push(k);
+  });
+  let html = '';
+  for (const key of order) {
+    const items = (groups[key] || []).sort();
+    if (!items.length) continue;
+    html += '<div class="pal-group" data-cat="' + key + '"><span class="caret">▾</span>' +
+      (CAT_LABEL[key] || key) + '<span class="num">' + items.length + '</span></div><div class="pal-items">';
+    for (const t of items) {
+      const fav = (S.fav || []).includes(t);
+      html += '<div class="pal-item" data-token="' + t + '" data-cat="' + key + '"><span class="tk">' + t + '</span>' +
+        '<span class="fav' + (fav ? ' on' : '') + '" data-fav="' + t + '" title="收藏">★</span>' +
+        '<span class="add">＋</span></div>';
+    }
+    html += '</div>';
+  }
+  box.innerHTML = html || '<div class="hint" style="padding:8px">没有匹配的积木</div>';
+  box.querySelectorAll('.pal-item').forEach(el => {
+    const tok = el.dataset.token;
+    el.onclick = () => guidePick(tok);
+    el.onmouseenter = ev => showTip(ev, tok);
+    el.onmousemove = ev => moveTip(ev);
+    el.onmouseleave = () => hideTip();
+  });
+  box.querySelectorAll('.fav').forEach(stp => {
+    stp.onclick = ev => {
+      ev.stopPropagation();
+      const t = stp.dataset.fav;
+      S.fav = S.fav || [];
+      S.fav = S.fav.includes(t) ? S.fav.filter(x => x !== t) : S.fav.concat(t);
+      saveJSON('loom.fav', S.fav);
+      renderGuidePalette(); renderPalette();
+    };
+  });
+}
+
+function renderGuide() {
+  const wrap = document.querySelector('#view-guide');
+  if (!wrap) return;
+  if (!S.guide) S.guide = { step: 0, picks: {} };
+  const steps = guideSteps();
+  const g = S.guide;
+  if (g.step >= steps.length) g.step = steps.length - 1;
+  const st = steps[g.step];
+  const chosen = Array.from(new Set(g.picks[st.key] || (st.key === 'neg' ? st.items.slice() : [])));
+
+  const stepsEl = document.querySelector('#guide-steps');
+  if (stepsEl) {
+    stepsEl.innerHTML = steps.map((s, i) => {
+      const n = (g.picks[s.key] || (s.key === 'neg' ? s.items : [])).length;
+      return '<li data-step="' + i + '" class="' + (i === g.step ? 'on' : '') + (i < g.step ? ' done' : '') + '">' +
+        '<span class="idx">' + (i + 1) + '</span><span class="tt">' + s.title + '</span>' +
+        (n ? '<span class="n">' + n + '</span>' : '') + '</li>';
+    }).join('');
+    stepsEl.querySelectorAll('li').forEach(li => li.onclick = () => { g.step = +li.dataset.step; g._scrolledStep = -1; renderGuide(); });
+  }
+
+  const title = document.querySelector('#guide-title');
+  if (title) title.textContent = '第 ' + (g.step + 1) + ' / ' + steps.length + ' 步 · ' + st.title;
+  const sub = document.querySelector('#guide-sub');
+  if (sub) sub.textContent = st.sub || '';
+
+  const opts = document.querySelector('#guide-options');
+  if (opts) {
+    opts.innerHTML = st.items.map(t => {
+      const on = chosen.includes(t);
+      const note = (S.notes || {})[t] || '';
+      const nt = note ? note.replace(/\s+/g, ' ').slice(0, 26) : '';
+      return '<button class="guide-chip' + (on ? ' on' : '') + '" data-token="' + t + '" title="' + esc(note) + '">' +
+        '<span>' + t + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
+    }).join('') || '<span class="hint">这一步没有可选项</span>';
+    opts.querySelectorAll('.guide-chip').forEach(b => b.onclick = () => guidePick(b.dataset.token));
+  }
+
+  const picked = document.querySelector('#guide-picked');
+  if (picked) picked.innerHTML = chosen.length ? chosen.map(t => '<span class="chip on">' + t + '</span>').join('') : '<span class="hint">还没选</span>';
+
+  const prev = document.querySelector('#guide-prev');
+  const next = document.querySelector('#guide-next');
+  const skip = document.querySelector('#guide-skip');
+  if (prev) prev.disabled = g.step === 0;
+  if (next) next.textContent = g.step === steps.length - 1 ? '完成，放进画布 ✓' : '下一步 →';
+  if (skip) skip.style.display = st.skip ? '' : 'none';
+
+  const bar = document.querySelector('#guide-bar');
+  if (bar) bar.style.width = Math.round(((g.step + 1) / steps.length) * 100) + '%';
+
+  const pre = document.querySelector('#guide-preview');
+  if (pre) {
+    const posTokens = [], negTokens = [];
+    steps.forEach(s => {
+      const arr = g.picks[s.key] || (s.key === 'neg' ? s.items : []);
+      if (s.key === 'neg') arr.forEach(t => { if (!negTokens.includes(t)) negTokens.push(t); });
+      else arr.forEach(t => { if (!posTokens.includes(t)) posTokens.push(t); });
+    });
+    if (!posTokens.length) { pre.textContent = '选几块试试…'; renderGuidePalette(); scrollGuidePaletteTo(st); return; }
+    api('/api/expand', { method:'POST', body: JSON.stringify({
+      positive: posTokens.map(t => ({ token: t })), negative: negTokens.map(t => ({ token: t })) }) })
+      .then(r => { pre.textContent = (r.positive || '') + (negTokens.length ? '\n\n[负向] ' + (r.negative || '') : ''); })
+      .catch(() => { pre.textContent = '（预览失败）'; });
+  }
+  renderGuidePalette();
+  scrollGuidePaletteTo(st);
+}
+
+function guideApply() {
+  const steps = guideSteps();
+  const g = S.guide || { picks: {} };
+  const posTokens = [];
+  steps.forEach(s => {
+    Array.from(new Set(g.picks[s.key] || (s.key === 'neg' ? s.items : []))).forEach(t => {
+      if (s.key === 'neg') return;
+      if (!posTokens.includes(t)) posTokens.push(t);
+    });
+  });
+  let added = 0;
+  posTokens.forEach(t => {
+    if (S.pos.some(b => b.token === t)) return;
+    addBlock('positive', t); added++;
+  });
+  const negTokens = Array.from(new Set(g.picks['neg'] || steps.find(s => s.key === 'neg').items));
+  negTokens.forEach(t => {
+    if (S.neg.some(b => b.token === t)) return;
+    addBlock('negative', t); added++;
+  });
+  const b = document.querySelector('#tabs button[data-tab="build"]');
+  if (b) b.click();
+  toast('向导已把 ' + added + ' 块积木放进画布');
+}
+
 /* ---------- 事件绑定 ---------- */
 function bindUI() {
   $$('#tabs button').forEach(b => b.onclick = () => {
@@ -2258,12 +2542,41 @@ function bindUI() {
     b.classList.add('active');
     $$('.view').forEach(v => v.classList.remove('active'));
     $('#view-' + b.dataset.tab).classList.add('active');
+    if (b.dataset.tab === 'guide') renderGuide();
     if (b.dataset.tab === 'gallery') renderGallery();
     if (b.dataset.tab === 'train') trainInfo();
     if (b.dataset.tab === 'maint') refreshMaint();
     if (b.dataset.tab === 'engine') loadEngine();
   });
   $('#palette-search').oninput = e => { S.paletteFilter = e.target.value; renderPalette(); };
+  const showNeg = $('#pal-show-neg');
+  if (showNeg) {
+    S.showCompanionNeg = loadJSON('loom.showCompanionNeg', false);
+    showNeg.checked = !!S.showCompanionNeg;
+    showNeg.onchange = e => { S.showCompanionNeg = e.target.checked; saveJSON('loom.showCompanionNeg', S.showCompanionNeg); renderPalette(); };
+  }
+  const openGuide = $('#open-guide');
+  if (openGuide) openGuide.onclick = () => { const b = document.querySelector('#tabs button[data-tab="guide"]'); if (b) b.click(); };
+  const gPrev = $('#guide-prev'), gNext = $('#guide-next'), gSkip = $('#guide-skip');
+  if (gPrev) gPrev.onclick = () => { if (S.guide && S.guide.step > 0) { S.guide.step--; S.guide._scrolledStep = -1; renderGuide(); } };
+  if (gNext) gNext.onclick = () => {
+    const n = guideSteps().length;
+    if (!S.guide) S.guide = { step: 0, picks: {} };
+    if (S.guide.step >= n - 1) guideApply(); else { S.guide.step++; renderGuide(); }
+  };
+  if (gSkip) gSkip.onclick = () => {
+    if (!S.guide) S.guide = { step: 0, picks: {} };
+    S.guide.step = Math.min(S.guide.step + 1, guideSteps().length - 1);
+    renderGuide();
+  };
+  const gcPosClear = $('#gc-pos-clear'), gcNegClear = $('#gc-neg-clear');
+  if (gcPosClear) gcPosClear.onclick = () => {
+    guideSteps().forEach(st => { if (st.key !== 'neg') delete S.guide.picks[st.key]; });
+    renderGuide(); toast('已清空正向选择');
+  };
+  if (gcNegClear) gcNegClear.onclick = () => { S.guide.picks['neg'] = []; renderGuide(); toast('已清空负向选择'); };
+  const gSearch = $('#guide-search');
+  if (gSearch) gSearch.oninput = e => { S.guideFilter = e.target.value; renderGuidePalette(); };
   $('#lib-search').oninput = e => loadLibrary(e.target.value);
   document.querySelectorAll('[data-adddesc]').forEach(b => b.onclick = () => {
     const lane = b.dataset.adddesc;
@@ -2289,7 +2602,7 @@ function bindUI() {
   if (pc0) pc0.onclick = () => setLibCollapsed(true);
   const fab = $('#lib-fab');
   if (fab) fab.onclick = () => setLibCollapsed(false);
-  setLibCollapsed(localStorage.getItem('loom.libCollapsed') === '1');
+  setLibCollapsed(false);
 
   const cmd = $('#cmdbar');
   if (cmd) {

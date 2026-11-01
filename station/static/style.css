@@ -799,3 +799,52 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
 .tpl-row2 .tpl-w{flex:0 0 60px!important;width:60px!important}
 .tpl-row2 .tpl-del{flex:0 0 26px!important}
 @media(max-width:900px){.tpl-editor{grid-template-columns:1fr!important}}
+
+/* ---- 工作流向导 / 专属负向（与私有版同步） ---- */
+.pal-toggle{display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#9aa2b1;
+  white-space:nowrap;margin-left:auto;padding:5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.04);cursor:pointer;transition:.15s;user-select:none}
+.pal-toggle:hover{border-color:rgba(255,255,255,.3);color:#dfe4ee}
+.pal-toggle input{position:absolute;width:0;height:0;opacity:0;pointer-events:none}
+.pal-toggle:has(input:checked){background:#ffd98a;border-color:#ffd98a;color:#241b06;font-weight:600}
+.pal-search{padding:0 12px 8px}
+.pal-search input{width:100%}
+.palette .card-head{gap:6px;flex-wrap:nowrap}
+.palette #pal-collapse{display:none}
+.guide-entry{margin:8px 0 12px}
+.guide-wrap{display:grid;grid-template-columns:230px minmax(0,1fr) 300px;gap:16px;padding:16px;align-items:start}
+.guide-steps-card,.guide-main,.guide-pal{position:sticky;top:12px}
+.guide-col2{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:14px;min-width:0}
+.guide-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.guide-steps li{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;color:#aab3c2;font-size:13px}
+.guide-steps li:hover{background:rgba(255,255,255,.05)}
+.guide-steps li.on{background:rgba(255,217,138,.12);color:#ffd98a}
+.guide-steps li.done{color:#8fd6a8}
+.guide-steps .idx{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:rgba(255,255,255,.08)}
+.guide-steps .n{margin-left:auto;font-size:11px;color:#8fd6a8}
+.guide-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0 12px}
+.guide-chip{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:9px 10px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:#dfe4ee;cursor:pointer;font-size:12px;text-align:left}
+.guide-chip:hover{border-color:rgba(255,255,255,.3)}
+.guide-chip.on{border-color:#ffd98a;background:rgba(255,217,138,.12);color:#ffd98a}
+.guide-chip .nt{font-size:11px;color:#8d93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.guide-chip.on .nt{color:#e8c98a}
+.guide-preview{white-space:pre-wrap;word-break:break-word;background:#0c0e13;border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:10px;max-height:220px;overflow:auto;font-size:12px;line-height:1.55;color:#b9c2d4}
+.guide-progress{height:4px;border-radius:99px;background:rgba(255,255,255,.08);margin:2px 12px 10px;overflow:hidden}
+.guide-progress i{display:block;height:100%;background:linear-gradient(90deg,#ffd98a,#f0a83c);transition:width .25s}
+.guide-pal-body{max-height:calc(100vh - 420px);overflow:auto;padding:0 0 8px;display:flex;flex-direction:column;gap:2px}
+.guide-pal .pal-group{margin:10px 12px 3px;display:flex;align-items:center;gap:6px}
+.guide-pal .pal-item{margin:0 10px 2px;padding:6px 9px;border-radius:9px;gap:7px;font-size:12px;transform:none!important}
+.guide-pal .pal-item .tk{font-size:11px}
+.gc-lanes{display:grid;grid-template-columns:1fr;gap:12px;padding:0 12px 12px}
+.gc-lanes .lane{min-height:0}
+.gc-lanes .lane-body{min-height:58px;padding:10px;gap:8px;align-items:flex-start}
+.gc-chip{display:inline-flex;align-items:center;padding:5px 10px;border-radius:9px;font-size:12px;
+  border:1px solid rgba(255,255,255,.12);border-left:3px solid var(--c,#7f8798);
+  background:rgba(255,255,255,.03);color:#e6ebf5;cursor:default}
+.gc-chip.neg{border-left-color:#ff8f8f;color:#ffb3b3}
+.gc-x{margin-left:7px;color:#8d93a1;font-size:13px;line-height:1;cursor:pointer;padding:0 2px}
+.gc-x:hover{color:#ff9d9d}
+.gc-lanes .hint{font-size:12px;color:#6d7686}
+@media (max-width:1080px){.guide-wrap{grid-template-columns:200px minmax(0,1fr)}.guide-pal{display:none}}
