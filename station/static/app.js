@@ -53,6 +53,7 @@ function persistParams() {
   try {
     localStorage.setItem('loom.params', JSON.stringify({
       size: ($('#p-size') || {}).value,
+      sizeWH: ($('#p-size') || {}).value === 'custom' ? [($('#p-w') || {}).value, ($('#p-h') || {}).value] : null,
       steps: Number(($('#p-steps') || {}).value) || undefined,
       cfg: Number(($('#p-cfg') || {}).value) || undefined,
       seed: ($('#p-seed') || {}).value,
@@ -88,6 +89,7 @@ async function boot() {
   try {
     const sp = JSON.parse(localStorage.getItem('loom.params') || 'null');
     if (sp) {
+      if (sp.sizeWH && $('#p-w') && $('#p-h')) { $('#p-w').value = sp.sizeWH[0]; $('#p-h').value = sp.sizeWH[1]; }
       if (sp.size && $('#p-size')) $('#p-size').value = sp.size;
       if (sp.steps) $('#p-steps').value = sp.steps;
       if (sp.cfg) $('#p-cfg').value = sp.cfg;
@@ -103,6 +105,7 @@ async function boot() {
   renderGallery();
   fillSelects();
   await loadLibrary();
+  renderCombos();
   refreshMaint();
   const eta = estimate();
   $('#eta').textContent = eta + ' 秒/张';
@@ -570,8 +573,47 @@ function renderParams() {
   if (!$('#p-size')) return;
 }
 function size() {
-  const [w, h] = ($('#p-size').value || '1024x1536').split('x').map(Number);
+  const sel = $('#p-size');
+  if (sel && sel.value === 'custom') {
+    const cw = Math.min(2048, Math.max(256, Math.round((Number($('#p-w').value) || 1024) / 8) * 8));
+    const ch = Math.min(2048, Math.max(256, Math.round((Number($('#p-h').value) || 1536) / 8) * 8));
+    return { w: cw, h: ch };
+  }
+  const [w, h] = ((sel && sel.value) || '1024x1536').split('x').map(Number);
   return { w, h };
+}
+
+function vramGB() {
+  const c = S.comfy || {};
+  const dev = (c.devices && c.devices[0]) || {};
+  const total = c.vram_total || dev.vram_total;
+  return (total ? total : 24e9) / 1e9;
+}
+
+function sizeRisk(w, h) {
+  const px = w * h;
+  const gb = vramGB();
+  if (px / 1e6 > gb * 0.20) return 'bad';
+  if (px / 1e6 > gb * 0.12) return 'warn';
+  return 'ok';
+}
+
+function updateSizeHint() {
+  const box = $('#size-hint');
+  if (!box) return;
+  const { w, h } = size();
+  const steps = Number($('#p-steps').value) || 30;
+  const sec = Math.round(w * h * steps * 1.6e-6 + 1.5);
+  const risk = sizeRisk(w, h);
+  const gb = vramGB();
+  let txt = w + ' × ' + h + ' · ' + (w * h / 1e6).toFixed(2) + ' MP · 预计 ' + sec + ' 秒/张';
+  if (risk === 'warn') txt += ' · ⚠ 接近显存上限（' + gb.toFixed(0) + ' GB）';
+  if (risk === 'bad') {
+    const lim = Math.floor(Math.sqrt(gb * 0.18 * 1e6 * 2 / 3) / 8) * 8;
+    txt += ' · ⚠ 很可能 OOM，建议不超过 ' + lim + ' × ' + Math.round(lim * 1.5 / 8) * 8;
+  }
+  box.textContent = txt;
+  box.className = 'size-hint' + (risk === 'ok' ? '' : ' ' + risk);
 }
 function estimate() {
   const { w, h } = size();
@@ -584,6 +626,7 @@ function updateEta() {
   const sec = Math.round(w * h * steps * 1.6e-6 + 1.5);
   S.eta = sec;
   $('#eta').textContent = '预计 ' + sec + ' 秒/张';
+  updateSizeHint();
 }
 
 function renderLoras() {
@@ -604,6 +647,9 @@ function renderLoras() {
 async function run() {
   if (!S.lastExpanded || !S.lastExpanded.positive.trim()) { alert('正向提示词为空'); return; }
   const { w, h } = size();
+  const risk = sizeRisk(w, h);
+  if (risk === 'bad' && !confirm('当前 ' + w + '×' + h + ' 很可能爆显存，继续吗？')) return;
+  if (risk === 'warn') toast('⚠ 分辨率接近显存上限，留意 OOM');
   $('#run-btn').disabled = true;
   $('#run-status').textContent = '提交中…';
   $('#run-bar').style.width = '2%';
@@ -852,7 +898,7 @@ function bindZoom() {
   const fit = () => {
     const nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
     const w = wrap.clientWidth, h = wrap.clientHeight;
-    ZV.scale = Math.min(w / nw, h / nh, 1);
+    ZV.scale = Math.min(w / nw, h / nh, 4);
     ZV.tx = (w - nw * ZV.scale) / 2;
     ZV.ty = (h - nh * ZV.scale) / 2;
     ZV.fitted = true;
@@ -982,6 +1028,67 @@ function bindZoom() {
       zoomToRect(bx, by, p[2] * nw * ZV.scale, p[3] * nh * ZV.scale);
     }, 300);
   }
+}
+
+/* ---------- 词库：组合推荐 ---------- */
+const COMBOS = [
+  { name: '窗光肖像', tokens: ['@SET_ROOM', '@LIGHT_WIN', '@COMP_CENTER'] },
+  { name: '咖啡厅黄昏', tokens: ['@SET_CAFE', '@TIME_DUSK', '@LIGHT_WIN'] },
+  { name: '夜景街拍', tokens: ['@SET_STREET', '@TIME_NIGHT', '@LIGHT_NIGHT'] },
+  { name: '清晨公园', tokens: ['@SET_PARK', '@TIME_MORNING', '@LIGHT_SOFT'] },
+  { name: '书架肖像', tokens: ['@SET_LIBRARY', '@LIGHT_SOFT', '@COMP_THIRDS'] },
+  { name: '干净棚拍', tokens: ['@SET_STUDIO', '@LIGHT_STUDIO', '@COMP_MINIMAL'] },
+  { name: '低机位', tokens: ['@CAM_LOW', '@COMP_LOW', '@LIGHT_RIM'] },
+  { name: '俯视', tokens: ['@CAM_HIGH', '@COMP_OVERHEAD', '@LIGHT_TOP'] },
+  { name: '逆光剪影', tokens: ['@LIGHT_BACK', '@COMP_SILHOUETTE', '@CAM_FULL'] },
+  { name: '三分留白', tokens: ['@COMP_THIRDS', '@COMP_NEGATIVE', '@COMP_LOOKROOM'] },
+  { name: '特写', tokens: ['@CAM_BUST', '@COMP_FILL', '@LIGHT_SOFT'] },
+  { name: '街拍全身', tokens: ['@CAM_FULL', '@SET_STREET', '@LIGHT_BACK'] },
+];
+
+function userCombos() {
+  try { return JSON.parse(localStorage.getItem('loom.combos') || '[]'); } catch (e) { return []; }
+}
+function saveUserCombos(arr) { localStorage.setItem('loom.combos', JSON.stringify(arr)); }
+function allCombos() { return COMBOS.concat(userCombos().map(c => Object.assign({ user: true }, c))); }
+
+function renderCombos() {
+  const box = document.querySelector('#combo-list');
+  if (!box) return;
+  const list = allCombos();
+  box.innerHTML = list.map((c, i) => {
+    const toks = c.tokens.filter(t => S.tokens[t]);
+    const desc = toks.map(t => t.replace('@', '')).join(' · ');
+    return '<div class="combo-item' + (c.user ? ' user' : '') + '" data-combo="' + i + '">' +
+      '<b>' + esc(c.name) + '</b><span>' + desc + '</span>' +
+      (c.user ? '<span class="combo-del" data-del-combo="' + i + '" title="删除">×</span>' : '') + '</div>';
+  }).join('');
+  box.querySelectorAll('[data-del-combo]').forEach(x => {
+    x.onclick = ev => {
+      ev.stopPropagation();
+      const c = allCombos()[+x.dataset.delCombo];
+      if (!c || !c.user) return;
+      if (!confirm('删除组合「' + c.name + '」？')) return;
+      saveUserCombos(userCombos().filter(u => u.name !== c.name));
+      renderCombos();
+    };
+  });
+  box.querySelectorAll('.combo-item').forEach(el => {
+    el.onclick = () => {
+      const c = allCombos()[+el.dataset.combo];
+      const toks = c.tokens.filter(t => S.tokens[t]);
+      let added = 0;
+      toks.forEach(t => {
+        const lane = tokenCat(t) === 'neg' ? 'negative' : 'positive';
+        const arr = lane === 'negative' ? S.neg : S.pos;
+        if (arr.some(b => b.token === t)) return;
+        addBlock(lane, t); added++;
+      });
+      const b = document.querySelector('#tabs button[data-tab="build"]');
+      if (b) b.click();
+      toast(added ? ('已加入「' + c.name + '」：' + added + ' 块') : ('「' + c.name + '」已经在画布上了'));
+    };
+  });
 }
 
 /* ---------- 词库 ---------- */
@@ -2574,12 +2681,34 @@ function bindUI() {
     $$('.view').forEach(v => v.classList.remove('active'));
     $('#view-' + b.dataset.tab).classList.add('active');
     if (b.dataset.tab === 'guide') renderGuide();
+    if (b.dataset.tab === 'library') renderCombos();
     if (b.dataset.tab === 'gallery') renderGallery();
     if (b.dataset.tab === 'train') trainInfo();
     if (b.dataset.tab === 'maint') refreshMaint();
     if (b.dataset.tab === 'engine') loadEngine();
   });
   $('#palette-search').oninput = e => { S.paletteFilter = e.target.value; renderPalette(); };
+  const comboNew = $('#combo-save-new'), comboForm = $('#combo-save-form');
+  const comboName = $('#combo-save-name');
+  if (comboNew && comboForm) {
+    comboNew.onclick = () => {
+      comboForm.hidden = !comboForm.hidden;
+      if (!comboForm.hidden) { comboName.value = ''; comboName.focus(); }
+    };
+    $('#combo-save-cancel').onclick = () => { comboForm.hidden = true; };
+    $('#combo-save-btn').onclick = () => {
+      const name = (comboName.value || '').trim();
+      if (!name) return toast('给组合起个名字');
+      const toks = S.pos.concat(S.neg).map(b => b.token).filter(Boolean);
+      if (!toks.length) return toast('画布还是空的');
+      const list = userCombos().filter(c => c.name !== name);
+      list.push({ name: name, tokens: Array.from(new Set(toks)) });
+      saveUserCombos(list);
+      comboForm.hidden = true;
+      renderCombos();
+      toast('已保存组合「' + name + '」（' + toks.length + ' 块）');
+    };
+  }
   const showNeg = $('#pal-show-neg');
   if (showNeg) {
     S.showCompanionNeg = loadJSON('loom.showCompanionNeg', false);
@@ -2712,7 +2841,14 @@ function bindUI() {
       await openBatch();
     } catch (e) { toast('打开批量失败：' + e.message, true); }
   };
-  $('#p-size').onchange = updateEta;
+  const pSize = $('#p-size'), customSize = $('#custom-size');
+  const syncCustom = () => {
+    if (customSize) customSize.hidden = !(pSize && pSize.value === 'custom');
+    updateEta();
+  };
+  if (pSize) pSize.onchange = syncCustom;
+  ['#p-w', '#p-h'].forEach(sel => { const el = $(sel); if (el) el.oninput = updateEta; });
+  syncCustom();
   $('#p-steps').oninput = updateEta;
   $('#p-cfg').oninput = updateEta;
   $('#p-seed').oninput = updateEta;
