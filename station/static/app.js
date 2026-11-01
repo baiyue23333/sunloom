@@ -329,6 +329,25 @@ function cmdAdd(i) {
   closeCmd();
 }
 
+
+/* ---------- 组合建议（只提示，不自动加） ---------- */
+const SUGGEST = {
+  '@SET_CAFE': [{ t: '@TIME_DUSK', why: '黄昏窗光' }],
+  '@SET_STREET': [{ t: '@TIME_NIGHT', why: '夜景街灯' }, { t: '@LIGHT_NIGHT', why: '暗部补光' }],
+  '@SET_PARK': [{ t: '@TIME_MORNING', why: '清晨公园' }],
+  '@SET_LIBRARY': [{ t: '@LIGHT_SOFT', why: '书架软光' }],
+  '@SET_ROOM': [{ t: '@LIGHT_WIN', why: '窗光日常' }],
+  '@SET_STUDIO': [{ t: '@LIGHT_BACK', why: '影棚轮廓光' }],
+  '@CAM_HIGH': [{ t: '@COMP_OVERHEAD', why: '高机位俯视' }],
+  '@CAM_LOW': [{ t: '@COMP_LOW', why: '低机位构图' }],
+  '@CAM_BACK': [{ t: '@COMP_LOOKROOM', why: '背影留视线空间' }],
+};
+
+function suggestFor(token) {
+  const list = SUGGEST[token] || [];
+  return list.filter(h => !S.pos.some(b => b.token === h.t) && !S.neg.some(b => b.token === h.t));
+}
+
 /* ---------- 画布 ---------- */
 /* 专属负向：由某个正向块配对产生（服装→@NEG_<KEY>、型态→@NEG_DRAPE_* 等），
    默认在积木库隐藏，加入正向块后自动出现在负向泳道。 */
@@ -396,6 +415,18 @@ function addBlock(lane, tokenOrObj) {
   }
   renderLanes(); expandPreview();
   if (extra.length) toast('已同步加入配套：' + extra.join('、'));
+  if (lane === 'positive' && token) {
+    const hints = suggestFor(token);
+    if (hints.length) {
+      S.hinted = S.hinted || {};
+      if (!S.hinted[token]) {
+        S.hinted[token] = true;
+        setTimeout(() => {
+          toast('建议：' + hints.map(h => h.t + '（' + h.why + '）').join('、'));
+        }, extra.length ? 1400 : 0);
+      }
+    }
+  }
 }
 
 function renderLanes() {
