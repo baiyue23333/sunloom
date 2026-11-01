@@ -1,7 +1,7 @@
 # 部署到 Linux（Ubuntu）
 
 > 这份是给 Linux 服务器/云 GPU 用的；Windows 走 [新手指南](新手指南.md) 里的一键脚本。
-> 实测环境：Ubuntu 24.04 + RTX 4090 + Python 3.12。
+> 实测环境：Ubuntu 24.04 + 24GB 级显卡 + Python 3.12。
 
 ## 0. 前置
 
