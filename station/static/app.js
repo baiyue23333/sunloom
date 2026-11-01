@@ -18,7 +18,7 @@ const CAT_LABEL = {
   cam:'机位', light:'打光', atmo:'氛围', time:'时间',
   outfit:'服装', fabric:'材质', drape:'型态',
   set:'场景', prop:'道具', comp:'构图', style:'风格',
-  neg:'负向', custom:'自定义'
+  neg:'负向', custom:'自定义', nsfw:'NSFW'
 };
 
 const api = async (url, opt) => {
@@ -30,8 +30,12 @@ const api = async (url, opt) => {
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 /* ---------- 分类推断 ---------- */
+const NSFW_TOKENS = new Set(['@MOOD_SMOKE','@MOOD_ALCOHOL','@MOOD_TIRED','@MOOD_COLD','@STYLE_NOIR','@STYLE_GRAIN','@MAKEUP_SICK','@NEG_NSFW']);
+const RAIL_SHORT = { nsfw: '18+' };
+
 function tokenCat(name) {
   const n = name.toUpperCase();
+  if (NSFW_TOKENS.has(n)) return 'nsfw';
   const map = [
     ['@SUBJ', 'id'], ['@BODY', 'body'], ['@FACE', 'face'], ['@OUTFIT', 'outfit'],
     ['@NEG', 'neg'], ['@DRAPE', 'drape'], ['@OUT', 'outfit'], ['@MOOD', 'mood'], ['@POSE', 'pose'],
@@ -168,7 +172,7 @@ function renderPalette() {
   if (!box || !rail) return;
   const groups = paletteGroups();
   const order = ['id','body','pose','face','mood','gaze','hand','hold','weapon','hair','cam','light','atmo','time',
-                 'outfit','fabric','drape','set','prop','comp','style','neg','custom'];
+                 'outfit','fabric','drape','set','prop','comp','style','nsfw','neg','custom'];
   const collapsed = S.collapsedCats || (S.collapsedCats = loadJSON('loom.collapsedCats', {}));
   let html = '', railHtml = '';
   const hiddenNeg = S.showCompanionNeg ? new Set() : companionNegSet();
@@ -208,7 +212,7 @@ function renderPalette() {
     }
     html += '</div>';
     railHtml += '<button class="rail-item" data-jump="' + key + '" data-cat="' + key +
-      '" title="' + label + '"><i></i>' + label.slice(0, 2) + '</button>';
+      '" title="' + label + '"><i></i>' + (RAIL_SHORT[key] || label.slice(0, 2)) + '</button>';
   }
   box.innerHTML = html || '<div class="hint">没有匹配的积木</div>';
   rail.innerHTML = railHtml;
@@ -1097,7 +1101,7 @@ async function loadLibrary(filter) {
   S.libraryFilter = q;
   const letter = S.libLetter || '';
   const order = ['id','body','pose','face','mood','gaze','hand','hold','weapon','hair','cam','light','atmo','time',
-                 'outfit','fabric','drape','set','prop','comp','style','neg','custom'];
+                 'outfit','fabric','drape','set','prop','comp','style','nsfw','neg','custom'];
   const all = Object.entries(S.tokens)
     .filter(([n, tx]) => !q || n.toLowerCase().includes(q) || (tx || '').toLowerCase().includes(q));
   const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -2537,7 +2541,7 @@ function renderGuidePalette() {
   const q = ((S.guideFilter || '')).toLowerCase();
   const hidden = S.showCompanionNeg ? new Set() : companionNegSet();
   const order = ['id','body','pose','face','mood','gaze','hand','hold','weapon','hair','cam','light','atmo','time',
-                 'outfit','fabric','drape','set','prop','comp','style','neg','custom'];
+                 'outfit','fabric','drape','set','prop','comp','style','nsfw','neg','custom'];
   const groups = {};
   Object.keys(S.tokens || {}).forEach(k => {
     if (hidden.has(k)) return;

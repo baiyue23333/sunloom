@@ -866,3 +866,5 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
 .combo-form{display:grid;gap:8px;padding:0 12px 12px}
 .combo-form label{display:grid;gap:4px;font-size:12px;color:#9aa2b1}
 .combo-form input{font-size:12px}
+
+[data-cat="nsfw"]{--c:#ff7b7b}
