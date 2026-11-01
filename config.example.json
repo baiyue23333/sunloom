@@ -1,5 +1,6 @@
 {
   "comfy_url": "http://127.0.0.1:8188",
+  "comfy_output": "",
   "model": {
     "unet_name": "your-model.safetensors",
     "clip_name": "your-text-encoder.safetensors",

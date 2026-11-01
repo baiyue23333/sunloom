@@ -1,5 +1,19 @@
 # 更新日志
 
+## 2026-11-01（v0.5.13）
+
+### 修复：正向提示词一直没有进图（关键）
+- `submit_job` 传给 workflow 的参数里只有 `prompt`，而 t2i / i2i 模板用的是 `{{positive}}`，于是每次出图正向都是空串——画面只受负向影响。
+- 现在参数同时提供 `positive`，正向正常进图；实测同一 seed 前后两张图完全不同。
+- 新增 `tests/test_workflows.py`：静态检查每个 `{{占位符}}` 都有参数来源，并验证 t2i 填充后正负向确实落到 CLIPTextEncode。
+
+### 修复：ComfyUI 出图后站内找不到
+- `config.example.json` 增加 `comfy_output`；不填时新实例会报 `result file not found`（图其实已生成）。
+- `docs/部署-Linux.md` 补充这一项。
+
+### 新增
+- `docs/部署-Linux.md`：Ubuntu / 云 GPU 的部署与验收清单（apt 依赖、venv、uvicorn、ComfyUI 接线、SSH 隧道、FAQ）。
+
 ## 2026-10-31（v0.5.12）
 
 ### 新增：配套积木
