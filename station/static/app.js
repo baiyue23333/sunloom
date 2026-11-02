@@ -104,6 +104,8 @@ async function boot() {
     }
   } catch (e) {}
   renderPalette(); renderLanes(); renderLoras(); renderParams();
+  const randBtn = document.querySelector('#btn-random');
+  if (randBtn) randBtn.onclick = randomCompose;
   await loadPresets();
   await loadTemplates();
   renderGallery();
@@ -649,6 +651,7 @@ function renderLoras() {
 
 /* ---------- 出图 ---------- */
 async function run() {
+  STYLE_LOCK_APPLY();
   if (!S.lastExpanded || !S.lastExpanded.positive.trim()) { alert('正向提示词为空'); return; }
   const { w, h } = size();
   const risk = sizeRisk(w, h);
@@ -875,6 +878,160 @@ function importRecipe(r) {
   if (typeof persistParams === 'function') persistParams();
   toast('已导入配方：' + S.pos.length + ' 正 / ' + S.neg.length + ' 负 · seed ' + (r.seed ?? '随机'));
 }
+
+const STYLE_LOCK_APPLY = () => {
+  const lock = $('#p-lock');
+  const hard = !!(lock && lock.checked);
+  const anchor = hard ? '@STYLE_ANIME' : '@STYLE_SOFT';
+  const has = (arr, tok) => arr.some(b => b.token === tok);
+  if (!has(S.pos, anchor)) S.pos.push({ id: uid(), token: anchor, text: '', weight: 1, enabled: true });
+  if (hard && has(S.pos, '@STYLE_SOFT')) S.pos = S.pos.filter(b => b.token !== '@STYLE_SOFT');
+  if (!has(S.neg, '@NEG_REAL')) S.neg.push({ id: uid(), token: '@NEG_REAL', text: '', weight: 1, enabled: true });
+  S.loras = (S.loras || []).map((l, i) => Object.assign({}, l, { weight: i === 0 ? 0.5 : 0.66 }));
+  if (typeof renderLanes === 'function') renderLanes();
+  if (typeof renderLoras === 'function') renderLoras();
+};
+
+
+const RAND_SCENE = {
+  '@SET_ONSEN':  { time: ['@TIME_NIGHT','@TIME_DUSK'], light: ['@LIGHT_CANDLE','@LIGHT_RIM'], pose: ['@POSE_SIT'], atmo: ['@ATMO_FOG'], mood: ['@MOOD_CALM','@MOOD_TENDER','@MOOD_SHY'] },
+  '@SET_BEACH':  { time: ['@TIME_NOON','@TIME_AFTERNOON','@TIME_DUSK'], light: ['@LIGHT_WIN','@LIGHT_GOLDEN','@LIGHT_BACK'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_PETALS'], mood: ['@MOOD_AMUSED','@MOOD_RELIEVED'] },
+  '@SET_GARDEN_PEONY': { time: ['@TIME_MORNING','@TIME_AFTERNOON'], light: ['@LIGHT_BACK','@LIGHT_WIN'], pose: ['@POSE_SIT','@POSE_STAND'], atmo: ['@ATMO_KOMOREKI','@ATMO_PETALS'], mood: ['@MOOD_CALM','@MOOD_WISTFUL'] },
+  '@SET_FOREST': { time: ['@TIME_MORNING','@TIME_DUSK'], light: ['@LIGHT_BACK','@LIGHT_GOLDEN'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_KOMOREKI','@ATMO_FOG'], mood: ['@MOOD_WISTFUL','@MOOD_CALM'] },
+  '@SET_FLOWER_SHOP': { time: ['@TIME_MORNING','@TIME_AFTERNOON'], light: ['@LIGHT_WIN'], pose: ['@POSE_STAND'], atmo: ['@ATMO_PETALS'], mood: ['@MOOD_AMUSED','@MOOD_CALM'] },
+  '@SET_GREENHOUSE': { time: ['@TIME_MORNING','@TIME_AFTERNOON'], light: ['@LIGHT_WIN','@LIGHT_BACK'], pose: ['@POSE_STAND'], atmo: ['@ATMO_KOMOREKI'], mood: ['@MOOD_CALM'] },
+  '@SET_CAFE':   { time: ['@TIME_AFTERNOON','@TIME_MORNING','@TIME_DUSK'], light: ['@LIGHT_WIN','@LIGHT_GOLDEN'], pose: ['@POSE_SIT'], atmo: ['@ATMO_DUST','@ATMO_LAMP'], mood: ['@MOOD_CALM','@MOOD_THINKING'] },
+  '@SET_LIBRARY':{ time: ['@TIME_AFTERNOON','@TIME_MORNING'], light: ['@LIGHT_WIN','@LIGHT_SIDE'], pose: ['@POSE_SIT'], atmo: ['@ATMO_DUST','@ATMO_LAMP'], mood: ['@MOOD_FOCUSED','@MOOD_CALM'] },
+  '@SET_BOOKSTORE':{ time: ['@TIME_AFTERNOON','@TIME_DUSK'], light: ['@LIGHT_WIN'], pose: ['@POSE_STAND','@POSE_LEAN'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_FOCUSED','@MOOD_THINKING'] },
+  '@SET_BEDROOM':{ time: ['@TIME_MORNING','@TIME_NIGHT'], light: ['@LIGHT_WIN','@LIGHT_CANDLE'], pose: ['@POSE_SIT','@POSE_LIE'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_SLEEPY','@MOOD_CALM'] },
+  '@SET_BATHROOM':{ time: ['@TIME_MORNING','@TIME_NIGHT'], light: ['@LIGHT_WIN','@LIGHT_CANDLE'], pose: ['@POSE_STAND'], atmo: ['@ATMO_FOG'], mood: ['@MOOD_CALM'] },
+  '@SET_CLASSROOM':{ time: ['@TIME_AFTERNOON','@TIME_MORNING'], light: ['@LIGHT_WIN'], pose: ['@POSE_SIT','@POSE_STAND'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_CALM','@MOOD_THINKING'] },
+  '@SET_ARTROOM':{ time: ['@TIME_AFTERNOON'], light: ['@LIGHT_WIN','@LIGHT_SIDE'], pose: ['@POSE_SIT','@POSE_STAND'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_FOCUSED'] },
+  '@SET_KITCHEN':{ time: ['@TIME_MORNING','@TIME_AFTERNOON'], light: ['@LIGHT_WIN'], pose: ['@POSE_STAND'], atmo: [], mood: ['@MOOD_AMUSED','@MOOD_CALM'] },
+  '@SET_LAUNDRY':{ time: ['@TIME_MORNING','@TIME_AFTERNOON'], light: ['@LIGHT_WIN'], pose: ['@POSE_STAND','@POSE_LEAN'], atmo: [], mood: ['@MOOD_RELIEVED'] },
+  '@SET_CORRIDOR':{ time: ['@TIME_AFTERNOON','@TIME_DUSK'], light: ['@LIGHT_WIN','@LIGHT_BACK'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_DETACHED'] },
+  '@SET_MUSEUM':{ time: ['@TIME_AFTERNOON'], light: ['@LIGHT_STUDIO','@LIGHT_SIDE'], pose: ['@POSE_STAND'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_CALM'] },
+  '@SET_ELEVATOR':{ time: ['@TIME_NIGHT','@TIME_AFTERNOON'], light: ['@LIGHT_TOP'], pose: ['@POSE_STAND'], atmo: [], mood: ['@MOOD_DETACHED'] },
+  '@SET_STATION':{ time: ['@TIME_DUSK','@TIME_NIGHT','@TIME_BLUE'], light: ['@LIGHT_BACK','@LIGHT_RIM'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_WISTFUL'] },
+  '@SET_SUBWAY':{ time: ['@TIME_NIGHT','@TIME_BLUE'], light: ['@LIGHT_TOP','@LIGHT_RIM'], pose: ['@POSE_STAND','@POSE_SIT'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_TIRED','@MOOD_DETACHED'] },
+  '@SET_TRAM':{ time: ['@TIME_DUSK','@TIME_MORNING'], light: ['@LIGHT_WIN','@LIGHT_GOLDEN'], pose: ['@POSE_SIT'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_WISTFUL'] },
+  '@SET_AIRPORT':{ time: ['@TIME_MORNING','@TIME_DUSK'], light: ['@LIGHT_WIN','@LIGHT_BACK'], pose: ['@POSE_WALK','@POSE_STAND'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_DETACHED'] },
+  '@SET_MARKET':{ time: ['@TIME_NIGHT','@TIME_DUSK'], light: ['@LIGHT_NEON','@LIGHT_RIM'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_NEON','@ATMO_BOKEH'], mood: ['@MOOD_AMUSED','@MOOD_EXCITED'] },
+  '@SET_ROOFTOP':{ time: ['@TIME_DUSK','@TIME_BLUE','@TIME_NIGHT'], light: ['@LIGHT_BACK','@LIGHT_RIM','@LIGHT_NEON'], pose: ['@POSE_STAND','@POSE_LEAN'], atmo: ['@ATMO_MOON','@ATMO_BOKEH'], mood: ['@MOOD_WISTFUL','@MOOD_DETACHED'] },
+  '@SET_BALCONY':{ time: ['@TIME_DUSK','@TIME_BLUE'], light: ['@LIGHT_BACK','@LIGHT_GOLDEN'], pose: ['@POSE_LEAN','@POSE_STAND'], atmo: ['@ATMO_BOKEH'], mood: ['@MOOD_CALM','@MOOD_WISTFUL'] },
+  '@SET_ARCADE':{ time: ['@TIME_NIGHT'], light: ['@LIGHT_NEON'], pose: ['@POSE_STAND'], atmo: ['@ATMO_NEON'], mood: ['@MOOD_EXCITED','@MOOD_AMUSED'] },
+  '@SET_SHRINE':{ time: ['@TIME_DUSK','@TIME_MORNING'], light: ['@LIGHT_GOLDEN','@LIGHT_BACK'], pose: ['@POSE_STAND'], atmo: ['@ATMO_PETALS','@ATMO_DUST'], mood: ['@MOOD_CALM'] },
+  '@SET_TEMPLE':{ time: ['@TIME_DAWN','@TIME_DUSK'], light: ['@LIGHT_GOLDEN','@LIGHT_BACK'], pose: ['@POSE_STAND'], atmo: ['@ATMO_FOG'], mood: ['@MOOD_CALM'] },
+  '@SET_CASTLE':{ time: ['@TIME_DUSK','@TIME_NIGHT'], light: ['@LIGHT_CANDLE','@LIGHT_BACK'], pose: ['@POSE_STAND','@POSE_SIT'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_CALM'] },
+  '@SET_RUINS':{ time: ['@TIME_DUSK','@TIME_NOON'], light: ['@LIGHT_SIDE','@LIGHT_GOLDEN'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_WISTFUL'] },
+  '@SET_DESERT':{ time: ['@TIME_NOON','@TIME_DUSK'], light: ['@LIGHT_SIDE','@LIGHT_GOLDEN'], pose: ['@POSE_WALK','@POSE_STAND'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_TIRED'] },
+  '@SET_SNOWFIELD':{ time: ['@TIME_MORNING','@TIME_BLUE'], light: ['@LIGHT_BACK','@LIGHT_WIN'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_FOG'], mood: ['@MOOD_CALM','@MOOD_COLD'] },
+  '@SET_PIANO':{ time: ['@TIME_AFTERNOON','@TIME_DUSK'], light: ['@LIGHT_WIN','@LIGHT_GOLDEN'], pose: ['@POSE_SIT'], atmo: ['@ATMO_DUST'], mood: ['@MOOD_CALM'] },
+  '@SET_SCHOOL_GATE':{ time: ['@TIME_MORNING','@TIME_AFTERNOON'], light: ['@LIGHT_WIN','@LIGHT_GOLDEN'], pose: ['@POSE_STAND','@POSE_WALK'], atmo: ['@ATMO_PETALS'], mood: ['@MOOD_CALM'] },
+};
+
+function weightedPick(arr, tok) {
+  const notes = (S.notes && S.notes[tok]) || '';
+  const w = notes.indexOf('成功') >= 0 ? 3 : 1;
+  let total = arr.reduce((s, t) => s + ((S.notes && S.notes[t] || '').indexOf('成功') >= 0 ? 3 : 1), 0);
+  let x = Math.random() * total;
+  for (const t of arr) { x -= ((S.notes && S.notes[t] || '').indexOf('成功') >= 0 ? 3 : 1); if (x <= 0) return t; }
+  return arr[arr.length - 1] || tok;
+}
+
+function randomCompose() {
+  const all = Object.keys(S.tokens || {});
+  if (!all.length) return;
+  const pick = a => weightedPick(a, a[0]);
+  const some = a => a.filter(Boolean);
+  const has = t => all.includes(t);
+  const byPrefix = p => all.filter(t => t.startsWith(p) && !(S.notes[t] || '').includes('失败'));
+  const last = S._randLast || {};
+
+  const outfits = Object.keys(S.garments || {}).filter(k => !['swimsuit', 'school_bare', 'yukata_bare'].includes(k) && k !== last.outfit);
+  const sceneOutfit = {
+    '@SET_ONSEN': ['yukata', 'slip', 'loungewear'], '@SET_BEACH': ['swimsuit', 'sundress_floral', 'sundress'],
+    '@SET_CLASSROOM': ['school', 'sailor_winter', 'lab_coat'], '@SET_SCHOOL_GATE': ['school', 'sailor_winter'],
+    '@SET_LIBRARY': ['cardigan_set', 'lab_coat', 'school'], '@SET_BOOKSTORE': ['cardigan_set', 'casual_knit', 'school'],
+    '@SET_CAFE': ['cardigan_set', 'casual_knit', 'school'], '@SET_BEDROOM': ['pajama', 'loungewear', 'slip', 'cardigan_set'],
+    '@SET_GYM': ['gym', 'hoodie_casual'], '@SET_SHRINE': ['yukata', 'hanfu', 'cheongsam'],
+    '@SET_TEMPLE': ['yukata', 'hanfu'], '@SET_GARDEN_PEONY': ['sundress_floral', 'sundress', 'cardigan_set'],
+    '@SET_MARKET': ['casual_knit', 'denim_set', 'hoodie_casual', 'sailor_winter'],
+    '@SET_ROOFTOP': ['casual_knit', 'denim_set', 'school'], '@SET_BALCONY': ['casual_knit', 'denim_set', 'slip'],
+    '@SET_STATION': ['sailor_winter', 'casual_knit', 'denim_set'], '@SET_SUBWAY': ['sailor_winter', 'denim_set', 'hoodie_casual'],
+    '@SET_CORRIDOR': ['school', 'sailor_winter', 'lab_coat', 'denim_set'], '@SET_ARTROOM': ['school', 'cardigan_set', 'lab_coat'],
+    '@SET_FLOWER_SHOP': ['sundress_floral', 'cardigan_set'], '@SET_GREENHOUSE': ['sundress_floral', 'sundress'],
+    '@SET_DESERT': ['denim_set', 'hanfu', 'sundress_floral'], '@SET_SNOWFIELD': ['winter', 'sailor_winter', 'santa'],
+    '@SET_FOREST': ['cardigan_set', 'sundress_floral', 'hanfu'], '@SET_RUINS': ['hanfu', 'sundress_floral', 'denim_set'],
+    '@SET_CASTLE': ['hanfu', 'gala', 'cheongsam'], '@SET_AIRPORT': ['denim_set', 'casual_knit', 'suit'],
+    '@SET_TRAM': ['cardigan_set', 'denim_set', 'school'], '@SET_PIANO': ['gala', 'initial_fine', 'cheongsam'],
+    '@SET_LAUNDRY': ['casual_knit', 'loungewear', 'hoodie_casual'], '@SET_KITCHEN': ['casual_knit', 'loungewear', 'sundress'],
+    '@SET_BATHROOM': ['slip', 'loungewear', 'pajama'], '@SET_ELEVATOR': ['suit', 'denim_set', 'school'],
+    '@SET_MUSEUM': ['gala', 'lab_coat', 'cheongsam'], '@SET_ARCADE': ['hoodie_casual', 'denim_set', 'casual_knit'],
+  };
+  const scenePool = byPrefix('@SET_').filter(t => t !== last.scene);
+  const scene = pick(scenePool.length ? scenePool : byPrefix('@SET_'));
+  const prof = RAND_SCENE[scene] || {};
+  const outfitPool = (sceneOutfit[scene] || []).filter(k => outfits.includes(k));
+  const outfit = pick(outfitPool.length ? outfitPool : outfits);
+
+  const camRoll = Math.random();
+  const cam = camRoll < 0.28 ? '@CAM_MEDIUM' : camRoll < 0.55 ? '@CAM_FULL' : camRoll < 0.75 ? '@CAM_BUST' : camRoll < 0.9 ? '@CAM_THREEQ' : '@CAM_CLOSEUP';
+  const needsPose = cam === '@CAM_FULL' || cam === '@CAM_THREEQ' || cam === '@CAM_MEDIUM';
+  const posePool = (prof.pose && prof.pose.length ? prof.pose : byPrefix('@POSE_')).filter(t => t !== '@POSE_LIE' || cam === '@CAM_FULL');
+  const pose = needsPose ? pick(posePool.length ? posePool : byPrefix('@POSE_')) : '';
+
+  const timePool = (prof.time && prof.time.length ? prof.time : byPrefix('@TIME_')).filter(has);
+  const time = timePool.length ? pick(timePool) : '';
+  const lightPool = (prof.light && prof.light.length ? prof.light : byPrefix('@LIGHT_')).filter(has);
+  const light = lightPool.length ? pick(lightPool) : '';
+
+  const gazePool = byPrefix('@GAZE_').filter(t => t !== '@GAZE_CLOSED');
+  const gaze = ((cam === '@CAM_BUST' || cam === '@CAM_CLOSEUP') && Math.random() < 0.6 && has('@GAZE_CAMERA')) ? '@GAZE_CAMERA' : (gazePool.length ? pick(gazePool) : '');
+  const bodyPool = byPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH'].includes(t));
+  const body = bodyPool.length ? pick(bodyPool) : '';
+  const facePool = byPrefix('@FACE_').filter(t => t !== '@FACE_ADULT');
+  const face = facePool.length ? pick(facePool) : '';
+
+  const pos = ['@SINGLE', '@ID', body, face, gaze, cam, time, light, scene, '@OUT_' + outfit.toUpperCase()];
+  if (pose) pos.push(pose);
+  const moodPool = (prof.mood && prof.mood.length ? prof.mood : byPrefix('@MOOD_')).filter(has);
+  if (moodPool.length && Math.random() < 0.6) pos.push(pick(moodPool));
+  const atmoPool = (prof.atmo && prof.atmo.length ? prof.atmo : byPrefix('@ATMO_')).filter(has);
+  if (atmoPool.length && Math.random() < 0.35) pos.push(pick(atmoPool));
+  const compPool = byPrefix('@COMP_');
+  if (compPool.length && Math.random() < 0.3) pos.push(pick(compPool));
+  const bgPool = ['@BG_DEPTH', '@BG_SHADOWFALL', '@BG_FRAME'].filter(has);
+  if (bgPool.length && Math.random() < 0.2) pos.push(pick(bgPool));
+
+  const lockOn = !!($('#p-lock') && $('#p-lock').checked);
+  const styleAnchor = lockOn && has('@STYLE_ANIME') ? '@STYLE_ANIME' : '@STYLE_SOFT';
+  pos.push(styleAnchor);
+
+  const neg = ['@NEG_BASE', '@NEG_HANDS', '@NEG_REAL', '@NEG_' + outfit.toUpperCase()];
+  if (['@LIGHT_NEON', '@LIGHT_CANDLE'].includes(light) || time === '@TIME_NIGHT') neg.push('@NEG_SKIN');
+  if (pose) neg.push('@NEG_ANATOMY');
+
+  const mk = t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true });
+  S.pos = pos.filter(t => has(t)).map(mk);
+  S.neg = neg.filter(t => has(t)).map(mk);
+  const seed = 100000 + Math.floor(Math.random() * 899999);
+  S.loras = (S.loras || []).map((l, i) => Object.assign({}, l, { weight: i === 0 ? 0.5 : 0.66 }));
+  const sizeSel = document.querySelector('#p-size');
+  if (sizeSel && [...sizeSel.options].some(o => o.value === '1024x1536')) sizeSel.value = '1024x1536';
+  const customSize = document.querySelector('#custom-size');
+  if (customSize) customSize.hidden = true;
+  if (document.querySelector('#p-seed')) document.querySelector('#p-seed').value = seed;
+  if (document.querySelector('#p-steps')) document.querySelector('#p-steps').value = 30;
+  if (document.querySelector('#p-cfg')) document.querySelector('#p-cfg').value = 5.5;
+  S._randLast = { scene: scene, outfit: outfit, light: light };
+  renderLanes();
+  expandPreview();
+  if (typeof updateEta === 'function') updateEta();
+  const label = (S.garments[outfit] && S.garments[outfit].label) || outfit;
+  toast('随机：' + String(scene||'').replace('@SET_', '') + ' · ' + label + ' · ' + String(light||'无光').replace('@LIGHT_', '') + ' · ' + (lockOn ? '硬边' : '柔和') + ' · seed ' + seed);
+}
+
 
 async function openImage(path) {
   const qc = await api('/api/qc?path=' + encodeURIComponent(path));
