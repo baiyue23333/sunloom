@@ -133,7 +133,15 @@
     "@MOOD_COLD": "(cold detached expression:1.3), (sharp steady gaze:1.2), (lips pressed thin:1.15)",
     "@STYLE_NOIR": "(film noir lighting:1.4), (hard key light with deep black shadows:1.3), (venetian blind shadows:1.25), (high contrast chiaroscuro:1.2)",
     "@STYLE_GRAIN": "(35mm film grain:1.3), (slightly desaturated colors:1.2), (documentary photography feel:1.15)",
-    "@MAKEUP_SICK": "(pale sickly makeup:1.3), (dark shadow around the eyes:1.25), (cracked lips:1.15), (unhealthy complexion:1.2)"
+    "@MAKEUP_SICK": "(pale sickly makeup:1.3), (dark shadow around the eyes:1.25), (cracked lips:1.15), (unhealthy complexion:1.2)",
+    "@BG_DEPTH": "(clear separation between foreground, midground and background:1.4), (background recedes into the distance:1.3), (layered depth:1.25)",
+    "@BG_HAZE": "(atmospheric perspective:1.35), (distant background fading into haze:1.3), (desaturated distance:1.2)",
+    "@BG_GLOW": "(soft bloom around background lights:1.35), (halation on highlights:1.25), (gentle glow in the background:1.2)",
+    "@BG_REFLECT": "(wet ground reflecting the background lights:1.35), (puddle reflections behind her:1.3), (glossy floor mirroring the scene:1.2)",
+    "@BG_FLAT": "(plain flat background:1.5), (solid color seamless backdrop:1.45), (background reduced to a simple gradient:1.3), (no scenery behind her:1.25)",
+    "@BG_CITYLIGHT": "(city lights as soft bokeh dots:1.35), (distant windows glowing:1.25), (skyline lights dissolving into blur:1.2)",
+    "@BG_SHADOWFALL": "(background sinking into deeper shadow away from her:1.35), (directional falloff toward the back:1.25), (back of the scene in low key:1.2)",
+    "@BG_FRAME": "(out-of-focus window frame in the background:1.3), (curtain edges softening the background:1.25), (archway silhouette at the frame edge:1.2)"
   },
   "notes": {
     "@SUBJ": "主体锁：单人。所有模板的第一块。",
@@ -266,7 +274,15 @@
     "@MOOD_COLD": "冷感：疏离、锐利、不笑。",
     "@STYLE_NOIR": "黑色电影光：硬光 + 深黑阴影 + 百叶窗投影。",
     "@STYLE_GRAIN": "胶片颗粒：低饱和 + 颗粒。",
-    "@MAKEUP_SICK": "病态妆：苍白、眼窝阴影、干裂嘴唇。"
+    "@MAKEUP_SICK": "病态妆：苍白、眼窝阴影、干裂嘴唇。",
+    "@BG_DEPTH": "背景分层：前中后景明确。",
+    "@BG_HAZE": "空气透视：远处发灰。",
+    "@BG_GLOW": "背景辉光：灯光柔化溢出。",
+    "@BG_REFLECT": "湿地反射。",
+    "@BG_FLAT": "纯色背景：别和场景块同用。",
+    "@BG_CITYLIGHT": "城市灯点。",
+    "@BG_SHADOWFALL": "背景渐暗。",
+    "@BG_FRAME": "背景框景。"
   },
   "meta": {
     "cats": {
