@@ -848,6 +848,34 @@ async function exportSelected() {
 
 let ZV = { scale: 1, tx: 0, ty: 0, fitted: false };
 
+function importRecipe(r) {
+  const pick = b => ({ id: uid(), token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false });
+  S.pos = (r.blocks_pos || []).filter(b => b.token || b.text).map(pick);
+  S.neg = (r.blocks_neg || []).filter(b => b.token || b.text).map(pick);
+  const size = (r.size && r.size.length === 2) ? r.size : null;
+  if (size) {
+    const val = size[0] + 'x' + size[1];
+    const sel = $('#p-size');
+    if (sel && [...sel.options].some(o => o.value === val)) sel.value = val;
+    else if (sel) { sel.value = 'custom'; $('#p-w').value = size[0]; $('#p-h').value = size[1]; }
+    const cs = $('#custom-size');
+    if (cs) cs.hidden = !(sel && sel.value === 'custom');
+  }
+  if (r.steps && $('#p-steps')) $('#p-steps').value = r.steps;
+  if (r.cfg && $('#p-cfg')) $('#p-cfg').value = r.cfg;
+  if (r.seed !== undefined && $('#p-seed')) $('#p-seed').value = r.seed;
+  if (Array.isArray(r.loras) && r.loras.length) {
+    S.loras = r.loras.map(l => ({ name: l.name, weight: Number(l.weight) || 0.5 }));
+    renderLoras();
+  }
+  const b = document.querySelector('#tabs button[data-tab="build"]');
+  if (b) b.click();
+  renderLanes();
+  expandPreview();
+  if (typeof persistParams === 'function') persistParams();
+  toast('已导入配方：' + S.pos.length + ' 正 / ' + S.neg.length + ' 负 · seed ' + (r.seed ?? '随机'));
+}
+
 async function openImage(path) {
   const qc = await api('/api/qc?path=' + encodeURIComponent(path));
   openModal('预览 · 滚轮缩放 / 拖动平移 / Shift+拖框放大 / 双击 1:1',
@@ -2353,8 +2381,11 @@ async function openRecipe(path, stay) {
     '<h4 class="rc-h">展开后的正向</h4><pre class="prompt-preview">' + esc(r.positive || '') + '</pre>' +
     '<h4 class="rc-h">展开后的负向</h4><pre class="prompt-preview neg">' + esc(r.negative || '') + '</pre>' +
     '<div class="row2" style="margin-top:10px">' +
+      '<button class="primary" id="rc-import">一键导入该配方</button>' +
       '<button class="ghost" id="rc-copy">复制正向</button>' +
       '<button class="ghost" id="rc-img">看图</button></div>';
+  const imp = $('#rc-import');
+  if (imp) imp.onclick = () => importRecipe(r);
   const cp = $('#rc-copy');
   if (cp) cp.onclick = async () => {
     try { await navigator.clipboard.writeText(r.positive || ''); toast('正向已复制'); }
