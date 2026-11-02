@@ -868,3 +868,9 @@ button.tiny{padding:4px 9px;border-radius:10px;font-size:12px;line-height:1}
 .combo-form input{font-size:12px}
 
 [data-cat="nsfw"]{--c:#ff7b7b}
+
+.top-row{display:flex;align-items:stretch;gap:10px}
+.top-row #validate-bar{flex:1;margin:0}
+.top-row #btn-random{white-space:nowrap;align-self:stretch;padding:0 18px}
+.field:has(#p-lock){grid-column:1 / -1}
+#p-lock{width:auto;margin-right:6px}

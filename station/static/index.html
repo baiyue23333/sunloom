@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="256x256" href="/icon_256.png?v=3">
   <link rel="apple-touch-icon" href="/icon_256.png?v=3">
 <title>SUNLOOM · block studio</title>
-<link rel="stylesheet" href="/style.css?v=16">
+<link rel="stylesheet" href="/style.css?v=17">
 <style>.build-badge{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;color:#ffd98a;border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.12)}</style>
 </head>
 <body>
@@ -52,7 +52,10 @@
     </aside>
 
     <section class="canvas">
-      <div id="validate-bar" class="validate-bar ok">结构检查：等待积木…</div>
+      <div class="top-row">
+        <div id="validate-bar" class="validate-bar ok">结构检查：等待积木…</div>
+        <button class="primary" id="btn-random" title="按场景/服装/机位合理组合">🎲 随机一套</button>
+      </div>
       <div class="lane card" data-lane="positive">
         <div class="card-head">
           <h3>正向 <span class="hint" id="pos-count">0 块</span></h3>
@@ -131,6 +134,7 @@
       <p class="size-hint" id="size-hint"></p>
       <div class="row2">
         <div class="field"><label>步数</label><input id="p-steps" type="number" value="30"></div>
+      <div class="field"><label><input id="p-lock" type="checkbox"> 画风锁定（勾选=硬边 / 不勾=柔和）</label></div>
         <div class="field"><label>CFG</label><input id="p-cfg" type="number" step="0.1" value="5.5"></div>
       </div>
       <div class="row2">
@@ -553,7 +557,7 @@ window.addEventListener('error', function (e) {
   document.title = 'PARSE_ERR ' + (e.message || '') + ' @line ' + (e.lineno || 0) + ':' + (e.colno || 0);
 }, true);
 </script>
-<script src="/app.js?v=17"></script>
+<script src="/app.js?v=18"></script>
 <div id="cmdbar" class="cmdbar"><div class="cmd-box">
   <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
   <div id="cmd-list" class="cmd-list"></div>
