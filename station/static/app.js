@@ -106,6 +106,10 @@ async function boot() {
   renderPalette(); renderLanes(); renderLoras(); renderParams();
   const randBtn = document.querySelector('#btn-random');
   if (randBtn) randBtn.onclick = randomCompose;
+  const rsBtn = document.querySelector('#btn-rand-scene');
+  if (rsBtn) rsBtn.onclick = randomSceneOnly;
+  const roBtn = document.querySelector('#btn-rand-outfit');
+  if (roBtn) roBtn.onclick = randomOutfitOnly;
   await loadPresets();
   await loadTemplates();
   renderGallery();
@@ -939,55 +943,126 @@ function weightedPick(arr, tok) {
   return arr[arr.length - 1] || tok;
 }
 
+const RAND_PRIVATE_OUTFITS = new Set(['slip', 'pajama', 'loungewear']);
+const RAND_PRIVATE_SCENES = new Set(['@SET_BEDROOM', '@SET_BATHROOM', '@SET_BALCONY', '@SET_ONSEN']);
+const RAND_OUTDOOR = new Set(['@SET_BEACH', '@SET_FOREST', '@SET_GARDEN_PEONY', '@SET_SHRINE', '@SET_TEMPLE', '@SET_RUINS', '@SET_DESERT', '@SET_SNOWFIELD', '@SET_MARKET', '@SET_ROOFTOP', '@SET_SCHOOL_GATE', '@SET_FLOWER_SHOP', '@SET_STATION', '@SET_CASTLE']);
+const RAND_SOCKED_OUTFITS = new Set(['school', 'sailor_winter', 'maid', 'santa']);
+const RAND_HOSE_POOL = ['@HOSE_KNEE_WHITE', '@HOSE_THIGH_BLACK', '@HOSE_LACE_TOP', '@HOSE_ANKLE_WHITE', '@HOSE_SLOUCH', '@HOSE_FISHNET', '@HOSE_STRIPED', '@HOSE_ARGYLE'];
+
+const RAND_SCENE_OUTFIT = {
+  '@SET_ONSEN': ['yukata', 'slip', 'loungewear'], '@SET_BEACH': ['swimsuit', 'sundress_floral', 'sundress'],
+  '@SET_CLASSROOM': ['school', 'sailor_winter', 'lab_coat'], '@SET_SCHOOL_GATE': ['school', 'sailor_winter'],
+  '@SET_LIBRARY': ['cardigan_set', 'lab_coat', 'school'], '@SET_BOOKSTORE': ['cardigan_set', 'casual_knit', 'school'],
+  '@SET_CAFE': ['cardigan_set', 'casual_knit', 'school'], '@SET_BEDROOM': ['pajama', 'loungewear', 'slip', 'cardigan_set'],
+  '@SET_GYM': ['gym', 'hoodie_casual'], '@SET_SHRINE': ['yukata', 'hanfu', 'cheongsam'],
+  '@SET_TEMPLE': ['yukata', 'hanfu'], '@SET_GARDEN_PEONY': ['sundress_floral', 'sundress', 'cardigan_set'],
+  '@SET_MARKET': ['casual_knit', 'denim_set', 'hoodie_casual', 'sailor_winter'],
+  '@SET_ROOFTOP': ['casual_knit', 'denim_set', 'school'], '@SET_BALCONY': ['casual_knit', 'denim_set', 'slip'],
+  '@SET_STATION': ['sailor_winter', 'casual_knit', 'denim_set'], '@SET_SUBWAY': ['sailor_winter', 'denim_set', 'hoodie_casual'],
+  '@SET_CORRIDOR': ['school', 'sailor_winter', 'lab_coat', 'denim_set'], '@SET_ARTROOM': ['school', 'cardigan_set', 'lab_coat'],
+  '@SET_FLOWER_SHOP': ['sundress_floral', 'cardigan_set'], '@SET_GREENHOUSE': ['sundress_floral', 'sundress'],
+  '@SET_DESERT': ['denim_set', 'hanfu', 'sundress_floral'], '@SET_SNOWFIELD': ['winter', 'sailor_winter', 'santa'],
+  '@SET_FOREST': ['cardigan_set', 'sundress_floral', 'hanfu'], '@SET_RUINS': ['hanfu', 'sundress_floral', 'denim_set'],
+  '@SET_CASTLE': ['hanfu', 'gala', 'cheongsam'], '@SET_AIRPORT': ['denim_set', 'casual_knit', 'suit'],
+  '@SET_TRAM': ['cardigan_set', 'denim_set', 'school'], '@SET_PIANO': ['gala', 'initial_fine', 'cheongsam'],
+  '@SET_LAUNDRY': ['casual_knit', 'loungewear', 'hoodie_casual'], '@SET_KITCHEN': ['casual_knit', 'loungewear', 'sundress'],
+  '@SET_BATHROOM': ['slip', 'loungewear', 'pajama'], '@SET_ELEVATOR': ['suit', 'denim_set', 'school'],
+  '@SET_MUSEUM': ['gala', 'lab_coat', 'cheongsam'], '@SET_ARCADE': ['hoodie_casual', 'denim_set', 'casual_knit'],
+};
+function sceneOutfitFor(scene) { return RAND_SCENE_OUTFIT[scene] || []; }
+
+function weightedPick(arr, tok) {
+  const okW = t => ((S.notes && S.notes[t]) || '').indexOf('成功') >= 0 ? 3 : 1;
+  const total = arr.reduce((s, t) => s + okW(t), 0);
+  let x = Math.random() * total;
+  for (const t of arr) { x -= okW(t); if (x <= 0) return t; }
+  return arr[arr.length - 1] || tok;
+}
+
+function randPickPool(pool) { return pool[Math.floor(Math.random() * pool.length)]; }
+function randReplace(prefix, newTok) {
+  S.pos = S.pos.map(b => (b.token || '').startsWith(prefix) ? Object.assign({}, b, { token: newTok }) : b);
+}
+function randCurrent(prefix) {
+  const b = S.pos.find(x => (x.token || '').startsWith(prefix));
+  return b ? b.token : '';
+}
+
+function randomSceneOnly() {
+  const scenes = Object.keys(S.tokens || {}).filter(t => t.startsWith('@SET_') && !(S.notes[t] || '').includes('失败'));
+  if (!scenes.length) return;
+  const cur = randCurrent('@SET_');
+  const hist = (S._randHist || []).slice(-3).map(h => h.scene);
+  const pool = scenes.filter(t => t !== cur && !hist.includes(t));
+  const next = randPickPool(pool.length ? pool : scenes.filter(t => t !== cur));
+  if (!next) return;
+  randReplace('@SET_', next);
+  renderLanes(); expandPreview();
+  toast('只换场景：' + next.replace('@SET_', ''));
+}
+
+function randomOutfitOnly() {
+  const garments = Object.keys(S.garments || {});
+  if (!garments.length) return;
+  const scene = randCurrent('@SET_');
+  const cur = (randCurrent('@OUT_') || '').replace('@OUT_', '').toLowerCase();
+  let pool = sceneOutfitFor(scene).filter(k => garments.includes(k));
+  if (!pool.length) pool = garments.filter(k => !['swimsuit', 'school_bare', 'yukata_bare'].includes(k));
+  pool = pool.filter(k => k !== cur);
+  const next = randPickPool(pool.length ? pool : garments.filter(k => k !== cur));
+  if (!next) return;
+  const oldKey = cur.toUpperCase();
+  randReplace('@OUT_', '@OUT_' + next.toUpperCase());
+  S.neg = S.neg.map(b => (b.token === '@NEG_' + oldKey) ? Object.assign({}, b, { token: '@NEG_' + next.toUpperCase() }) : b);
+  renderLanes(); expandPreview();
+  const label = (S.garments[next] && S.garments[next].label) || next;
+  toast('只换服装：' + label);
+}
+
 function randomCompose() {
   const all = Object.keys(S.tokens || {});
   if (!all.length) return;
+  const hist = S._randHist || [];
+  const last1 = hist[hist.length - 1] || {};
+  const last2 = hist[hist.length - 2] || {};
+  const last3 = hist[hist.length - 3] || {};
   const pick = a => weightedPick(a, a[0]);
-  const some = a => a.filter(Boolean);
   const has = t => all.includes(t);
-  const byPrefix = p => all.filter(t => t.startsWith(p) && !(S.notes[t] || '').includes('失败'));
-  const last = S._randLast || {};
+  const okNote = t => !(S.notes[t] || '').includes('失败');
+  const byPrefix = p => all.filter(t => t.startsWith(p) && okNote(t));
+  const exclude = (arr, vals) => arr.filter(t => !vals.includes(t));
+  const some = a => a.filter(Boolean);
 
-  const outfits = Object.keys(S.garments || {}).filter(k => !['swimsuit', 'school_bare', 'yukata_bare'].includes(k) && k !== last.outfit);
-  const sceneOutfit = {
-    '@SET_ONSEN': ['yukata', 'slip', 'loungewear'], '@SET_BEACH': ['swimsuit', 'sundress_floral', 'sundress'],
-    '@SET_CLASSROOM': ['school', 'sailor_winter', 'lab_coat'], '@SET_SCHOOL_GATE': ['school', 'sailor_winter'],
-    '@SET_LIBRARY': ['cardigan_set', 'lab_coat', 'school'], '@SET_BOOKSTORE': ['cardigan_set', 'casual_knit', 'school'],
-    '@SET_CAFE': ['cardigan_set', 'casual_knit', 'school'], '@SET_BEDROOM': ['pajama', 'loungewear', 'slip', 'cardigan_set'],
-    '@SET_GYM': ['gym', 'hoodie_casual'], '@SET_SHRINE': ['yukata', 'hanfu', 'cheongsam'],
-    '@SET_TEMPLE': ['yukata', 'hanfu'], '@SET_GARDEN_PEONY': ['sundress_floral', 'sundress', 'cardigan_set'],
-    '@SET_MARKET': ['casual_knit', 'denim_set', 'hoodie_casual', 'sailor_winter'],
-    '@SET_ROOFTOP': ['casual_knit', 'denim_set', 'school'], '@SET_BALCONY': ['casual_knit', 'denim_set', 'slip'],
-    '@SET_STATION': ['sailor_winter', 'casual_knit', 'denim_set'], '@SET_SUBWAY': ['sailor_winter', 'denim_set', 'hoodie_casual'],
-    '@SET_CORRIDOR': ['school', 'sailor_winter', 'lab_coat', 'denim_set'], '@SET_ARTROOM': ['school', 'cardigan_set', 'lab_coat'],
-    '@SET_FLOWER_SHOP': ['sundress_floral', 'cardigan_set'], '@SET_GREENHOUSE': ['sundress_floral', 'sundress'],
-    '@SET_DESERT': ['denim_set', 'hanfu', 'sundress_floral'], '@SET_SNOWFIELD': ['winter', 'sailor_winter', 'santa'],
-    '@SET_FOREST': ['cardigan_set', 'sundress_floral', 'hanfu'], '@SET_RUINS': ['hanfu', 'sundress_floral', 'denim_set'],
-    '@SET_CASTLE': ['hanfu', 'gala', 'cheongsam'], '@SET_AIRPORT': ['denim_set', 'casual_knit', 'suit'],
-    '@SET_TRAM': ['cardigan_set', 'denim_set', 'school'], '@SET_PIANO': ['gala', 'initial_fine', 'cheongsam'],
-    '@SET_LAUNDRY': ['casual_knit', 'loungewear', 'hoodie_casual'], '@SET_KITCHEN': ['casual_knit', 'loungewear', 'sundress'],
-    '@SET_BATHROOM': ['slip', 'loungewear', 'pajama'], '@SET_ELEVATOR': ['suit', 'denim_set', 'school'],
-    '@SET_MUSEUM': ['gala', 'lab_coat', 'cheongsam'], '@SET_ARCADE': ['hoodie_casual', 'denim_set', 'casual_knit'],
-  };
-  const scenePool = byPrefix('@SET_').filter(t => t !== last.scene);
+  const outfitsAll = Object.keys(S.garments || {}).filter(k => !['swimsuit', 'school_bare', 'yukata_bare'].includes(k));
+
+  const scenePool = exclude(byPrefix('@SET_'), [last1.scene, last2.scene, last3.scene]);
   const scene = pick(scenePool.length ? scenePool : byPrefix('@SET_'));
   const prof = RAND_SCENE[scene] || {};
-  const outfitPool = (sceneOutfit[scene] || []).filter(k => outfits.includes(k));
-  const outfit = pick(outfitPool.length ? outfitPool : outfits);
+  const indoor = !RAND_OUTDOOR.has(scene);
 
-  const camRoll = Math.random();
-  const cam = camRoll < 0.28 ? '@CAM_MEDIUM' : camRoll < 0.55 ? '@CAM_FULL' : camRoll < 0.75 ? '@CAM_BUST' : camRoll < 0.9 ? '@CAM_THREEQ' : '@CAM_CLOSEUP';
+  let outfitPool = (sceneOutfitFor(scene) || []).filter(k => outfitsAll.includes(k));
+  if (RAND_PRIVATE_SCENES.has(scene)) outfitPool = outfitPool.concat(['slip', 'pajama', 'loungewear']);
+  outfitPool = outfitPool.filter(k => !(RAND_PRIVATE_OUTFITS.has(k) && !RAND_PRIVATE_SCENES.has(scene)));
+  outfitPool = exclude(outfitPool, [last1.outfit, last2.outfit, last3.outfit]);
+  if (!outfitPool.length) outfitPool = outfitsAll;
+  const outfit = pick(outfitPool);
+
+  const camPool = exclude(['@CAM_MEDIUM', '@CAM_FULL', '@CAM_BUST', '@CAM_THREEQ', '@CAM_CLOSEUP'], [last1.cam]);
+  const cam = pick(camPool);
   const needsPose = cam === '@CAM_FULL' || cam === '@CAM_THREEQ' || cam === '@CAM_MEDIUM';
-  const posePool = (prof.pose && prof.pose.length ? prof.pose : byPrefix('@POSE_')).filter(t => t !== '@POSE_LIE' || cam === '@CAM_FULL');
-  const pose = needsPose ? pick(posePool.length ? posePool : byPrefix('@POSE_')) : '';
+  const posePoolBase = (prof.pose && prof.pose.length ? prof.pose : byPrefix('@POSE_'))
+    .filter(t => t !== '@POSE_LIE' || cam === '@CAM_FULL')
+    .filter(t => t !== last1.pose);
+  const pose = needsPose ? pick(posePoolBase.length ? posePoolBase : byPrefix('@POSE_')) : '';
 
-  const timePool = (prof.time && prof.time.length ? prof.time : byPrefix('@TIME_')).filter(has);
-  const time = timePool.length ? pick(timePool) : '';
-  const lightPool = (prof.light && prof.light.length ? prof.light : byPrefix('@LIGHT_')).filter(has);
-  const light = lightPool.length ? pick(lightPool) : '';
+  const timePool = ((prof.time && prof.time.length) ? prof.time : byPrefix('@TIME_')).filter(has);
+  const time = timePool.length ? pick(exclude(timePool, [last1.time]).length ? exclude(timePool, [last1.time]) : timePool) : '';
+  const lightPool = ((prof.light && prof.light.length) ? prof.light : byPrefix('@LIGHT_')).filter(has);
+  const light = lightPool.length ? pick(exclude(lightPool, [last1.light]).length ? exclude(lightPool, [last1.light]) : lightPool) : '';
 
   const gazePool = byPrefix('@GAZE_').filter(t => t !== '@GAZE_CLOSED');
-  const gaze = ((cam === '@CAM_BUST' || cam === '@CAM_CLOSEUP') && Math.random() < 0.6 && has('@GAZE_CAMERA')) ? '@GAZE_CAMERA' : (gazePool.length ? pick(gazePool) : '');
+  const gaze = ((cam === '@CAM_BUST' || cam === '@CAM_CLOSEUP') && Math.random() < 0.6 && has('@GAZE_CAMERA'))
+    ? '@GAZE_CAMERA' : (gazePool.length ? pick(gazePool) : '');
   const bodyPool = byPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH'].includes(t));
   const body = bodyPool.length ? pick(bodyPool) : '';
   const facePool = byPrefix('@FACE_').filter(t => t !== '@FACE_ADULT');
@@ -995,14 +1070,17 @@ function randomCompose() {
 
   const pos = ['@SINGLE', '@ID', body, face, gaze, cam, time, light, scene, '@OUT_' + outfit.toUpperCase()];
   if (pose) pos.push(pose);
-  const moodPool = (prof.mood && prof.mood.length ? prof.mood : byPrefix('@MOOD_')).filter(has);
+  const moodPool = ((prof.mood && prof.mood.length) ? prof.mood : byPrefix('@MOOD_')).filter(has);
   if (moodPool.length && Math.random() < 0.6) pos.push(pick(moodPool));
-  const atmoPool = (prof.atmo && prof.atmo.length ? prof.atmo : byPrefix('@ATMO_')).filter(has);
-  if (atmoPool.length && Math.random() < 0.35) pos.push(pick(atmoPool));
-  const compPool = byPrefix('@COMP_');
-  if (compPool.length && Math.random() < 0.3) pos.push(pick(compPool));
+  const atmoPool = ((prof.atmo && prof.atmo.length) ? prof.atmo : byPrefix('@ATMO_')).filter(has).filter(t => RAND_OUTDOOR.has(scene) || !/RAIN|PETALS|MOON/.test(t));
+  if (atmoPool.length && Math.random() < 0.3) pos.push(pick(atmoPool));
+  if (Math.random() < 0.3) pos.push(pick(byPrefix('@COMP_')));
   const bgPool = ['@BG_DEPTH', '@BG_SHADOWFALL', '@BG_FRAME'].filter(has);
   if (bgPool.length && Math.random() < 0.2) pos.push(pick(bgPool));
+  if (!RAND_SOCKED_OUTFITS.has(outfit) && Math.random() < 0.35) {
+    const hose = RAND_HOSE_POOL.filter(has);
+    if (hose.length) pos.push(pick(hose));
+  }
 
   const lockOn = !!($('#p-lock') && $('#p-lock').checked);
   const styleAnchor = lockOn && has('@STYLE_ANIME') ? '@STYLE_ANIME' : '@STYLE_SOFT';
@@ -1024,12 +1102,12 @@ function randomCompose() {
   if (document.querySelector('#p-seed')) document.querySelector('#p-seed').value = seed;
   if (document.querySelector('#p-steps')) document.querySelector('#p-steps').value = 30;
   if (document.querySelector('#p-cfg')) document.querySelector('#p-cfg').value = 5.5;
-  S._randLast = { scene: scene, outfit: outfit, light: light };
+  S._randHist = hist.concat([{ scene, outfit, cam, pose, time, light }]).slice(-8);
   renderLanes();
   expandPreview();
   if (typeof updateEta === 'function') updateEta();
   const label = (S.garments[outfit] && S.garments[outfit].label) || outfit;
-  toast('随机：' + String(scene||'').replace('@SET_', '') + ' · ' + label + ' · ' + String(light||'无光').replace('@LIGHT_', '') + ' · ' + (lockOn ? '硬边' : '柔和') + ' · seed ' + seed);
+  toast('随机：' + String(scene || '').replace('@SET_', '') + ' · ' + label + ' · ' + String(light || '无光').replace('@LIGHT_', '') + ' · ' + (lockOn ? '硬边' : '柔和') + ' · seed ' + seed);
 }
 
 

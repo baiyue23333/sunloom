@@ -66,7 +66,7 @@
     "@STYLE_ANIME": "(anime style:1.3), (clean lineart:1.2)",
     "@STYLE_CEL": "(cel shading:1.25), (flat colors:1.2)",
     "@STYLE_PAINT": "(painterly rendering:1.25)",
-    "@NEG_BASE": "lowres, bad anatomy, bad hands, text, watermark, signature, logo, jpeg artifacts, blurry, (white borders:1.3), (black borders:1.3), (vignette:1.15), (framed picture:1.2), (matte border:1.2), (polaroid border:1.2), (inset picture:1.15)",
+    "@NEG_BASE": "(split screen:1.5), (two panels:1.45), (side-by-side panels:1.45), (character sheet:1.45), (reference sheet:1.4), (multiple views:1.4), (duplicate figures:1.4), (two separate figures:1.4), (collage:1.35), (triptych:1.35), (mirrored halves:1.3), (side by side:1.35), (comic panel:1.3), (letterbox:1.3), (watermark:1.3), (text:1.2), (logo:1.2), (deformed hands:1.3), (extra fingers:1.3), (fused fingers:1.3), (white borders:1.3), (black borders:1.3), (vignette:1.15), (framed picture:1.2), (matte border:1.2), (polaroid border:1.2), (inset picture:1.15), (photorealistic:1.2), (3d render:1.2), (semi-realistic shading:1.2)",
     "@NEG_HANDS": "extra fingers, fused fingers, missing fingers, deformed hands, bad hand anatomy",
     "@NEG_EXPO": "overexposed, blown highlights, crushed shadows, washed out",
     "@NEG_OBJECTS": "extra objects, floating objects, duplicate items",
@@ -143,7 +143,15 @@
     "@BG_SHADOWFALL": "(background sinking into deeper shadow away from her:1.35), (directional falloff toward the back:1.25), (back of the scene in low key:1.2)",
     "@BG_FRAME": "(out-of-focus window frame in the background:1.3), (curtain edges softening the background:1.25), (archway silhouette at the frame edge:1.2)",
     "@STYLE_SOFT": "(soft airbrushed skin shading:1.35), (gentle gradient shadows:1.3), (soft line weight:1.25), (cinematic soft light:1.2), (smooth skin transitions:1.2)",
-    "@NEG_REAL": "(soft airbrushed skin:1.35), (gradient shading on skin:1.3), (glossy skin:1.2), (photorealistic:1.3), (3d render:1.25), (semi-realistic shading:1.25), (painterly rendering:1.2)"
+    "@NEG_REAL": "(soft airbrushed skin:1.35), (gradient shading on skin:1.3), (glossy skin:1.2), (photorealistic:1.3), (3d render:1.25), (semi-realistic shading:1.25), (painterly rendering:1.2)",
+    "@HOSE_KNEE_WHITE": "(white knee-high socks:1.4), (two thin stripes at the cuff:1.2), (ribbed knit texture:1.15)",
+    "@HOSE_THIGH_BLACK": "(black thigh-high stockings:1.4), (elastic band at the top edge:1.2), (soft matte nylon:1.15)",
+    "@HOSE_LACE_TOP": "(black stockings with lace tops:1.4), (scalloped lace band:1.25), (sheer nylon below the lace:1.15)",
+    "@HOSE_ANKLE_WHITE": "(white ankle socks:1.35), (folded cuff:1.15), (fine cotton knit:1.1)",
+    "@HOSE_SLOUCH": "(loose slouch socks:1.35), (bunched fabric around the ankle:1.3), (soft ribbed knit:1.15)",
+    "@HOSE_FISHNET": "(black fishnet stockings:1.4), (small diamond mesh:1.25), (even tension over the leg:1.15)",
+    "@HOSE_STRIPED": "(white thigh-high socks with black stripes:1.4), (horizontal stripes:1.25), (elastic band at the top:1.15)",
+    "@HOSE_ARGYLE": "(grey argyle knee socks:1.4), (diamond pattern:1.3), (ribbed cuff:1.1)"
   },
   "notes": {
     "@SUBJ": "主体锁：单人。所有模板的第一块。按需搭配，别一次挂太多。",
@@ -288,7 +296,15 @@
     "@STYLE_SOFT": "柔和画风：皮肤柔光渐变、线条偏软；和 @STYLE_ANIME 二选一。画风块二选一：@STYLE_SOFT 柔和、@STYLE_ANIME 硬边。",
     "@NEG_REAL": "负向：压写实/3D/柔化跑偏，保持动漫平面感。按需挂，别和正向描述互相打脸。",
     "@ATMO_MOON": "。天气/粒子类，叠两层以上会糊。",
-    "@ATMO_MOON2332": "。天气/粒子类，叠两层以上会糊。"
+    "@ATMO_MOON2332": "。天气/粒子类，叠两层以上会糊。",
+    "@HOSE_KNEE_WHITE": "白色及膝袜：学院风基础款。",
+    "@HOSE_THIGH_BLACK": "黑色过膝袜。",
+    "@HOSE_LACE_TOP": "蕾丝边长筒袜。",
+    "@HOSE_ANKLE_WHITE": "白色短袜。",
+    "@HOSE_SLOUCH": "堆堆袜。",
+    "@HOSE_FISHNET": "网袜：建议 1024 以上分辨率。",
+    "@HOSE_STRIPED": "条纹过膝袜。",
+    "@HOSE_ARGYLE": "菱格及膝袜。"
   },
   "meta": {
     "cats": {
