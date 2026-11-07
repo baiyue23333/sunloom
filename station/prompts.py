@@ -1,56 +1,81 @@
+
 # -*- coding: utf-8 -*-
-"""prompts.py - 词库与宏展开（通用版）"""
+"""prompts.py - 唯一的宏加载/展开实现（expand.py 与工作站共用）。
+
+历史教训：工作站曾自己实现一份 load/expand，结果漏掉了 expand.py 里的
+@NEG_GARMENT / @OUTFIT 别名，导致模板里的宏没被展开、提示词里残留 "@NEG_GARMENT"。
+以后只改这里。
+"""
 import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, "data")
-LIB = os.path.join(DATA, "prompt_lib.json")
+LIB = os.path.join(HERE, "prompt_lib.json")
+CHAR = os.path.join(HERE, "character.json")
 
 
-def read_json(path, default):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
+STRIP_RULES = {
+    "@STRIP_SHOES": (["shoe", "shoes", "boot", "boots", "loafer", "loafers", "sneaker", "sneakers",
+                      "sandal", "sandals", "geta", "heel", "heels", "footwear"], "bare feet, barefoot, visible toes"),
+    "@STRIP_SOCKS": (["sock", "socks", "stocking", "stockings", "tights", "pantyhose", "thighhighs"], "bare legs"),
+    "@STRIP_GLOVES": (["glove", "gloves", "mittens"], "bare hands"),
+    "@STRIP_COAT": (["coat", "jacket", "parka", "overcoat", "cloak", "cape"], ""),
+    "@STRIP_HAT": (["hat", "cap", "beret", "hood", "headband"], ""),
+    "@STRIP_SUNFLOWER": (["sunflower"], ""),
+}
+STRIP_KEYS = set(STRIP_RULES)
 
 
-def write_json(path, obj):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+def apply_strips(text, raw=""):
+    """按 @STRIP_* 去掉对应衣物片段，并在末尾补上替代描述。"""
+    import re as _re
+    hits = [k for k in STRIP_RULES if k in (raw or "")]
+    if not hits or not text:
+        return text, []
+    segs = [x.strip() for x in text.split(",")]
+    def hated(seg):
+        low = seg.lower()
+        for k in hits:
+            for word in STRIP_RULES[k][0]:
+                if _re.search(r"(?<![a-z])" + _re.escape(word), low):
+                    return True
+        return False
+    kept = [x for x in segs if x and not hated(x)]
+    out = ", ".join(kept)
+    for k in hits:
+        add = STRIP_RULES[k][1]
+        if add and add not in out:
+            out = (out + ", " + add) if out else add
+    return out, hits
+
+
+def load_lib():
+    with open(LIB, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def load_tokens():
-    lib = read_json(LIB, {"tokens": {}, "notes": {}}) or {}
+    """宏 = prompt_lib.tokens + character.json.garments（含别名）。"""
+    lib = load_lib()
     tokens = dict(lib.get("tokens") or {})
-    notes = dict(lib.get("notes") or {})
-    ch = read_json(os.path.join(DATA, "character.json"), {}) or {}
-    gs = ch.get("garments") or {}
-    if gs:
-        key = ch.get("garment_default") or list(gs)[0]
-        if key in gs:
-            tokens["@OUTFIT"] = gs[key].get("prompt", "")
-            notes["@OUTFIT"] = "当前默认套装（服装页可切换默认套）"
-        negs = [g.get("negative", "") for g in gs.values() if g.get("negative")]
-        if negs:
-            tokens["@NEG_OUTFIT"] = ", ".join(negs)
-            notes["@NEG_OUTFIT"] = "所有服装负向的并集：不确定穿哪套时兜底用"
-        # 每套服装同时暴露正向与配套负向，供「加正向自动带配套」使用
-        for k2, g2 in gs.items():
-            tk = "@OUT_" + str(k2).upper()
-            nk = "@NEG_" + str(k2).upper()
-            if (g2.get("prompt") or "").strip():
-                tokens[tk] = g2["prompt"].strip()
-                notes[tk] = (g2.get("label") or k2) + "：" + (g2.get("use_for") or "服装页可编辑")
-            if (g2.get("negative") or "").strip():
-                tokens[nk] = g2["negative"].strip()
-                notes[nk] = (g2.get("label") or k2) + " 的配套负向"
-    lib = dict(lib)
-    lib["notes"] = notes
+    ch = {}
+    try:
+        with open(CHAR, encoding="utf-8") as f:
+            ch = json.load(f)
+    except FileNotFoundError:
+        pass
+    for key, g in (ch.get("garments") or {}).items():
+        if g.get("prompt"):
+            tokens["@OUT_" + key.upper()] = g["prompt"]
+        if g.get("negative"):
+            tokens["@NEG_" + key.upper()] = g["negative"]
+    for k in STRIP_KEYS:
+        tokens.setdefault(k, "\u200b")
+    dflt = (ch.get("garments") and ch.get("garment_default")) or "initial"
+    if "@OUT_" + dflt.upper() in tokens:
+        tokens["@OUTFIT"] = tokens["@OUT_" + dflt.upper()]
+        if "@NEG_" + dflt.upper() in tokens:
+            tokens["@NEG_GARMENT"] = tokens["@NEG_" + dflt.upper()]
     return tokens, lib, ch
 
 
@@ -65,7 +90,7 @@ def expand(text, tokens):
 
 
 def expand_pair(pos, neg):
-    tokens, _, _ = load_tokens()
+    tokens, lib, _ = load_tokens()
     p, pu = expand(pos, tokens)
     n, nu = expand(neg, tokens)
     return {"positive": p, "negative": n, "used": sorted(set(pu + nu))}
