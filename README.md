@@ -16,6 +16,13 @@
 
 ![engine](docs/images/station-engine.jpg)
 
+## 画师 LoRA
+
+- 「画师 LoRA」下拉：选中即自动套用该画师 × 当前角色的权重（h2/h4 0.7、v2 0.65），并同步替换风格提示词。
+- 画师与通用风格 LoRA（animaNai）互斥，选了画师会自动让位。
+- 权重可手改，改完会记为该角色下的推荐值。
+- 详见 [docs/系统说明.md](docs/系统说明.md) 与 [docs/积木手册.md](docs/积木手册.md)。
+
 ## 可选模块
 
 - 打标：tools/tag_wd14.py（onnxruntime + WD14），工作站「打标」页可直接跑

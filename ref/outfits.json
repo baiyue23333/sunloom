@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "categories": {
+    "日常": [
+      "canonical",
+      "casual",
+      "favorite"
+    ],
+    "礼服": [
+      "gala"
+    ],
+    "战斗": [],
+    "季节": []
+  },
+  "outfits": {
+    "canonical": {
+      "name": "白金华服（原始设定）",
+      "aliases": [
+        "常服",
+        "默认",
+        "default"
+      ],
+      "layers": {
+        "outer": "white long coat with gold trim, gold buttons, gold embroidery on hem",
+        "inner": "yellow dress with white lace hem",
+        "legs": "black pantyhose",
+        "shoes": "white lace-up boots",
+        "accessory": "sunflower hair ornament, black ribbon"
+      },
+      "prompt": "white long coat with gold trim, gold buttons, gold embroidery on hem, yellow dress with white lace hem, black pantyhose, white lace-up boots, sunflower hair ornament, black ribbon",
+      "negative": "patchwork, mismatched color panels, color bleeding, teal trim, asymmetrical boots, mismatched shoes, mismatched legs, asymmetrical hem",
+      "notes": "标志性造型：金边+金扣+荷叶摆。避免写「teal trim」「yellow front panel」，会做出拼色块与发色污染。"
+    },
+    "casual": {
+      "name": "简化风衣（轻装）",
+      "aliases": [
+        "轻装",
+        "风衣"
+      ],
+      "layers": {
+        "outer": "simple white trench coat",
+        "inner": "yellow turtleneck dress",
+        "legs": "black pantyhose",
+        "shoes": "white boots",
+        "accessory": "sunflower hair ornament"
+      },
+      "prompt": "simple white trench coat, yellow turtleneck dress, black pantyhose, white boots, sunflower hair ornament",
+      "negative": "patchwork, excessive gold ornament",
+      "notes": "去掉金纹与荷叶边，适合日常/场景图，跑 SDXL 40 步时细节最稳。"
+    },
+    "gala": {
+      "name": "亮面礼服（小礼裙）",
+      "aliases": [
+        "礼服",
+        "亮面"
+      ],
+      "layers": {
+        "outer": "open white coat with gold accent lines",
+        "inner": "satin yellow mini dress, sweetheart neckline",
+        "legs": "black pantyhose",
+        "shoes": "white lace-up boots with gold toe caps",
+        "accessory": "sunflower hair ornament (two)"
+      },
+      "prompt": "open white coat with gold accent lines, satin yellow mini dress, sweetheart neckline, black pantyhose, white lace-up boots with gold toe caps, two sunflower hair ornaments",
+      "negative": "matte fabric, baggy fit",
+      "notes": "anima 上表现最好的一套：亮面反射 + 金线，裙长到大腿中部。"
+    },
+    "favorite": {
+      "name": "最喜爱版本（黄吊带裙 + 白开襟外套）",
+      "aliases": [
+        "最爱",
+        "偏好",
+        "fav"
+      ],
+      "layers": {
+        "inner": "yellow halter mini dress with white floral print on hem, black ribbon choker at neck",
+        "outer": "white open coat with brown leather cuffs, gold trim edges, asymmetric drape",
+        "legs": "black shorts under the dress, black pantyhose",
+        "shoes": "white lace-up boots with gold laces and gold eyelets",
+        "accessory": "one large sunflower on the right side of head, two small sunflowers at the collar"
+      },
+      "prompt": "yellow halter mini dress with white floral print on hem, black ribbon choker at neck, white open coat with brown leather cuffs, gold trim edges, black shorts, black pantyhose, white lace-up boots with gold laces, large sunflower on the right side of head, two small sunflowers at the collar",
+      "negative": "asymmetrical boots, mismatched shoes, patchwork, color bleeding, scenery, background scenery",
+      "notes": "用户选定版本。关键：黑色颈带、棕皮袖口、白底金鞋带、三朵向日葵（1大2小）。"
+    },
+    "initial": {
+      "name": "初始服装（黄吊带裙 + 白开襟外套）",
+      "aliases": [
+        "初始",
+        "starter",
+        "default",
+        "常服",
+        "favorite"
+      ],
+      "layers": {
+        "inner": "yellow halter mini dress, white floral print on the lower part, black ribbon choker with crossed tie at the neck, black frilled under-hem",
+        "outer": "white open coat with brown leather cuffs, gold trim edges, gold buttons, asymmetric hem, one side longer",
+        "legs": "black shorts under the dress, black pantyhose",
+        "shoes": "white lace-up boots with gold laces and gold eyelets",
+        "accessory": "one large sunflower on the right temple, two small sunflowers at the collar, black ribbon ties"
+      },
+      "prompt": "yellow halter mini dress with white floral print and black frilled under-hem, black ribbon choker with crossed tie, white open coat with brown leather cuffs, gold trim edges, gold buttons, asymmetric hem, black shorts, black pantyhose, white lace-up boots with gold laces and gold eyelets, one large sunflower on the right temple, two small sunflowers at the collar, black ribbon ties",
+      "negative": "asymmetrical boots, mismatched shoes, patchwork, color bleeding, scenery, background scenery, teal trim, extra sleeves",
+      "notes": "初始服装（默认）。要点：黑缎带交叉颈饰、棕皮袖口、不对称下摆、白底金鞋带、三朵向日葵（1大2小）、黑色荷叶边内衬。 | 定稿参考图：ref/ref_initial.png（1432×1432）",
+      "reference_image": "ref/ref_initial.png"
+    }
+  },
+  "default_outfit": "initial"
+}

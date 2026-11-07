@@ -1,0 +1,857 @@
+{
+  "version": 2,
+  "id": "sunflower_maiden",
+  "name_candidates": [
+    "葵",
+    "向阳",
+    "Hima",
+    "Sol"
+  ],
+  "appearance": {
+    "source": "ref_bust55.png (= c_cfg55) 实测，见 reverse.py 输出",
+    "note": "只描述身体与脸，不含任何服装；服装一律由 outfits.json 提供",
+    "face": {
+      "shape": "oval youthful face, h/w ≈ 1.25（鹅蛋偏圆）",
+      "prompt": "(oval youthful face:1.3), (soft jawline:1.25), (small chin:1.2)",
+      "negative": "long narrow face, sharp chin, elongated head, mature facial structure"
+    },
+    "eyes": {
+      "shape": "almond eyes, long upper lash, thin eyeliner — 细长眼，不是大圆眼",
+      "red_iris": "#730F17（深绛红）",
+      "grey_iris": "#7E7A78（中性偏暖灰）",
+      "prompt": "(deep crimson iris:1.3), (neutral grey iris:1.25), (almond eyes:1.25), (long eyelashes:1.15)",
+      "rule": "红眼 = 画面左（正面时）= 她的右眼；与 ref_initial 一致"
+    },
+    "hair": {
+      "color": "象牙白 ivory white",
+      "palette": {
+        "light": "#FFFFFF",
+        "mid": "#FBF7F6",
+        "shadow": "#C0AFAB"
+      },
+      "note": "阴影是暖灰（R>G>B），不是冷灰；整体仍然读作白色",
+      "prompt": "(ivory white hair:1.45), (white hair with warm grey shadows:1.15)"
+    },
+    "body": {
+      "build": "slender, narrow shoulders, narrow hips",
+      "bust": "modest, A-B cup",
+      "proportion": "about 6.5 heads tall",
+      "limbs": "slender arms and legs, small hands"
+    },
+    "persona": "安静 + 倦怠 + 画师 + 技术宅；只在安全的人面前俏皮"
+  },
+  "persona": {
+    "core_tone": "安静的温柔，带一点倦怠；只有在安全的人面前才会冒出俏皮",
+    "keywords": [
+      "quiet",
+      "gentle",
+      "slightly weary",
+      "calm",
+      "warm but reserved",
+      "quietly playful"
+    ],
+    "traits": [
+      "说话轻、句子短，不主动抢话",
+      "习惯性点头，很少大笑",
+      "对花和小动物有耐心，对人保持半步距离",
+      "被夸奖会转移话题，不是害羞而是不习惯",
+      "熟了以后会突然冒一句玩笑，或者故意歪头看你反应",
+      "技术宅：房间里给自己搭了工作站，聊起硬件和代码会一反常态地话多",
+      "画师：白天画稿、晚上调设备，桌上永远有数位板和笔"
+    ],
+    "flaw": "容易过度照顾别人的情绪，把自己的疲惫藏起来",
+    "contradiction": "外表柔软，但决定的事不让步",
+    "social_modes": {
+      "public": "calm / weary，礼貌但有距离",
+      "safe": "playful，会逗人、会小声吐槽、会主动靠近半步"
+    },
+    "tech": {
+      "level": "能自己装机、焊线、刷固件；写脚本自动化日常",
+      "room": "多屏 + 机械键盘 + 走线架 + 服务器塔 + 焊台 + 一盆向日葵",
+      "tell": "提到设备时语速变快、眼睛发亮；被人看见乱糟糟的桌面会有点不好意思"
+    },
+    "artist": {
+      "level": "接商稿的自由插画师，擅长厚涂与角色设计",
+      "workspace": "数位板 + 显示器 + 耳机 + 参考草稿贴墙 + 窗台一盆向日葵",
+      "habit": "画到卡住就去拆机器换换脑子；两种工作互相充当休息"
+    }
+  },
+  "emotion_baseline": {
+    "default": "calm",
+    "range": {
+      "calm": "half-lidded eyes, small closed mouth, relaxed shoulders",
+      "smile": "faint smile, eyes soften, cheeks slightly raised",
+      "weary": "slightly lowered gaze, shoulders down, hand near collarbone",
+      "playful": "one eyebrow slightly raised, corner of mouth tilts up, head tilted, eyes brightening, subtle mischief",
+      "serious": "level gaze, lips pressed, chin slightly down",
+      "surprised": "eyes widen only slightly, mouth barely opens",
+      "sad": "gaze lowered, mouth neutral, no tears"
+    },
+    "forbidden": [
+      "exaggerated expression",
+      "open-mouth laugh",
+      "crying",
+      "angry shouting",
+      "chibi face",
+      "comic effects"
+    ],
+    "notes": "俏皮是‘眼神先变’，幅度仍然小：歪头、挑眉、嘴角单边上扬；禁止变成卖萌或夸张颜艺。"
+  },
+  "body_language": [
+    "手自然垂在身侧，或轻搭在衣襟上",
+    "习惯侧头看人，正脸较少",
+    "站姿重心偏一侧，很少笔直站",
+    "摆弄发梢或花瓣时最放松",
+    "安全的人面前会轻轻拽一下对方袖子再说话"
+  ],
+  "speech": {
+    "style": "短句、轻声、常带停顿；熟络后会突然冒一句冷的玩笑",
+    "samples": [
+      "……嗯。",
+      "谢谢你。",
+      "不用急，慢慢来。",
+      "我在这儿待一会儿。",
+      "你今天……是不是又没睡好？"
+    ]
+  },
+  "settings": [
+    "sunflower field at dusk",
+    "window seat with afternoon light",
+    "greenhouse",
+    "quiet stone path",
+    "her own tech-filled room at night, monitors glowing"
+  ],
+  "prompt_blocks": {
+    "identity": "heterochromia, (grey eye:1.15), (red eye:1.15), (both eyes visible:1.1), ivory white hair, long hair, sunflower hair ornament",
+    "tone_default": "calm expression, half-lidded eyes, gentle, quiet mood, soft light",
+    "tone_playful": "subtle playful expression, one eyebrow slightly raised, corner of mouth tilts up, head tilted, eyes brightening, gentle mischief",
+    "tone_negative": "exaggerated expression, open mouth, crying, angry, chibi, comic effects",
+    "quality_negative": "huge breasts, giant breasts, exaggerated anatomy",
+    "anima_defaults": {
+      "sampler": "euler",
+      "scheduler": "simple",
+      "steps": 26,
+      "cfg": 5.5,
+      "lora": "animaNai5E585B6E4B889.YDAV.safetensors:0.8",
+      "notes": "anima 只能用 euler 系；dpmpp_2m / dpmpp_2m_sde 会爆高光。CFG 5.5 质感最好，4.0 最保守。"
+    },
+    "body_negative": "huge breasts, giant chest, exaggerated anatomy, wide hips, thick thighs, muscular, mature figure",
+    "body_positive": "(medium bust:1.25), (slim waist:1.2), slender arms, natural youthful proportions, (small frame:1.15)",
+    "eye_prompt": {
+      "perspective": "viewer（观众视角）",
+      "positive": "(red eye on the left side of the image:1.5), (grey eye on the right side of the image:1.4), heterochromia",
+      "negative": "heterochromia check only — 负向不要写 red eye on the right",
+      "hit_rate": "约 67%（12 张实测），其余靠 lockchar.py 图层改色修正",
+      "note": "统一为观众视角，不再使用「她右眼红」这类人物视角表述"
+    },
+    "hair_prompt": {
+      "positive": "(ivory white hair:1.45), pure white hair with cool grey shading",
+      "negative": "blonde hair, yellow hair, golden hair, pink hair, beige hair, brown hair, warm tinted hair, color cast on hair, dyed hair",
+      "note": "环境光可以染色，但发基本色必须保持象牙白；霓虹/黄昏场景尤其要加这条负向"
+    },
+    "torso_prompt": {
+      "positive": " (fitted halter dress with a clear sweetheart neckline:1.3), (defined bust line:1.2), (visible waistline:1.2), (white coat worn open, hanging off the shoulders:1.25), (clear separation between hair and coat:1.2)",
+      "negative": "merged hair and clothing, mushy anatomy, indistinct waist, fused shoulder, deformed chest, arm merged into body, no neckline",
+      "note": "躯干糊掉的主因是「外套和头发粘在一起」+「领口没有结构」，靠这两条锁住"
+    },
+    "skin_prompt": {
+      "positive": "(natural skin tone:1.25), (soft neutral skin shading:1.15)",
+      "negative": "orange skin, heavy color cast on skin, over-saturated skin, red skin, grey skin",
+      "note": "强色光场景必须加，否则皮肤被环境光染成橙色，和裙子糊在一起"
+    },
+    "appearance_prompt": {
+      "positive": "(ivory white hair:1.45), (white hair with warm grey shadows:1.15), (straight fringe:1.25), long face-framing locks, (oval youthful face:1.3), (soft jawline:1.25), (small chin:1.2), (almond eyes:1.25), (long eyelashes:1.15), (deep crimson iris:1.3), (neutral grey iris:1.25), (red eye on the left side of the image:1.6), (grey eye on the right side of the image:1.5), heterochromia, fair skin, soft blush, gentle closed-lip smile",
+      "negative": "blonde hair, golden hair, yellow hair, blue hair, pink hair, cool grey hair, ash grey hair, long narrow face, sharp chin, elongated head, huge round eyes, thick eyebrows, 2girls, multiple views, character sheet, cropped faces, watermark, text",
+      "note": "全部数值来自 c_cfg55 逆工程"
+    },
+    "face_prompt": {
+      "positive": "(round youthful face:1.35), (full soft cheeks:1.25), (short small rounded chin:1.3), (large round eyes:1.25), (small mouth:1.15), soft rounded jawline",
+      "negative": "long face, narrow face, sharp chin, pointed chin, elongated head, mature facial structure, hollow cheeks, sunken cheeks, long midface",
+      "note": "脸型是这版最大的偏差：模型的默认少女脸偏长尖，必须显式压回圆润"
+    }
+  },
+  "reference": {
+    "image": "ref/ref_initial.png",
+    "outfit": "initial",
+    "body": "youthful",
+    "resolution": 1432,
+    "note": "服装/体格/发型以这张为准；后续改动从这里 i2i"
+  },
+  "environment_rules": {
+    "room": "普通人的房间，夜间，主光是台灯与屏幕；不要机房设备",
+    "sunflowers": "只在窗台上（或窗外远景）；室内桌面不再出现向日葵，发饰除外",
+    "window": "房间要有窗户，窗外是夜色",
+    "props": "数位板、笔、显示器、机械键盘、耳机、马克杯、便签、笔筒、书架、抱枕",
+    "forbidden": "server rack, server room, data center, rack lights, sunflowers on wall, floral wallpaper, outdoor daylight"
+  },
+  "eye_rule": {
+    "authority": "ref/ref_initial.png（标准参考图，唯一基准）",
+    "definition": "以参考图中角色的身体为准：参考图里位于她身体左侧的那只眼 = 红；另一只 = 灰",
+    "measured_on_ref": "基准图中红眼位于画面左侧；她正面朝观众，因此这只眼是她的右眼（画面左 = 她的右）",
+    "naming": {
+      "red_eye": "参考图左侧那只眼（她的右眼）",
+      "grey_eye": "参考图右侧那只眼（她的左眼）"
+    },
+    "rule_statement": "红眼始终是「她的右眼」这只解剖学上的眼；它随身体转动，不随画面固定",
+    "projection": {
+      "front_facing_camera": "红眼在画面左",
+      "three_quarter": "红眼在画面左（除非角色整体朝反方向）",
+      "side_profile_left_cheek": "看到的是她的右脸 → 红眼可见",
+      "side_profile_right_cheek": "看到的是她的左脸 → 只有灰眼可见",
+      "back_view": "红眼在画面右"
+    },
+    "prompt_positive_front": "(red eye on the left side of the image:1.6), (grey eye on the right side of the image:1.5)",
+    "prompt_positive_back": "(red eye on the right side of the image:1.6), (grey eye on the left side of the image:1.5)",
+    "prompt_note": "提示词必须用画面坐标（模型只认这个），坐标由本节 projection 表推导；判读与命名一律回到「她的右眼」"
+  },
+  "garments": {
+    "slip": {
+      "label": "简版吊带裙（c_cfg55 那种）",
+      "use_for": "胸像 / 特写",
+      "prompt": "(thin-strap yellow slip dress:1.4), (deep V neckline with a small gold clasp at the bust:1.35), (satin fabric with soft sheen:1.25), (long flowing skirt:1.2), (white fluffy fur coat, off-shoulder, slipping off both shoulders:1.5), (her shoulders and collarbones are bare:1.35), (coat sleeves hanging loose and empty:1.3), (coat resting on her upper arms:1.25)",
+      "negative": "military coat, gold trim, striped panel, ruffled shorts, lace-up boots, evening gown, ball gown, wedding dress, long gown, coat worn on both shoulders, coat buttoned up, coat sleeves on her arms",
+      "parts": [
+        "细吊带",
+        "V 领",
+        "胸口金扣",
+        "哑光布",
+        "长裙",
+        "白色毛绒外套披肩"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "off-shoulder coat",
+          "coat slipping off shoulders",
+          "draped coat",
+          "half-off coat"
+        ]
+      },
+      "material": {
+        "coat": "white fluffy fur",
+        "dress": "satin with soft sheen"
+      },
+      "note": "简版吊带裙 + 毛绒外套半脱；胸像/特写最稳。肩线露得多，别和军事风大衣同框。"
+    },
+    "initial": {
+      "label": "初始服装（军装礼服版）",
+      "use_for": "全身 / 半身（正式设定）",
+      "prompt": "(off-shoulder yellow top:1.35), (yellow ruffled band across the bust:1.3), (narrow yellow and white striped placket down the center of the bodice:1.4), (solid yellow on the rest of the top:1.3), (white floral print along the bottom hem of the top:1.25), (black halter neck strap and black choker:1.3), (black ribbon bow pinned at her chest, not in her hair:1.35), (gold round brooch at the center of the chest:1.25), (black ruffled shorts ending at mid-thigh:1.3), (black sheer pantyhose:1.2), (white military coat with gold trim:1.3), (plain epaulettes without tassels:1.25), (gold buttons:1.25), (brown leather cuffs:1.3), (coat ends at mid-thigh, above the knee:1.45), (white combat boots with gold laces reaching mid-calf:1.35), (crisp vertical stripes clearly visible on the center placket:1.45), (her hair is loose with no ribbon:1.3), (candy-stripe placket:1.5), (crisp printed stripes, not pleats:1.45), (white military coat worn open:1.3), (both sleeves on her arms:1.35), (brown cuffs at her wrists:1.25), (standing collar:1.2)",
+      "negative": "evening gown, ball gown, wedding dress, prom dress, satin sheen, tulle, train, mermaid silhouette, long gown, tube dress, hair bow, ribbon on head, floral print on coat, striped coat, long coat below the knee, ankle length coat, floor length coat, sneakers, ankle boots, slippers, tassels, fringe shoulder ornaments, curtain like ornaments, fur trim, solid yellow top without stripes, ribbon on head, pleats, gathered fabric, vertical folds, ribbed knit, coat slipping off her shoulders, coat draped like a cape, sleeves empty",
+      "parts": [
+        "露肩短上衣",
+        "荷叶边胸带",
+        "黄白竖条纹拼片",
+        "白色印花下摆",
+        "黑挂脖带+颈圈",
+        "黑蝴蝶结+金扣",
+        "黑色荷叶边短裤",
+        "黑丝",
+        "白色军装大衣+金滚边/肩章/金扣",
+        "棕色皮袖口",
+        "白色金带系带靴"
+      ],
+      "tuned": "2026-10-27 定稿：条纹用 candy-stripe + not pleats，负向压褶子",
+      "drape": {
+        "state": "worn_open",
+        "terms": [
+          "coat worn open",
+          "sleeves on arms",
+          "collar standing"
+        ]
+      },
+      "material": {
+        "coat": "smooth white wool with gold trim and brown leather cuffs",
+        "top": "matte cotton with printed stripes"
+      },
+      "note": "军装礼服定稿装：黄条纹上衣 + 荷叶短裤 + 白大衣 + 系带靴。部件多，顺序按上→下→外→鞋；条纹已定稿（candy-stripe + not pleats）。"
+    },
+    "casual_knit": {
+      "label": "针织日常（大毛衣 + 百褶裙）",
+      "use_for": "日常 / 半身",
+      "prompt": "(cream oversized knit cardigan:1.4), (soft ribbed wool texture:1.25), (one sleeve slipping off her shoulder:1.25), (white camisole underneath:1.3), (grey pleated wool skirt:1.35), (bare legs with white ankle socks:1.2), (brown leather loafers:1.25)",
+      "negative": "(military coat:1.3), (gold trim:1.2), (striped panel:1.2), (white fur coat:1.3), (ball gown:1.3), (high heels:1.2), (long gown:1.25)",
+      "parts": [
+        "米白大针织开衫",
+        "白色吊带",
+        "灰色百褶裙",
+        "白短袜",
+        "棕色乐福鞋"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "cardigan slipping off one shoulder",
+          "knit sleeve hanging loose"
+        ]
+      },
+      "note": "针织日常：大毛衣 + 百褶裙。毛衣容易吞掉肩线，靠 one sleeve slipping off 这句救回来。"
+    },
+    "school": {
+      "label": "水手服（夏季）",
+      "use_for": "日常 / 全身",
+      "prompt": "(white sailor blouse with navy collar:1.4), (red neckerchief:1.3), (navy pleated skirt:1.35), (dark knee socks:1.25), (brown loafers:1.2), (sailor collar with white stripes:1.25)",
+      "negative": "(military coat:1.3), (white fur coat:1.3), (slip dress:1.25), (ball gown:1.3), (hoodie:1.2), (jeans:1.2)",
+      "parts": [
+        "白色水手服",
+        "藏青水手领",
+        "红领巾",
+        "藏青百褶裙",
+        "深色及膝袜",
+        "棕色乐福鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "夏季水手服。原来 @NEG_BASE 里默认禁 school uniform，2026-10-31 已从全局限定里移除，现在可以直接用；如果不想要校服串到别的图，就在那套图的负向里单独加 school uniform。"
+    },
+    "gala": {
+      "label": "晚礼服（藏青丝绒）",
+      "use_for": "正式 / 全身",
+      "prompt": "(deep navy velvet evening gown:1.45), (floor-length skirt with a subtle train:1.3), (thin straps over bare shoulders:1.3), (satin gloves reaching the elbow:1.25), (small pearl earrings:1.2), (hair in a low chignon:1.2)",
+      "negative": "(military coat:1.35), (white fur coat:1.3), (yellow slip dress:1.3), (shorts:1.25), (lace-up boots:1.25), (knit cardigan:1.2)",
+      "parts": [
+        "藏青丝绒长裙",
+        "细肩带",
+        "小拖尾",
+        "缎面长手套",
+        "珍珠耳饰",
+        "低发髻"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "straps slipping down her arms",
+          "gown resting low on the shoulders"
+        ]
+      },
+      "note": "藏青丝绒长裙 + 缎面长手套；正式场合。拖尾会吃构图，建议配 @CAM_FULL。"
+    },
+    "raincoat": {
+      "label": "雨衣（透明风衣）",
+      "use_for": "雨天 / 全身",
+      "prompt": "(translucent plastic raincoat:1.4), (hood down around her neck:1.25), (white long-sleeve top underneath:1.3), (dark jeans:1.3), (rubber rain boots:1.3), (water droplets on the coat surface:1.2)",
+      "negative": "(white fur coat:1.3), (ball gown:1.3), (high heels:1.25), (military coat:1.25), (straw hat:1.2)",
+      "parts": [
+        "透明雨衣",
+        "放下的兜帽",
+        "白色长袖",
+        "深色牛仔",
+        "橡胶雨靴"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "透明雨衣；雨天/街景。塑料反光容易脏，负向压 plastic sheen / glare。"
+    },
+    "gym": {
+      "label": "运动装（卫衣 + 束脚裤）",
+      "use_for": "动作 / 全身",
+      "prompt": "(grey hooded sweatshirt:1.35), (black jogger pants:1.35), (white running shoes:1.3), (towel around her neck:1.2), (hair tied in a high ponytail:1.25)",
+      "negative": "(overcoat:1.25), (ball gown:1.3), (pleated skirt:1.2), (high heels:1.25), (military uniform:1.2)",
+      "parts": [
+        "灰色连帽卫衣",
+        "黑色束脚裤",
+        "白色跑鞋",
+        "毛巾",
+        "高马尾"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "卫衣 + 束脚裤；动作场景。马尾和毛巾是识别点，别配高跟鞋。"
+    },
+    "winter": {
+      "label": "冬装（驼色大衣 + 红围巾）",
+      "use_for": "冬季 / 全身",
+      "prompt": "(camel wool overcoat:1.45), (long red knit scarf wrapped twice:1.35), (black turtleneck:1.3), (dark trousers:1.3), (leather ankle boots:1.25), (knit mittens:1.2)",
+      "negative": "(white fur coat:1.25), (slip dress:1.25), (ball gown:1.3), (sandals:1.2)",
+      "parts": [
+        "驼色呢大衣",
+        "红色长围巾",
+        "黑色高领",
+        "深色长裤",
+        "皮质短靴",
+        "针织手套"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "驼色大衣 + 红围巾；冬季。围巾绕两圈容易挡下半张脸，特写时改成 wrapped once。"
+    },
+    "yukata": {
+      "label": "浴衣（夏祭）",
+      "use_for": "夏季 / 全身",
+      "prompt": "(white yukata with blue morning-glory pattern:1.45), (wide navy obi sash:1.35), (wooden geta sandals:1.25), (hair in a low bun with a hairpin:1.2), (small cloth pouch in her hand:1.15)",
+      "negative": "(western clothes:1.2), (jeans:1.2), (leather boots:1.25), (overcoat:1.25), (ball gown:1.3)",
+      "parts": [
+        "白底蓝牵牛花浴衣",
+        "藏青宽腰带",
+        "木屐",
+        "低发髻+发簪",
+        "小布袋"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "yukata slipping from one shoulder",
+          "collar opened wide showing the neck"
+        ]
+      },
+      "note": "白底蓝牵牛花浴衣；夏祭。腰带位置和下摆长度决定像不像，配屋顶/街道场景。"
+    },
+    "smock": {
+      "label": "画室罩衫（亚麻）",
+      "use_for": "工作 / 半身",
+      "prompt": "(cream linen artist smock:1.45), (paint stains on the hem:1.2), (sleeves rolled to the elbow:1.25), (black camisole underneath:1.3), (dark trousers:1.3), (paintbrush tucked behind her ear:1.2)",
+      "negative": "(ball gown:1.3), (white fur coat:1.3), (school uniform:1.2), (high heels:1.2)",
+      "parts": [
+        "米色亚麻罩衫",
+        "下摆颜料痕",
+        "卷起袖子",
+        "黑色吊带",
+        "深色长裤",
+        "耳后画笔"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "smock slipping from one shoulder",
+          "apron ties loose at the back"
+        ]
+      },
+      "note": "亚麻画室罩衫；工作场景。袖子卷到肘 + 下摆颜料痕是灵魂，别配礼服鞋。"
+    },
+    "maid": {
+      "label": "女仆装（黑白）",
+      "use_for": "服务 / 半身",
+      "note": "黑白女仆裙 + 白围裙 + 头饰。围裙和裙摆的层次是识别点；负向要压军装和礼服，不然会串味。",
+      "prompt": "(black and white maid dress:1.4), (white apron with lace trim:1.35), (short puffed sleeves:1.2), (white frilled headband:1.25), (black thigh-high stockings:1.25), (mary jane shoes:1.2), (neat bow at the collar:1.15)",
+      "negative": "(military coat:1.3), (white fur coat:1.3), (ball gown:1.3), (evening gown:1.25), (jeans:1.2), (high heels:1.2)",
+      "parts": [
+        "黑白女仆裙",
+        "白色蕾丝围裙",
+        "泡泡短袖",
+        "白色褶边头饰",
+        "黑色过膝袜",
+        "玛丽珍鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "swimsuit": {
+      "label": "连体泳装（深蓝）",
+      "use_for": "夏日 / 全身",
+      "note": "深蓝连体泳装 + 沙滩巾。配海边/泳池场景；别塞进咖啡馆这种室内场景。",
+      "prompt": "(navy one-piece swimsuit:1.45), (racerback straps:1.2), (high-cut legs:1.15), (a striped beach towel over her shoulders:1.25), (wet hair:1.2), (barefoot on the sand:1.15)",
+      "negative": "(military coat:1.25), (ball gown:1.3), (school uniform:1.2), (leather boots:1.25), (jeans:1.2)",
+      "parts": [
+        "藏青连体泳装",
+        "竞速背带",
+        "高开叉",
+        "条纹沙滩巾",
+        "湿发"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "hanfu": {
+      "label": "汉服襦裙（浅青）",
+      "use_for": "古风 / 全身",
+      "note": "浅青交领襦裙 + 披帛。系带位置和裙摆长度写清楚，不然容易变成和服。",
+      "prompt": "(pale celadon hanfu with crossed collar:1.45), (long flowing skirt with a wide hem:1.3), (silk sash tied at the waist:1.25), (wide sleeves:1.25), (a sheer shawl draped over her arms:1.2), (hair in a half-up bun with a jade pin:1.2)",
+      "negative": "(kimono:1.2), (yukata:1.2), (military coat:1.25), (ball gown:1.3), (jeans:1.2), (leather boots:1.2)",
+      "parts": [
+        "浅青交领上衣",
+        "长裙",
+        "腰带",
+        "宽袖",
+        "披帛",
+        "玉簪半扎发"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "shawl slipping from one shoulder"
+        ]
+      }
+    },
+    "suit": {
+      "label": "西装（炭灰套装）",
+      "use_for": "职场 / 半身",
+      "note": "炭灰西装 + 白衬衫 + 铅笔裙。肩线要硬；负向压毛绒和礼服，否则会软成针织。",
+      "prompt": "(charcoal grey tailored blazer:1.45), (white dress shirt:1.3), (slim pencil skirt:1.3), (black leather pumps:1.2), (thin silver necklace:1.15), (hair in a low ponytail:1.2), (one button left open on the blazer:1.15)",
+      "negative": "(white fur coat:1.3), (ball gown:1.3), (maid dress:1.2), (hoodie:1.2), (sneakers:1.2)",
+      "parts": [
+        "炭灰西装外套",
+        "白衬衫",
+        "铅笔裙",
+        "黑色高跟鞋",
+        "细银项链",
+        "低马尾"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "santa": {
+      "label": "圣诞装（红白）",
+      "use_for": "节日 / 全身",
+      "note": "红白圣诞短裙 + 毛边。红色容易溢出，负向加 oversaturated red；季节限定，别常态用。",
+      "prompt": "(red santa-style mini dress:1.4), (white fur trim on the hem and cuffs:1.3), (black belt with a gold buckle:1.2), (red santa hat with a white pompom:1.3), (black tights:1.2), (black ankle boots:1.2)",
+      "negative": "(ball gown:1.3), (military coat:1.25), (oversaturated red:1.2), (orange tone:1.2), (fur coat:1.25)",
+      "parts": [
+        "红色圣诞短裙",
+        "白色毛边",
+        "黑腰带金扣",
+        "圣诞帽",
+        "黑色连裤袜",
+        "短靴"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "idol": {
+      "label": "偶像舞台装",
+      "use_for": "舞台 / 全身",
+      "note": "亮片短上衣 + 百褶短裙 + 耳返。舞台光下最出彩；亮片写太多会糊成一团。",
+      "prompt": "(shiny sequined crop top:1.4), (pleated mini skirt with silver trim:1.35), (white thigh-high boots:1.25), (in-ear monitor and small headset mic:1.2), (glittery hair accessories:1.2), (stage lighting sparkle:1.15)",
+      "negative": "(military coat:1.25), (ball gown:1.3), (school uniform:1.2), (jeans:1.2), (sneakers:1.2)",
+      "parts": [
+        "亮片短上衣",
+        "银色镶边百褶裙",
+        "白色过膝靴",
+        "耳返",
+        "亮片发饰"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "loungewear": {
+      "label": "居家（大号卫衣+短裤）",
+      "use_for": "日常 / 半身",
+      "note": "大号卫衣盖住短裤下摆、露出腿。居家感靠 oversize 和 bare legs；别套外套。",
+      "prompt": "(oversized grey sweatshirt:1.45), (shorts barely visible under the hem:1.25), (bare legs:1.2), (white socks:1.15), (messy loose hair:1.2), (sitting on the sofa:1.15)",
+      "negative": "(military coat:1.3), (ball gown:1.3), (high heels:1.2), (jeans:1.2), (fur coat:1.25)",
+      "parts": [
+        "灰色大号卫衣",
+        "短裤",
+        "白袜",
+        "松散头发"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "cheongsam": {
+      "label": "旗袍（墨绿）",
+      "use_for": "正式 / 全身",
+      "note": "墨绿丝质旗袍 + 盘扣 + 开衩。开衩高度要写清楚（knee-length slit），否则容易变浴袍。",
+      "prompt": "(dark green silk cheongsam:1.45), (mandarin collar with frog buttons:1.3), (gold piping along the edges:1.2), (knee-length side slit:1.25), (black embroidered flats:1.2), (hair in a low bun with a hairpin:1.15)",
+      "negative": "(kimono:1.2), (yukata:1.2), (ball gown:1.25), (military coat:1.25), (jeans:1.2), (sneakers:1.2)",
+      "parts": [
+        "墨绿丝质旗袍",
+        "立领盘扣",
+        "金色滚边",
+        "及膝开衩",
+        "绣花平底鞋",
+        "低发髻"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "overalls": {
+      "label": "工装背带裤（画家）",
+      "use_for": "工作 / 全身",
+      "note": "牛仔背带裤 + 白T。画室日常；背带扣、口袋和膝盖颜料痕是识别点。",
+      "prompt": "(denim overalls with metal buckles:1.45), (white t-shirt underneath:1.3), (paint stains on the knees:1.2), (canvas sneakers:1.2), (hair tied back loosely:1.15)",
+      "negative": "(ball gown:1.3), (military coat:1.25), (maid dress:1.2), (high heels:1.2)",
+      "parts": [
+        "牛仔背带裤",
+        "金属背带扣",
+        "白色T恤",
+        "膝盖颜料痕",
+        "帆布鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "sundress": {
+      "label": "夏日白棉长裙",
+      "use_for": "夏日 / 全身",
+      "note": "白棉吊带长裙 + 草帽。白布容易过曝，负向加 blown highlights；和 slip 的区别是哑光无光泽。",
+      "prompt": "(white cotton sundress with thin straps:1.45), (knee-length flared skirt:1.25), (matte cotton texture:1.2), (a wide straw hat:1.25), (woven sandals:1.2), (light breeze lifting the hem:1.15)",
+      "negative": "(satin sheen:1.25), (military coat:1.25), (ball gown:1.3), (high heels:1.2), (fur coat:1.3), (blown highlights:1.2)",
+      "parts": [
+        "白色棉麻吊带裙",
+        "及膝伞裙",
+        "哑光棉布",
+        "草帽",
+        "编织凉鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "pajama": {
+      "label": "睡衣（居家）",
+      "use_for": "夜 / 居家",
+      "note": "棉质睡衣：宽松上衣 + 条纹裤 + 赤脚。居家/睡前场景；别配外套和鞋。",
+      "prompt": "(soft cotton pajama set:1.4), (loose button-up top:1.3), (striped pajama pants:1.25), (bare feet:1.2), (messy hair:1.15)",
+      "negative": "(military coat:1.25), (ball gown:1.3), (school uniform:1.2), (leather boots:1.2), (high heels:1.2)",
+      "parts": [
+        "棉质睡衣上衣",
+        "条纹睡裤",
+        "赤脚",
+        "凌乱头发"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "initial_fine": {
+      "label": "初始服装·精修",
+      "use_for": "立绘 / 全身",
+      "note": "按精修立绘拆的一套：黑色挂脖绑带 + 露肩黄白拼色上衣（黑领带金葵胸针）+ 白色军装大衣（金边、棕色袖口）+ 黑色百褶短裙 + 黑丝袜 + 白色系带靴。不含任何发饰。 实测(2026-11-01)：配 @ID 时向日葵仍会残留一小朵；改配 @ID_SOFT（发饰权重降到 1.15）+ 本套负向，向日葵完全消失，成立。",
+      "prompt": "(black halter strap harness across her chest:1.35), (off-shoulder yellow top with a wide neckline:1.4), (black collar band with a gold sunflower brooch:1.3), (black ribbon bow at the center of her chest:1.25), (asymmetric yellow and white panel:1.2), (white floral print along the hem:1.2), (open white military coat with gold trim:1.35), (brown leather cuffs with gold buttons:1.25), (black pleated mini skirt with a ruffled hem:1.3), (black tights:1.25), (white lace-up combat boots with gold laces:1.3)",
+      "negative": "(military coat buttoned up:1.25), (ball gown:1.3), (evening gown:1.25), (jeans:1.2), (high heels:1.2), (straw hat:1.2), (sunflower hair ornament:1.45), (sunflower hairband:1.45), (flower crown:1.35)",
+      "parts": [
+        "黑色挂脖绑带",
+        "露肩黄白拼色上衣",
+        "黑领带金葵胸针",
+        "白色军装大衣（金边）",
+        "棕色皮质袖口",
+        "黑色百褶短裙",
+        "黑丝袜",
+        "白色系带短靴"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "coat slipping off both shoulders"
+        ]
+      }
+    },
+    "initial_fine_lite": {
+      "label": "初始服装·短版",
+      "use_for": "日常 / 半身",
+      "note": "精修套的短版：去掉白色军装大衣，只留露肩黄上衣 + 黑百褶短裙 + 黑丝袜 + 白靴。半身/日常更好用；不含发饰。 实测(2026-11-01)：配 @ID_SOFT 出图成立，向日葵基本消失（偶发小夹子）。",
+      "prompt": "(black halter strap harness across her chest:1.35), (off-shoulder yellow top with a wide neckline:1.4), (black collar band with a gold sunflower brooch:1.3), (black ribbon bow at the center of her chest:1.25), (white floral print along the hem:1.2), (black pleated mini skirt with a ruffled hem:1.3), (black tights:1.25), (white lace-up combat boots with gold laces:1.3)",
+      "negative": "(military coat buttoned up:1.25), (ball gown:1.3), (jeans:1.2), (high heels:1.2), (sunflower hair ornament:1.45), (sunflower hairband:1.45), (flower crown:1.35), (long skirt:1.25)",
+      "parts": [
+        "黑色挂脖绑带",
+        "露肩黄白上衣",
+        "黑领带金葵胸针",
+        "黑色百褶短裙",
+        "黑丝袜",
+        "白色系带短靴"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "initial_fine_gala": {
+      "label": "初始服装·礼装版",
+      "use_for": "正式 / 全身",
+      "note": "精修套的礼装版：上衣不变，短裙换成长裙（侧开衩 + 金色滚边）+ 黑色高跟鞋；适合正式场合/舞台。不含发饰。 实测(2026-11-01)：长裙、开衩、金边成立；拖尾不明显，可手动加 (short train:1.15)。",
+      "prompt": "(black halter strap harness across her chest:1.35), (off-shoulder yellow top with a wide neckline:1.4), (black collar band with a gold sunflower brooch:1.3), (black ribbon bow at the center of her chest:1.25), (white floral print along the hem:1.2), (long black skirt with a side slit:1.35), (gold trim along the hem:1.2), (black high heels:1.2), (a short train trailing behind:1.15)",
+      "negative": "(military coat buttoned up:1.25), (ball gown:1.3), (jeans:1.2), (high heels:1.2), (sunflower hair ornament:1.45), (sunflower hairband:1.45), (flower crown:1.35), (mini skirt:1.25), (shorts:1.2), (sneakers:1.2)",
+      "parts": [
+        "黑色挂脖绑带",
+        "露肩黄白上衣",
+        "黑领带金葵胸针",
+        "黑色长裙（侧开衩）",
+        "金色滚边",
+        "黑色高跟鞋"
+      ],
+      "drape": {
+        "worn": true,
+        "state": "worn",
+        "terms": []
+      }
+    },
+    "school_bare": {
+      "label": "水手服·赤足",
+      "use_for": "日常 / 赤足",
+      "prompt": "(white sailor blouse with navy collar:1.4), (red neckerchief:1.3), (navy pleated skirt:1.35), (sailor collar with white stripes:1.25), (bare feet:1.5), (barefoot:1.35), (visible toes:1.25), (bare legs:1.2)",
+      "negative": "(military coat:1.3), (white fur coat:1.3), (slip dress:1.25), (ball gown:1.3), (hoodie:1.2), (jeans:1.2), (socks:1.7), (knee socks:1.7), (loafers:1.7), (shoes:1.7)",
+      "parts": [
+        "白色水手服",
+        "藏青水手领",
+        "红领巾",
+        "藏青百褶裙",
+        "赤足"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "校服赤足版：把鞋袜从正向里删掉并写进负向，避免负向和套装打架。"
+    },
+    "yukata_bare": {
+      "label": "浴衣·赤足",
+      "use_for": "夏祭 / 赤足",
+      "prompt": "(white yukata with blue morning-glory pattern:1.45), (wide navy obi sash:1.35), (hair in a low bun with a hairpin:1.2), (small cloth pouch in her hand:1.15), (bare feet:1.5), (barefoot:1.35), (visible toes:1.25)",
+      "negative": "(western clothes:1.2), (jeans:1.2), (leather boots:1.25), (overcoat:1.25), (ball gown:1.3), (wooden geta sandals:1.7), (sandals:1.6)",
+      "parts": [
+        "白底蓝牵牛花浴衣",
+        "藏青宽腰带",
+        "低发髻+发簪",
+        "小布袋",
+        "赤足"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "yukata slipping from one shoulder",
+          "collar opened wide showing the neck"
+        ]
+      },
+      "note": "浴衣赤足版：去掉木屐，适合温泉/室内/走廊。"
+    },
+    "cardigan_set": {
+      "label": "针织开衫·日常",
+      "use_for": "日常 / 半身",
+      "prompt": "(oversized beige knit cardigan:1.4), (white camisole underneath:1.3), (navy pleated skirt:1.3), (brown loafers:1.2), (soft ribbed cuffs:1.15)",
+      "negative": "(ball gown:1.3), (military coat:1.3), (swimsuit:1.25), (maid outfit:1.25)",
+      "parts": [
+        "米色宽松针织开衫",
+        "白色吊带",
+        "藏青百褶裙",
+        "棕色乐福鞋"
+      ],
+      "drape": {
+        "state": "off_shoulder",
+        "terms": [
+          "cardigan slipping off one shoulder"
+        ]
+      },
+      "note": "日常开衫；配 @SET_ROOM / @SET_CAFE 最稳，适合半身和坐姿。"
+    },
+    "hoodie_casual": {
+      "label": "卫衣·休闲",
+      "use_for": "休闲 / 运动",
+      "prompt": "(oversized grey hoodie:1.4), (drawstrings hanging:1.2), (black bike shorts:1.3), (white sneakers:1.25), (loose fit:1.2)",
+      "negative": "(ball gown:1.3), (maid outfit:1.25), (sailor uniform:1.25), (high heels:1.2)",
+      "parts": [
+        "灰色宽松卫衣",
+        "抽绳",
+        "黑色骑行短裤",
+        "白球鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "街头/居家休闲；卫衣容易吃掉身材线条，想要比例就配 @CAM_FULL。"
+    },
+    "sundress_floral": {
+      "label": "碎花吊带裙",
+      "use_for": "夏季 / 全身",
+      "prompt": "(white sundress with small blue floral print:1.4), (thin spaghetti straps:1.25), (knee-length flowing skirt:1.3), (white sandals:1.2), (light cotton fabric:1.15)",
+      "negative": "(ball gown:1.3), (winter coat:1.3), (leather boots:1.25), (hoodie:1.2)",
+      "parts": [
+        "白底碎花吊带裙",
+        "细肩带",
+        "及膝裙摆",
+        "白色凉鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "夏季日常；配 @SET_GARDEN_PEONY / @SET_BEACH 和木漏れ日最好看。"
+    },
+    "lab_coat": {
+      "label": "白大褂·研究员",
+      "use_for": "职业 / 半身",
+      "prompt": "(white lab coat:1.4), (light blue button-up shirt:1.3), (black pencil skirt:1.3), (id badge on a lanyard:1.2), (pen in the chest pocket:1.15)",
+      "negative": "(ball gown:1.3), (maid outfit:1.25), (swimsuit:1.25), (sailor uniform:1.25)",
+      "parts": [
+        "白大褂",
+        "浅蓝衬衫",
+        "黑色铅笔裙",
+        "工牌",
+        "口袋钢笔"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "职业题材；配 @SET_LAB? 没有就用 @SET_ARTROOM / @SET_LIBRARY + 冷白灯。"
+    },
+    "sailor_winter": {
+      "label": "水手服·冬",
+      "use_for": "冬季 / 全身",
+      "prompt": "(navy sailor uniform with long sleeves:1.4), (grey wool overcoat over it:1.35), (red neckerchief:1.25), (navy pleated skirt:1.3), (dark knee socks:1.2), (brown loafers:1.2)",
+      "negative": "(ball gown:1.3), (swimsuit:1.25), (maid outfit:1.25), (sundress:1.2)",
+      "parts": [
+        "藏青长袖水手服",
+        "灰色羊毛大衣",
+        "红领巾",
+        "藏青百褶裙",
+        "深色及膝袜",
+        "棕色乐福鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "冬季校服；大衣会增加体积，配 @CAM_FULL 或 @CAM_MEDIUM。"
+    },
+    "denim_set": {
+      "label": "牛仔外套·街头",
+      "use_for": "街头 / 日常",
+      "prompt": "(light blue denim jacket:1.4), (plain white t-shirt:1.3), (denim shorts:1.3), (white sneakers:1.25), (rolled-up sleeves:1.15)",
+      "negative": "(ball gown:1.3), (maid outfit:1.25), (sailor uniform:1.25), (winter coat:1.25)",
+      "parts": [
+        "浅蓝牛仔外套",
+        "白T恤",
+        "牛仔短裤",
+        "白球鞋"
+      ],
+      "drape": {
+        "state": "worn",
+        "terms": []
+      },
+      "note": "街头休闲；配 @SET_STREET? 没有就用 @SET_MARKET / @SET_CORRIDOR。"
+    }
+  },
+  "garment_default": "initial",
+  "name": "篠宮 澪",
+  "name_kana": "しのみや みお",
+  "name_romaji": "Shinomiya Mio",
+  "nickname": "みお",
+  "name_note": "姓保留：篠宮（细竹）。名取『澪』＝水渠、航道，安静的水声，不碰日/阳/葵/花/灯。",
+  "name_alternatives": [
+    "篠宮 すず（铃）",
+    "篠宮 なずな（荠菜）",
+    "篠宮 こはる（早春）"
+  ],
+  "name_history": [
+    "日向 ひまり（太直接，弃用）",
+    "篠宮 灯（灯火太明显，弃用）",
+    "篠宮 すず（偏轻，未用）"
+  ]
+}

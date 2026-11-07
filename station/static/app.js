@@ -2,8 +2,6 @@
 'use strict';
 window.onerror = (m, s, l, c, e) => { document.title = 'ERR: ' + m + ' @' + l; };
 window.addEventListener('unhandledrejection', e => { document.title = 'REJ: ' + (e.reason && e.reason.message || e.reason); });
-const $ = (s, r) => (r || document).querySelector(s);
-const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const S = {
   tokens: {}, garments: {}, presets: [],
   pos: [], neg: [],
@@ -13,7 +11,7 @@ const S = {
   tokenFilter: '', paletteFilter: '', libraryFilter: '',
 };
 const CAT_LABEL = {
-  id:'身份', body:'体型', pose:'姿势', face:'表情', mood:'情绪', gaze:'视线', hand:'手部',
+  id:'身份', body:'体型', pose:'姿势', face:'脸型', mood:'情绪', gaze:'视线', hand:'手部',
   hold:'手持物', weapon:'武器', hair:'头发',
   cam:'机位', light:'打光', atmo:'氛围', time:'时间',
   outfit:'服装', fabric:'材质', drape:'型态',
@@ -21,34 +19,31 @@ const CAT_LABEL = {
   neg:'负向', custom:'自定义', nsfw:'NSFW'
 };
 
-const api = async (url, opt) => {
-  const r = await fetch(url, opt ? { headers:{'Content-Type':'application/json'}, ...opt } : undefined);
-  if (!r.ok) throw new Error(url + ' → ' + r.status + ' ' + (await r.text()).slice(0,120));
-  return r.json();
-};
 
-const uid = () => Math.random().toString(36).slice(2, 9);
+
 
 /* ---------- 分类推断 ---------- */
-const NSFW_TOKENS = new Set(['@MOOD_SMOKE','@MOOD_ALCOHOL','@MOOD_TIRED','@MOOD_COLD','@STYLE_NOIR','@STYLE_GRAIN','@MAKEUP_SICK','@NEG_NSFW']);
 const RAIL_SHORT = { nsfw: '18+' };
+
+const NSFW_TOKENS = new Set(['@MOOD_SMOKE','@MOOD_ALCOHOL','@MOOD_TIRED','@MOOD_COLD','@STYLE_NOIR','@STYLE_GRAIN','@MAKEUP_SICK','@NEG_NSFW']);
 
 function tokenCat(name) {
   const n = name.toUpperCase();
   if (NSFW_TOKENS.has(n)) return 'nsfw';
   const map = [
-    ['@SUBJ', 'id'], ['@BODY', 'body'], ['@FACE', 'face'], ['@OUTFIT', 'outfit'],
     ['@NEG', 'neg'], ['@DRAPE', 'drape'], ['@OUT', 'outfit'], ['@MOOD', 'mood'], ['@POSE', 'pose'],
     ['@HOLD', 'hold'], ['@WEAPON', 'weapon'],
     ['@GAZE', 'gaze'], ['@HAND', 'hand'], ['@HAIR', 'hair'], ['@FAB', 'fabric'],
     ['@ATMO', 'atmo'], ['@TIME', 'time'], ['@SET', 'set'], ['@PROP', 'prop'],
     ['@COMP', 'comp'], ['@STYLE', 'style'], ['@CAM', 'cam'], ['@LIGHT', 'light'],
+    // 之前漏掉的分类：这些全掉进「自定义」里了
+    ['@OBJ', 'prop'], ['@INSTR', 'prop'], ['@RIDE', 'prop'], ['@ROLE', 'prop'], ['@STRIP', 'neg'],
+    ['@WEATHER', 'atmo'], ['@SEASON', 'time'],
+    ['@BODY', 'body'], ['@FACE', 'face'], ['@HAIR', 'hair'], ['@MAKEUP', 'face'],
+    ['@PIN', 'hair'], ['@CLIP', 'hair'], ['@BERET', 'hair'], ['@MINI_TOPHAT', 'hair'], ['@HEADBAND', 'hair'], ['@RIBBON', 'hair'], ['@FLOWER_CROWN', 'hair'],
   ];
   for (const [pre, cat] of map) if (n.startsWith(pre)) return cat;
-  if (n === '@ID') return 'id';
-  if (n === '@BODY') return 'body';
-  if (n === '@FACE') return 'face';
-  if (n === '@SINGLE') return 'id';
+  if (n === '@ID' || n === '@SINGLE') return 'id';
   return 'custom';
 }
 
@@ -56,6 +51,8 @@ function tokenCat(name) {
 function persistParams() {
   try {
     localStorage.setItem('loom.params', JSON.stringify({
+      model: ($('#p-model') || {}).value || '',
+      refine: ($('#p-refine') || {}).value || '0',
       size: ($('#p-size') || {}).value,
       sizeWH: ($('#p-size') || {}).value === 'custom' ? [($('#p-w') || {}).value, ($('#p-h') || {}).value] : null,
       steps: Number(($('#p-steps') || {}).value) || undefined,
@@ -72,10 +69,41 @@ function persistLanes() {
   try { localStorage.setItem('loom.lanes', JSON.stringify({ p: S.pos || [], n: S.neg || [] })); } catch (e) {}
 }
 
+const TIPS_HTML = [
+    '<h4 class="rc-h">出图基本盘</h4>',
+    '<p class="hint">1024×1536 / 26–30 步 / CFG 5.5。低于 22 步会明显发灰。</p>',
+    '<h4 class="rc-h">角色 LoRA</h4>',
+    '<p class="hint">h2 0.5 层次最好；h1 / h4 / v2–v6 偏白，配逆光容易糊，建议 0.4 以下或换 h2。</p>',
+    '<h4 class="rc-h">画师 LoRA</h4>',
+    '<p class="hint">选中即自动：权重 0.7（v2 0.65）、移除 animaNai、换成文本身份、同步替换画师风格提示词、保留服装/场景/表情。</p>',
+    '<p class="hint">画师 ≥0.5 时别再留 @ID/@SINGLE/@BODY_SOFT/@CAM_*，构图会被压。</p>',
+    '<h4 class="rc-h">画风积木</h4>',
+    '<p class="hint">@STYLE_* 会把场景压成白底，场景图不要加；白底立绘才用。</p>',
+    '<h4 class="rc-h">一键修正</h4>',
+    '<p class="hint">默认关闭（参数面板「出图前自动修正」）。开启后会清空块、去 Q 脸、补过曝负向。</p>',
+    '<h4 class="rc-h">模板</h4>',
+    '<p class="hint">名字带「风格·」或 Shift 点击 = 叠加；普通点击 = 替换整块画布。</p>',
+    '<h4 class="rc-h">出问题先查</h4>',
+    '<p class="hint">① 步数是否 <26；② 是否同时挂了 @STYLE_* 和场景；③ 画师是否仍留着 @ID。</p>',
+    '<p class="hint">完整版见 产出作品/工作站提示卡.md 与 工作站说明.md</p>'
+  ].join('');
+
+function fillModelSelect() {
+  const sel = $('#p-model');
+  if (!sel) return;
+  let savedModel = '';
+  try { savedModel = (JSON.parse(localStorage.getItem('loom.params') || '{}').model) || ''; } catch (e) {}
+  const cur = (S.model || savedModel || 'anima-base-v1.0.safetensors');
+  const list = S.models && S.models.length ? S.models : ['anima-base-v1.0.safetensors'];
+  sel.innerHTML = list.map(f => '<option' + (f === cur ? ' selected' : '') + '>' + f + '</option>').join('');
+  sel.value = list.includes(cur) ? cur : list[0];
+  sel.onchange = () => { S.model = sel.value; persistParams(); };
+}
+
 async function boot() {
   const b = await api('/api/bootstrap');
   S.tokens = b.tokens; S.notes = b.notes || {}; S.garments = b.garments; S.comfy = b.comfy;
-  S.datasets = b.datasets; S.loraFiles = b.loras;
+  S.datasets = b.datasets; S.loraFiles = b.loras; S.models = b.models || [];
   S.defaults = b.defaults; S.paths = b.paths;
   $('#pill-comfy').textContent = b.comfy.up ? ('ComfyUI ' + b.comfy.version) : 'ComfyUI 未启动';
   $('#pill-comfy').className = 'pill ' + (b.comfy.up ? 'ok' : 'bad');
@@ -93,6 +121,7 @@ async function boot() {
   try {
     const sp = JSON.parse(localStorage.getItem('loom.params') || 'null');
     if (sp) {
+      if ($('#p-refine')) $('#p-refine').value = sp.refine || '0';
       if (sp.sizeWH && $('#p-w') && $('#p-h')) { $('#p-w').value = sp.sizeWH[0]; $('#p-h').value = sp.sizeWH[1]; }
       if (sp.size && $('#p-size')) $('#p-size').value = sp.size;
       if (sp.steps) $('#p-steps').value = sp.steps;
@@ -103,7 +132,120 @@ async function boot() {
       if (Array.isArray(sp.loras) && sp.loras.length) S.loras = sp.loras;
     }
   } catch (e) {}
-  renderPalette(); renderLanes(); renderLoras(); renderParams();
+  renderPalette(); renderLanes(); renderLoras(); renderParams(); fillModelSelect();
+  const psel = document.querySelector('#p-polish');
+  if (psel) { try { psel.value = localStorage.getItem('loom.polish') || 'quality'; } catch (e) {} psel.onchange = () => { try { localStorage.setItem('loom.polish', psel.value); } catch (e) {} }; }
+  try {
+    if (!localStorage.getItem('loom.refineOffMigrated')) {
+      localStorage.setItem('loom.refineOffMigrated', '1');
+      const rsel = document.querySelector('#p-refine');
+      if (rsel) rsel.value = '0';
+      const sp = JSON.parse(localStorage.getItem('loom.params') || '{}');
+      sp.refine = '0';
+      localStorage.setItem('loom.params', JSON.stringify(sp));
+    }
+  } catch (e) {}
+  const styleSel = document.querySelector('#style-sel');
+  const styleInp = document.querySelector('#style-custom');
+  if (styleSel) {
+    styleSel.onchange = () => {
+      if (styleInp) styleInp.style.display = styleSel.value === 'custom' ? '' : 'none';
+      if (styleSel.value !== 'custom') applyStyle(styleSel.value);
+    };
+  }
+  if (styleInp) {
+    styleInp.onchange = () => { if (styleSel && styleSel.value === 'custom') applyStyle('custom', styleInp.value); };
+  }
+  restoreStyle();
+  const slSel = document.querySelector('#style-lora');
+  if (slSel) {
+    renderStyleLoraOptions();
+    slSel.onchange = () => applyStyleLora(slSel.value);
+  }
+  const tipsOpen = () => openModal('提示卡', TIPS_HTML);
+  const tipsBtn = document.querySelector('#btn-tips');
+  if (tipsBtn) tipsBtn.onclick = tipsOpen;
+  const tipsFab = document.querySelector('#tips-fab');
+  if (tipsFab) tipsFab.onclick = tipsOpen;
+  const t2t = document.querySelector('#btn-tags2text');
+  if (t2t) t2t.onclick = async () => {
+    t2t.classList.add('loading');
+    try {
+      const blocks = S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false }));
+      const tags = S.pos.map(b => b.token || ('(文本) ' + (b.text || '').slice(0, 24))).join(' ') || '（空）';
+      const r = await api('/api/tags2text', { method: 'POST', body: JSON.stringify({ blocks }) });
+      if (!r.text) { toast('没有可转换的内容', true); return; }
+      let outText = r.text;
+      const hadId = S.pos.some(b => /^@(ID|SINGLE)$/.test(b.token || ''));
+      const missing = hadId ? IDENT_TRAITS.filter(t => !t.test.test(outText)) : [];
+      if (missing.length) outText = outText.replace(/[.\s]*$/, '') + ', ' + missing.map(x => x.add).join(', ') + '.';
+      openModal('转自然语言 · 确认',
+        '<h4 class="rc-h">原画布</h4><pre class="prompt-preview">' + esc(tags) + '</pre>' +
+        (missing.length ? '<p class="hint" style="color:#ffb6a0">已自动补回身份词：' + missing.map(x => x.key).join(' / ') + '</p>' : '') +
+        '<h4 class="rc-h">转换结果（' + outText.length + ' 字符）</h4><pre class="prompt-preview">' + esc(outText) + '</pre>' +
+        '<div class="row2" style="margin-top:12px">' +
+        '<button class="primary" id="t2t-apply">应用到画布</button>' +
+        '<button class="ghost" id="t2t-copy">复制</button>' +
+        '<button class="ghost" id="t2t-close">关闭</button></div>');
+      $('#t2t-close').onclick = closeModal;
+      $('#t2t-copy').onclick = async () => { try { await navigator.clipboard.writeText(outText); toast('已复制'); } catch (e) { toast('复制失败', true); } };
+      $('#t2t-apply').onclick = () => {
+        S.pos = [{ id: uid(), token: '', text: outText, weight: 1, enabled: true }];
+        renderLanes(); expandPreview(); closeModal(); toast('已转成自然语言');
+      };
+    } catch (e) { toast('转换失败：' + e.message, true); }
+    finally { t2t.classList.remove('loading'); }
+  };
+    const pol = document.querySelector('#btn-polish');
+  if (pol) pol.onclick = async () => {
+    pol.disabled = true;
+    pol.classList.add('loading');
+    try {
+      let text = (S.pos.length === 1 && !S.pos[0].token) ? (S.pos[0].text || '') : '';
+      if (!text) {
+        const blocks = S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false }));
+        const c = await api('/api/tags2text', { method: 'POST', body: JSON.stringify({ blocks }) });
+        text = c.text || '';
+      }
+      if (!text) { toast('没有可润色的内容', true); return; }
+      toast('润色中…（1.5B 约 26 秒 / 0.5B 约 12 秒）');
+      const pm = (($('#p-polish') || {}).value) || 'quality';
+      const t0 = Date.now();
+      const r = await api('/api/polish', { method: 'POST', body: JSON.stringify({ text, model: pm }) });
+      if (!r.ok) { toast(r.note || '润色模型未就绪', true); return; }
+      const useSec = ((Date.now() - t0) / 1000).toFixed(1);
+      const tag = r.model === 'fast' ? '0.5B' : '1.5B';
+      const lost = lostTraits(text, r.text);
+      const warnHtml = lost.length ? ('<p class="hint" style="color:#ffb3a6">⚠ 润色丢了身份词：' + lost.map(x => x.key).join(' / ') + '</p>') : '';
+      openModal('润色结果 · ' + tag + ' · ' + useSec + 's',
+        '<h4 class="rc-h">原文</h4>' +
+        '<pre class="prompt-preview">' + esc(text) + '</pre>' +
+        '<h4 class="rc-h">润色后（' + r.text.length + ' 字符）</h4>' +
+        '<pre class="prompt-preview">' + esc(r.text) + '</pre>' +
+        warnHtml +
+        '<div class="row2" style="margin-top:12px">' +
+        '<button class="primary" id="pol-apply">应用到画布</button>' +
+        (lost.length ? '<button class="ghost" id="pol-patch">补回身份词并应用</button>' : '') +
+        '<button class="ghost" id="pol-copy">复制润色结果</button>' +
+        '<button class="ghost" id="pol-close">关闭</button></div>');
+      $('#pol-close').onclick = closeModal;
+      $('#pol-copy').onclick = async () => { try { await navigator.clipboard.writeText(r.text); toast('已复制'); } catch (e) { toast('复制失败', true); } };
+      const patchBtn = $('#pol-patch');
+      if (patchBtn) patchBtn.onclick = () => {
+        const fixed = r.text.replace(/[.\s]*$/, '') + ', ' + lost.map(x => x.add).join(', ') + '.';
+        S.pos = [{ id: uid(), token: '', text: fixed, weight: 1, enabled: true }];
+        renderLanes(); expandPreview(); closeModal(); toast('已补回身份词并应用');
+      };
+      $('#pol-apply').onclick = () => {
+        S.pos = [{ id: uid(), token: '', text: r.text, weight: 1, enabled: true }];
+        renderLanes(); expandPreview(); closeModal(); toast('已应用润色结果');
+      };
+    } catch (e) { toast('润色失败：' + e.message, true); }
+    finally { pol.disabled = false; pol.classList.remove('loading'); }
+  };
+
+  const sfix = document.querySelector('#btn-smartfix');
+  if (sfix) sfix.onclick = async () => { sfix.classList.add('loading'); try { const n = await smartFix(); if (!n) toast('没有需要修正的冲突'); } finally { sfix.classList.remove('loading'); } };
   const randBtn = document.querySelector('#btn-random');
   if (randBtn) randBtn.onclick = randomCompose;
   const rsBtn = document.querySelector('#btn-rand-scene');
@@ -164,6 +306,18 @@ function toggleFav(token) {
 }
 
 /* ---------- 积木库 ---------- */
+function jumpToCategory(cat) {
+  const box = document.querySelector('.pal-items[data-items="' + cat + '"]');
+  if (!box) return;
+  S.collapsedCats = S.collapsedCats || {};
+  if (S.collapsedCats[cat]) { S.collapsedCats[cat] = false; renderPalette(); }
+  const again = document.querySelector('.pal-items[data-items="' + cat + '"]');
+  if (again) again.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const head = document.querySelector('.pal-group[data-cat="' + cat + '"]');
+  if (head) { head.classList.add('flash'); setTimeout(() => head.classList.remove('flash'), 900); }
+  toast('已跳到分类：' + cat);
+}
+
 function paletteGroups() {
   const groups = {};
   for (const [name, text] of Object.entries(S.tokens)) {
@@ -239,7 +393,15 @@ function renderPalette() {
     toggleFav(st.dataset.fav);
   });
   $$('.pal-item', box).forEach(el => {
-    el.addEventListener('click', () => addBlock('positive', el.dataset.token));
+    let lpTimer = null, longPressed = false;
+    el.addEventListener('pointerdown', () => {
+      longPressed = false;
+      lpTimer = setTimeout(() => { longPressed = true; jumpToCategory(el.dataset.cat); }, 560);
+    });
+    const cancelLp = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } };
+    el.addEventListener('pointerup', cancelLp);
+    el.addEventListener('pointerleave', cancelLp);
+    el.addEventListener('click', () => { if (longPressed) { longPressed = false; return; } addBlock('positive', el.dataset.token); });
     el.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', JSON.stringify({ token: el.dataset.token }));
       e.dataTransfer.effectAllowed = 'copy';
@@ -277,18 +439,13 @@ function scrollPalTo(key) {
   const jump = () => {
     const delta = target.getBoundingClientRect().top - box.getBoundingClientRect().top;
     const top = box.scrollTop + delta - 8;
-    box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    box.scrollTop = Math.max(0, top);
   };
   jump();
   requestAnimationFrame(() => requestAnimationFrame(jump));
 }
 
-function loadJSON(k, dflt) {
-  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : dflt; } catch (e) { return dflt; }
-}
-function saveJSON(k, v) {
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
-}
+
 
 /* ---------- 抽屉 ---------- */
 function setLibCollapsed(v) {
@@ -345,15 +502,30 @@ function cmdAdd(i) {
 
 /* ---------- 组合建议（只提示，不自动加） ---------- */
 const SUGGEST = {
-  '@SET_CAFE': [{ t: '@TIME_DUSK', why: '黄昏窗光' }],
-  '@SET_STREET': [{ t: '@TIME_NIGHT', why: '夜景街灯' }, { t: '@LIGHT_NIGHT', why: '暗部补光' }],
-  '@SET_PARK': [{ t: '@TIME_MORNING', why: '清晨公园' }],
-  '@SET_LIBRARY': [{ t: '@LIGHT_SOFT', why: '书架软光' }],
-  '@SET_ROOM': [{ t: '@LIGHT_WIN', why: '窗光日常' }],
-  '@SET_STUDIO': [{ t: '@LIGHT_BACK', why: '影棚轮廓光' }],
-  '@CAM_HIGH': [{ t: '@COMP_OVERHEAD', why: '高机位俯视' }],
-  '@CAM_LOW': [{ t: '@COMP_LOW', why: '低机位构图' }],
-  '@CAM_BACK': [{ t: '@COMP_LOOKROOM', why: '背影留视线空间' }],
+  '@SET_ONSEN': [{ t: '@TIME_NIGHT', why: '温泉夜景' }, { t: '@LIGHT_CANDLE', why: '水汽暖光' }, { t: '@BG_DARKFALL', why: '蒸汽暗调' }],
+  '@ID_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@FACE_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@BODY_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@SET_BEDROOM': [{ t: '@TIME_MORNING', why: '晨光透窗' }, { t: '@OUT_PAJAMA', why: '居家睡衣' }, { t: '@NEG_DIORAMA', why: '防微缩房' }],
+  '@SET_CLASSROOM': [{ t: '@TIME_AFTERNOON', why: '午后斜光' }, { t: '@BG_CLEAN', why: '教室整洁' }],
+  '@SET_MARKET': [{ t: '@TIME_NIGHT', why: '夜市灯串' }, { t: '@LIGHT_NEON', why: '霓虹补色' }],
+  '@SET_ARCADE': [{ t: '@LIGHT_NEON', why: '机台霓虹' }, { t: '@BG_BOKEH', why: '机台光斑' }],
+  '@SET_SHRINE': [{ t: '@TIME_DUSK', why: '黄昏参道' }],
+  '@SET_STATION': [{ t: '@TIME_NIGHT', why: '夜行站台' }, { t: '@BG_BOKEH', why: '站台灯串' }],
+  '@SET_MUSEUM': [{ t: '@BG_CLEAN', why: '展馆留白' }],
+  '@SET_FOREST': [{ t: '@LIGHT_GOLDEN', why: '林间光柱' }],
+  '@SET_BEACH': [{ t: '@TIME_NOON', why: '正午海面' }, { t: '@NEG_OVEREXP', why: '白色过曝' }],
+  '@CAM_TOP': [{ t: '@COMP_CENTER', why: '俯视偏中心' }],
+  '@CAM_WORM': [{ t: '@COMP_LOW', why: '低机位构图' }],
+  '@POSE_CROUCH': [{ t: '@COMP_TRIANGLE', why: '蹲姿三角' }],
+  '@POSE_LIE': [{ t: '@NEG_DIORAMA', why: '防微缩房' }, { t: '@NEG_LONGHAIR', why: '限发长' }],
+  '@MOOD_SMOKE': [{ t: '@STYLE_NOIR', why: '黑电影光' }, { t: '@ATMO_FOG', why: '烟雾层次' }],
+  '@MOOD_ALCOHOL': [{ t: '@STYLE_NOIR', why: '酒吧暗调' }, { t: '@LIGHT_CANDLE', why: '暖点光' }],
+  '@MAKEUP_SICK': [{ t: '@STYLE_GRAIN', why: '病态配颗粒' }],
+  '@OUT_GALA': [{ t: '@CAM_FULL', why: '拖尾要全身' }, { t: '@BG_DARKFALL', why: '礼服压暗' }],
+  '@OUT_YUKATA': [{ t: '@SET_ROOFTOP', why: '夏祭屋顶' }],
+  '@COMP_NEGATIVE': [{ t: '@COMP_MINIMAL', why: '留白配极简' }, { t: '@BG_CLEAN', why: '留白配净背景' }],
+  '@WEAPON_SCYTHE': [{ t: '@CAM_FULL', why: '长柄需要全身' }],
 };
 
 function suggestFor(token) {
@@ -362,8 +534,8 @@ function suggestFor(token) {
 }
 
 /* ---------- 画布 ---------- */
-/* 专属负向：由某个正向块配对产生（服装→@NEG_<KEY>、型态→@NEG_DRAPE_* 等），
-   默认在积木库隐藏，加入正向块后自动出现在负向泳道。 */
+/* 专属负向：由某个正向块配对产生（服装→@NEG_<KEY>、型态→@NEG_DRAPE_*、手部→@NEG_HAND_ART 等）。
+   默认在积木库里隐藏，加入对应正向块后自动出现在负向泳道；可在积木库头部勾选显示。 */
 function companionNegSet() {
   const set = new Set();
   const has = t => !!(t && S.tokens && S.tokens[t]);
@@ -373,37 +545,75 @@ function companionNegSet() {
       if (has(neg)) set.add(neg);
     }
   }
-  ['@NEG_OUTFIT', '@NEG_DRAPE_ON', '@NEG_DRAPE_OFF', '@NEG_HAND_ART'].forEach(k => { if (has(k)) set.add(k); });
+  ['@NEG_GARMENT', '@NEG_DRAPE_ON', '@NEG_DRAPE_OFF', '@NEG_HAND_ART'].forEach(k => {
+    if (has(k)) set.add(k);
+  });
   return set;
 }
 
 /* 配套积木：加正向时顺手把对偶/配套的一起放好（已有的跳过） */
+// 场景 → 背景处理（自动补一块，可手动删）
+const BG_LINK = {
+  '@SET_MARKET': '@BG_BOKEH', '@SET_ARCADE': '@BG_BOKEH', '@SET_ROOFTOP': '@BG_BOKEH',
+  '@SET_BALCONY': '@BG_BOKEH', '@SET_STATION': '@BG_BOKEH', '@SET_STREET': '@BG_BOKEH',
+  '@SET_STUDIO': '@BG_CLEAN', '@SET_ARTROOM': '@BG_CLEAN', '@SET_LIBRARY': '@BG_CLEAN',
+  '@SET_MUSEUM': '@BG_CLEAN',
+};
+
+const HAIR_ACCESSORIES = new Set(['@HAIRPIN_ROSE', '@HAIRPIN_STAR', '@CLIP_BUTTERFLY', '@PIN_MOON', '@MINI_TOPHAT', '@BERET', '@HEADBAND_PEARL', '@RIBBON_BOW', '@PIN_FEATHER', '@PIN_HEART', '@PIN_CROSS', '@FLOWER_CROWN', '@CLIP_CAT_EAR']);
+
+const CHIBI_BODIES = new Set(['@BODY_CHIBI', '@BODY_CHIBI_SD']);
+const OUTLINE_SOURCES = new Set(['@STYLE_GLITCH', '@FX_BLACK_BLOCKS', '@FX_BAND_GLITCH', '@STYLE_SOFT']);
 function companionsOf(token) {
   const out = [];
   const has = t => !!(t && S.tokens && S.tokens[t]);
   if (!token) return out;
   if (token === '@OUTFIT') {
     if (has('@NEG_OUTFIT')) out.push({ lane: 'negative', token: '@NEG_OUTFIT' });
+    if (has('@NEG_GARMENT')) out.push({ lane: 'negative', token: '@NEG_GARMENT' });
   } else if (token.startsWith('@OUT_')) {
     const neg = token.replace('@OUT_', '@NEG_');
     if (has(neg)) out.push({ lane: 'negative', token: neg });
   }
+  if (CHIBI_BODIES.has(token)) {
+    if (has('@FACE_CHIBI')) out.push({ lane: 'positive', token: '@FACE_CHIBI' });
+    if (has('@NEG_CHIBI')) out.push({ lane: 'negative', token: '@NEG_CHIBI' });
+  }
+  if (OUTLINE_SOURCES.has(token) && has('@NEG_OUTLINE')) out.push({ lane: 'negative', token: '@NEG_OUTLINE' });
+  if (HAIR_ACCESSORIES.has(token)) {
+    if (has('@NEG_FLOWER')) out.push({ lane: 'negative', token: '@NEG_FLOWER' });
+    if (has('@NEG_ACC_FACE')) out.push({ lane: 'negative', token: '@NEG_ACC_FACE' });
+    if (has('@STRIP_SUNFLOWER')) out.push({ lane: 'negative', token: '@STRIP_SUNFLOWER' });
+  }
   if (token.startsWith('@DRAPE_')) {
-    const worn = ['@DRAPE_WORN'].includes(token);
+    const worn = ['@DRAPE_WORN', '@DRAPE_ARMS', '@DRAPE_WAIST'].includes(token);
     const target = worn ? '@NEG_DRAPE_OFF' : '@NEG_DRAPE_ON';
     if (has(target)) out.push({ lane: 'negative', token: target });
   }
   if (token.startsWith('@WEAPON_') && token !== '@WEAPON_GRIP' && has('@WEAPON_GRIP')) {
     out.push({ lane: 'positive', token: '@WEAPON_GRIP' });
   }
+  // 手部动作 → 手指负向（IR 里早就有这条提示，现在顺手补上）
   if (token.startsWith('@HAND_') && has('@NEG_HAND_ART')) {
     out.push({ lane: 'negative', token: '@NEG_HAND_ART' });
   }
+  const bg = BG_LINK[token];
+  if (bg && has(bg)) out.push({ lane: 'positive', token: bg });
+  // 虚化/暗光 → 去黑边负向（黑边几乎总在这些场景出现，自动补一块，可删）
+  if (token === '@BARE_FEET') {
+    if (has('@NEG_SHOES')) out.push({ lane: 'negative', token: '@NEG_SHOES' });
+    if (has('@NEG_SOCKS')) out.push({ lane: 'negative', token: '@NEG_SOCKS' });
+  }
+  const negLink = { '@BG_BOKEH': '@NEG_LETTERBOX', '@STYLE_NOIR': '@NEG_LETTERBOX' }[token];
+  if (negLink && has(negLink)) out.push({ lane: 'negative', token: negLink });
+  if (token === '@CROP_FULL' && has('@NEG_LETTERBOX')) out.push({ lane: 'negative', token: '@NEG_LETTERBOX' });
   return out;
 }
 
 function addBlock(lane, tokenOrObj) {
-  // 负向积木永远进负向，避免 @NEG_* 跑到正向
+  const _t0 = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
+  const _x0 = typeof tokenOrObj === 'object' && tokenOrObj ? String(tokenOrObj.text || '').trim() : '';
+  if (!_t0 && !_x0) { toast('空积木已忽略（没有 token 也没有文本）', true); return; }
   if (lane === 'positive') {
     const nm = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
     if (nm && tokenCat(nm) === 'neg') lane = 'negative';
@@ -411,6 +621,8 @@ function addBlock(lane, tokenOrObj) {
   pushHistory();
   const arr = lane === 'positive' ? S.pos : S.neg;
   const token = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
+  const SINGLE = /^@(ID|SINGLE|BODY_|FACE_|STYLE_|LIGHT_|CAM_|SET_|OUT_|TIME_|COMP_|POSE_|MOOD_|GAZE_)/;
+  if (token && SINGLE.test(token) && arr.some(b => b.token === token)) { toast('已有 ' + token + '，不重复添加', true); return; }
   if (typeof tokenOrObj === 'string') {
     arr.push({ id: uid(), token: tokenOrObj, text: '', weight: 1, enabled: true });
   } else {
@@ -428,6 +640,7 @@ function addBlock(lane, tokenOrObj) {
   }
   renderLanes(); expandPreview();
   if (extra.length) toast('已同步加入配套：' + extra.join('、'));
+  // 组合建议：只提示，不自动加；同一块只提示一次
   if (lane === 'positive' && token) {
     const hints = suggestFor(token);
     if (hints.length) {
@@ -463,24 +676,51 @@ function renderLanes() {
         '<button class="x" data-del="' + b.id + '" data-lane="' + lane + '">×</button>' +
         '</div>';
     }).join('') || '<span class="hint">把左边积木拖到这里，或点击添加</span>';
+    if (!box.dataset.dropBound) {
+      box.dataset.dropBound = '1';
     box.addEventListener('dragover', e => { e.preventDefault(); });
     box.addEventListener('drop', e => {
       e.preventDefault();
       const raw = e.dataTransfer.getData('text/plain');
       if (!raw) return;
-      try {
-        const d = JSON.parse(raw);
-        addBlock(lane, d);
-      } catch (err) {
-        addBlock(lane, { text: raw });
+      let d = null;
+      try { d = JSON.parse(raw); } catch (err) { d = null; }
+      if (d && d.move) {
+        moveBlock(d.move, d.lane, lane, dropIndex(box, e.clientY));
+        return;
       }
+      if (d && d.token) { addBlock(lane, d); return; }
+      if (raw.trim().length > 1) addBlock(lane, { text: raw }); else toast('空拖拽已忽略', true);
     });
+    }
   }
   bindTips($('#lane-positive'));
   bindTips($('#lane-negative'));
   $('#pos-count').textContent = S.pos.length + ' 块';
   $('#neg-count').textContent = S.neg.length + ' 块';
   bindLaneEvents();
+}
+
+function dropIndex(box, clientY) {
+  const chips = [...box.querySelectorAll('.chip')];
+  for (let i = 0; i < chips.length; i++) {
+    const r = chips[i].getBoundingClientRect();
+    if (clientY < r.top + r.height / 2) return i;
+  }
+  return chips.length;
+}
+
+function moveBlock(id, fromLane, toLane, index) {
+  const src = fromLane === 'positive' ? S.pos : S.neg;
+  const dst = toLane === 'positive' ? S.pos : S.neg;
+  const i = src.findIndex(b => b.id === id);
+  if (i < 0) return;
+  pushHistory();
+  const [item] = src.splice(i, 1);
+  const at = Math.max(0, Math.min(typeof index === 'number' ? index : dst.length, dst.length));
+  if (src === dst && i < at) at = Math.max(0, at - 1);
+  dst.splice(at, 0, item);
+  renderLanes(); expandPreview();
 }
 
 function bindLaneEvents() {
@@ -492,8 +732,11 @@ function bindLaneEvents() {
     const gone = arr.splice(i, 1)[0];
     // 联动删除：删正向块时，把它自动带出来的配套负向一起删掉（手动加的不动）
     if (el.dataset.lane === 'positive' && gone && gone.token) {
-      const want = companionsOf(gone.token).filter(c => c.lane === 'negative').map(c => c.token);
-      S.neg = S.neg.filter(b => !(b.auto && want.indexOf(b.token) >= 0));
+      const comps = companionsOf(gone.token);
+      const wantNeg = comps.filter(c => c.lane === 'negative').map(c => c.token);
+      const wantPos = comps.filter(c => c.lane === 'positive').map(c => c.token);
+      S.neg = S.neg.filter(b => !(b.auto && wantNeg.indexOf(b.token) >= 0));
+      S.pos = S.pos.filter(b => !(b.auto && wantPos.indexOf(b.token) >= 0));
     }
     renderLanes(); expandPreview();
   });
@@ -504,6 +747,7 @@ function bindLaneEvents() {
     if (b) b.enabled = !b.enabled;
     renderLanes(); expandPreview();
   });
+  $$('[data-weight]').forEach(el => { el.addEventListener('click', e => e.stopPropagation()); el.addEventListener('dblclick', e => e.stopPropagation()); });
   $$('[data-weight]').forEach(el => el.onchange = () => {
     const arr = el.dataset.lane === 'positive' ? S.pos : S.neg;
     pushHistory();
@@ -523,7 +767,13 @@ function bindLaneEvents() {
       el.classList.add('dragging');
     });
     el.addEventListener('dragend', () => el.classList.remove('dragging'));
-    el.addEventListener('dblclick', () => editFreeText(el));
+    el.addEventListener('dblclick', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) return;
+      const arr = el.dataset.lane === 'positive' ? S.pos : S.neg;
+      const b = arr.find(x => x.id === el.dataset.id);
+      if (!b) return;
+      if (b.token) openBlockDetail(b, el.dataset.lane); else editFreeText(el);
+    });
   });
   $$('.lane-body').forEach(box => {
     const lane = box.closest('.lane').dataset.lane;
@@ -554,11 +804,21 @@ function editFreeText(chipEl) {
   const arr = lane === 'positive' ? S.pos : S.neg;
   const b = arr.find(x => x.id === id);
   if (!b || b.token) return;
-  const v = prompt('文本块内容', b.text || '');
-  if (v !== null) { b.text = v; renderLanes(); expandPreview(); }
+  openTextBlockDialog({
+    lane, text: b.text, weight: b.weight, title: '编辑文本块',
+    onSave: (text, weight, lane2) => {
+      if (lane2 === lane) { b.text = text; b.weight = weight; }
+      else {
+        const i = arr.indexOf(b);
+        if (i >= 0) arr.splice(i, 1);
+        (lane2 === 'positive' ? S.pos : S.neg).push(Object.assign({}, b, { text, weight }));
+      }
+      renderLanes(); expandPreview();
+    }
+  });
 }
 
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
 
 async function expandPreview() {
   persistLanes();
@@ -594,17 +854,16 @@ function size() {
 }
 
 function vramGB() {
-  const c = S.comfy || {};
-  const dev = (c.devices && c.devices[0]) || {};
-  const total = c.vram_total || dev.vram_total;
-  return (total ? total : 24e9) / 1e9;
+  return ((S.comfy && S.comfy.vram_total) ? S.comfy.vram_total : 24e9) / 1e9;
 }
 
 function sizeRisk(w, h) {
   const px = w * h;
   const gb = vramGB();
-  if (px / 1e6 > gb * 0.20) return 'bad';
-  if (px / 1e6 > gb * 0.12) return 'warn';
+  const warnMP = gb * 0.12;   // 8GB→0.96MP，24GB→2.88MP
+  const badMP = gb * 0.20;    // 8GB→1.7MP，24GB→4.8MP
+  if (px / 1e6 > badMP) return 'bad';
+  if (px / 1e6 > warnMP) return 'warn';
   return 'ok';
 }
 
@@ -612,23 +871,28 @@ function updateSizeHint() {
   const box = $('#size-hint');
   if (!box) return;
   const { w, h } = size();
+  const mp = (w * h / 1e6).toFixed(2);
   const steps = Number($('#p-steps').value) || 30;
-  const sec = Math.round(w * h * steps * 1.6e-6 + 1.5);
-  const risk = sizeRisk(w, h);
+  const sec = Math.round((w * h * steps * 1.6e-6 + 1.5) * modelFactor());
+  const r = sizeRisk(w, h);
   const gb = vramGB();
-  let txt = w + ' × ' + h + ' · ' + (w * h / 1e6).toFixed(2) + ' MP · 预计 ' + sec + ' 秒/张';
-  if (risk === 'warn') txt += ' · ⚠ 接近显存上限（' + gb.toFixed(0) + ' GB）';
-  if (risk === 'bad') {
+  let txt = w + ' × ' + h + ' · ' + mp + ' MP · 预计 ' + sec + ' 秒/张';
+  if (r === 'warn') txt += ' · ⚠ 接近显存上限（' + gb.toFixed(0) + ' GB）';
+  if (r === 'bad') {
     const lim = Math.floor(Math.sqrt(gb * 0.18 * 1e6 * 2 / 3) / 8) * 8;
     txt += ' · ⚠ 很可能 OOM，建议不超过 ' + lim + ' × ' + Math.round(lim * 1.5 / 8) * 8;
   }
   box.textContent = txt;
-  box.className = 'size-hint' + (risk === 'ok' ? '' : ' ' + risk);
+  box.className = 'size-hint' + (r === 'ok' ? '' : ' ' + r);
+}
+function modelFactor() {
+  const m = (($('#p-model') || {}).value || '');
+  return /29B/i.test(m) ? 2.8 : 1;
 }
 function estimate() {
   const { w, h } = size();
   const steps = Number($('#p-steps').value) || 30;
-  return Math.round(w * h * steps * 1.6e-6 + 1.5);
+  return Math.round((w * h * steps * 1.6e-6 + 1.5) * modelFactor());
 }
 function updateEta() {
   const { w, h } = size();
@@ -639,27 +903,367 @@ function updateEta() {
   updateSizeHint();
 }
 
+const LORA_CAT_ORDER = ['角色', '动作', '画师', '加速'];
 function renderLoras() {
+  if (typeof renderStyleLoraOptions === 'function') setTimeout(renderStyleLoraOptions, 0);
   const box = $('#lora-list');
   box.innerHTML = S.loras.map((l, i) =>
     '<div class="lora-row">' +
-    '<select data-lora-name="' + i + '">' + S.loraFiles.map(f =>
-      '<option' + (f === l.name ? ' selected' : '') + '>' + f + '</option>').join('') + '</select>' +
+    '<select data-lora-name="' + i + '" title="' + (l.name || '') + '">' + loraOptionsHtml(l.name) + '</select>' +
     '<input type="number" step="0.01" value="' + l.weight + '" data-lora-w="' + i + '">' +
     '<button class="x" data-lora-del="' + i + '">×</button></div>').join('');
-  $$('[data-lora-name]').forEach(el => el.onchange = () => { S.loras[el.dataset.loraName].name = el.value; });
-  $$('[data-lora-w]').forEach(el => el.onchange = () => { S.loras[el.dataset.loraW].weight = parseFloat(el.value) || 0; });
+  $$('[data-lora-name]').forEach(el => el.onchange = () => {
+    const it = S.loras[el.dataset.loraName];
+    it.name = el.value;
+    it.weight = loraCat(el.value) === '画师'
+      ? ((typeof artistDefaultWeight === 'function' && artistDefaultWeight(el.value, currentCharLora())) || loraDefaultWeight(el.value))
+      : loraDefaultWeight(el.value);
+    if (typeof isHeavyStyleLora === 'function' && isHeavyStyleLora(el.value)) toast('画师 LoRA 建议 0.1–0.3，过高会糊', true);
+    renderLoras();
+  });
+  $$('[data-lora-w]').forEach(el => {
+    const save = () => { const v = parseFloat(el.value); if (Number.isFinite(v)) S.loras[Number(el.dataset.loraW)].weight = v; };
+    el.oninput = save; el.onchange = save;
+    el.onblur = async () => {
+      save();
+      const l = S.loras[Number(el.dataset.loraW)];
+      if (l && loraCat(l.name) === '画师') {
+        try {
+          const byChar = {}; const ch = currentCharLora(); if (ch) byChar[ch] = l.weight;
+          await api('/api/artist_recipe', { method: 'POST', body: JSON.stringify({ name: l.name, weight: l.weight, byChar }) });
+          S.artistRecipes = S.artistRecipes || {};
+          S.artistRecipes[l.name] = { weight: l.weight, byChar };
+          toast('已记住 ' + shortLoraName(l.name) + ' 的权重 ' + l.weight);
+        } catch (e) {}
+      }
+    };
+  });
   $$('[data-lora-del]').forEach(el => el.onclick = () => { S.loras.splice(Number(el.dataset.loraDel), 1); renderLoras(); });
-  $('#lora-add').onclick = () => { S.loras.push({ name: S.loraFiles[0] || '', weight: 0.5 }); renderLoras(); };
+  $('#lora-add').onclick = () => {
+    const first = S.loraFiles[0] || '';
+    S.loras.push({ name: first, weight: loraCat(first) === '画师'
+      ? ((typeof artistDefaultWeight === 'function' && artistDefaultWeight(first, currentCharLora())) || loraDefaultWeight(first))
+      : loraDefaultWeight(first) });
+    renderLoras();
+  };
 }
 
 /* ---------- 出图 ---------- */
+const STYLE_LOCK_APPLY = () => {
+  const lock = $('#p-lock');
+  const hard = !!(lock && lock.checked);
+  const anchor = hard ? '@STYLE_ANIME' : '@STYLE_SOFT';
+  const has = (arr, tok) => arr.some(b => b.token === tok);
+  S.pos = S.pos.filter(b => !(b.token || '').startsWith('@STYLE_') || b.token === anchor);
+  if (!has(S.pos, anchor)) S.pos.push({ id: uid(), token: anchor, text: '', weight: 1, enabled: true });
+  if (!has(S.neg, '@NEG_REAL')) S.neg.push({ id: uid(), token: '@NEG_REAL', text: '', weight: 1, enabled: true });
+  const ensureSoftLight = () => {
+    if (hard) return;
+    const hardLights = new Set(['@LIGHT_GOLDEN', '@LIGHT_TOP']);
+    const anyLight = S.pos.some(b => /^@LIGHT_/.test(b.token || ''));
+    const hardHit = S.pos.some(b => hardLights.has(b.token));
+    if (hardHit) {
+      const warm = S.pos.some(b => b.token === '@LIGHT_GOLDEN');
+      const softTok = warm ? '@LIGHT_SOFT_WARM' : '@LIGHT_SOFT';
+      S.pos = S.pos.filter(b => !hardLights.has(b.token));
+      if (!S.pos.some(b => b.token === softTok)) S.pos.push({ id: uid(), token: softTok, text: '', weight: 1, enabled: true });
+      return;
+    }
+    // 已有光型（WIN/NEON/CANDLE…）就尊重用户选择，不再叠加第二盏灯，避免发白
+    if (!anyLight) S.pos.push({ id: uid(), token: '@LIGHT_SOFT', text: '', weight: 1, enabled: true });
+  };
+  ensureSoftLight();
+  if (!hard) {
+    if (!has(S.neg, '@NEG_HARDCEL')) S.neg.push({ id: uid(), token: '@NEG_HARDCEL', text: '', weight: 1, enabled: true });
+  } else {
+    S.neg = S.neg.filter(b => b.token !== '@NEG_HARDCEL');
+  }
+  // 不再强制覆盖用户手填的权重；只在缺失/非法时才补建议值
+  S.loras = (S.loras || []).map(l => {
+    const w = Number(l.weight);
+    if (!Number.isFinite(w) || w <= 0) return Object.assign({}, l, { weight: loraDefaultWeight(l.name) });
+    return l;
+  });
+  // 角色 LoRA 只能挂一个：同时挂 h2 + h4 会过曝/融脸
+  let loraChanged = false;
+  const hLoRas = S.loras.filter(l => /^sunhimi_h/i.test(l.name || ''));
+  if (hLoRas.length > 1) {
+    const keep = hLoRas[hLoRas.length - 1];
+    S.loras = S.loras.filter(l => !/^sunhimi_h/i.test(l.name || '') || l === keep);
+    loraChanged = true;
+    toast('只保留一个角色 LoRA：' + keep.name);
+  }
+  const hasH4 = S.loras.some(l => /sunhimi_h4/i.test(l.name || ''));
+  if (hasH4 && !S.neg.some(b => b.token === '@NEG_OVEREXP')) {
+    S.neg.push({ id: uid(), token: '@NEG_OVEREXP', text: '', weight: 1, enabled: true });
+  }
+  if (typeof renderLanes === 'function') renderLanes();
+  if (loraChanged && typeof renderLoras === 'function') renderLoras();
+};
+
+const IDENT_TRAITS = [
+  { key: 'white hair', test: /white hair/i, add: 'white hair' },
+  { key: 'heterochromia', test: /heterochromia|one red|red and gr[ae]y/i, add: 'heterochromia eyes, one red and one grey' },
+  { key: 'sunflower', test: /sunflower/i, add: 'a sunflower hair ornament' }
+];
+function lostTraits(src, out) {
+  return IDENT_TRAITS.filter(t => t.test.test(src || '') && !t.test.test(out || ''));
+}
+
+const QUALITY_SUFFIX = ', delicate shading, detailed face, subtle shadows, crisp details';
+const TEXT_NEG = 'soft focus, hazy, flat colors, washed out, blurry, oversaturated, yellow cast';
+function polishTextBlock(b) {
+  if (!b || b.token) return false;
+  let t = b.text || '';
+  const before = t;
+  t = t.replace(/[,;]?\s*soft focus[^,.;]*/gi, '').replace(/[,;]?\s*dreamy glow[^,.;]*/gi, '');
+  if (!/delicate shading|detailed face|intricate details/i.test(t)) t = t.replace(/[.\s]*$/, '') + QUALITY_SUFFIX;
+  b.text = t.replace(/\s{2,}/g, ' ').replace(/,\s*,/g, ',');
+  return b.text !== before;
+}
+function ensureTextNegatives() {
+  const has = S.neg.some(b => (b.text || '').includes('soft focus'));
+  if (!has) S.neg.push({ id: uid(), token: '', text: TEXT_NEG, weight: 1, enabled: true });
+}
+
+const ID_LORA_GUARD = () => {
+  const hasId = S.pos.some(b => b.token === '@ID' || (!b.token && /white hair/i.test(b.text || '')));
+  const charLoras = (S.loras || []).filter(l => /^sunhimi_/i.test(l.name || ''));
+  let changed = 0;
+  if (!hasId || !charLoras.length) return 0;
+  for (const l of charLoras) {
+    const w = Number(l.weight) || 0;
+    if (w >= 0.7) { l.weight = 0.55; changed++; }
+  }
+  if (changed) toast('身份锁 + 角色 LoRA 易过曝：已把 ' + changed + ' 个 LoRA 降到 0.55');
+  if (!S.neg.some(b => b.token === '@NEG_OVEREXP')) {
+    S.neg.push({ id: uid(), token: '@NEG_OVEREXP', text: '', weight: 1, enabled: true });
+    toast('已补 @NEG_OVEREXP 防死白');
+    changed++;
+  }
+  return changed;
+};
+
+
+const STYLE_LORA_GUARD = () => {
+  let changed = 0;
+  const anima = (S.loras || []).find(l => /animaNai/i.test(l.name || ''));
+  if (anima && Number(anima.weight) > 0.75) { anima.weight = 0.75; changed++; toast('animaNai 已压到 0.75'); }
+  return changed;
+};
+
+const FACE_CHIBI_GUARD = () => {
+  const hasChibiBody = S.pos.some(b => CHIBI_BODIES.has(b.token));
+  const faceChibi = S.pos.find(b => b.token === '@FACE_CHIBI');
+  let changed = 0;
+  if (faceChibi && !hasChibiBody) {
+    S.pos.splice(S.pos.indexOf(faceChibi), 1);
+    if (!S.pos.some(b => b.token === '@FACE_SOFT')) S.pos.push({ id: uid(), token: '@FACE_SOFT', text: '', weight: 1, enabled: true });
+    toast('单独的 Q 版脸会造成 Q 化，已换回 @FACE_SOFT');
+    changed++;
+  }
+  if (hasChibiBody && !S.pos.some(b => b.token === '@FACE_CHIBI')) {
+    S.pos.push({ id: uid(), token: '@FACE_CHIBI', text: '', weight: 1, enabled: true });
+    changed++;
+  }
+  return changed;
+};
+
+const CAM_CONFLICT_GUARD = () => {
+  const hasSingle = S.pos.some(b => b.token === '@SINGLE');
+  const bad = S.pos.filter(b => b.token === '@CAM_FULL' || b.token === '@CAM_MEDIUM');
+  if (!hasSingle || !bad.length) return 0;
+  S.pos = S.pos.filter(b => !(b.token === '@CAM_FULL' || b.token === '@CAM_MEDIUM'));
+  toast('构图冲突：@SINGLE 已声明“填满画面”，已移除 ' + bad.map(b => b.token).join('/'));
+  return bad.length;
+};
+
+const PALE_LORA_WARN = () => {
+  const pale = (S.loras || []).find(l => /sunhimi_(h1|h3|h4|v[2-6])\.safetensors$/i.test(l.name || ''));
+  const soft = S.pos.some(b => b.token === '@LIGHT_BACK' || b.token === '@STYLE_SOFT' || b.token === '@LIGHT_SOFT');
+  if (pale && soft) toast('提醒：' + pale.name.replace('.safetensors','') + ' 配逆光/柔光会发白，建议换 h2 或把权重降到 0.3', true);
+  return 0;
+};
+
+const STYLE_SCENE_WARN = () => {
+  const style = S.pos.find(b => /^@STYLE_/.test(b.token || ''));
+  const scene = S.pos.some(b => /^@(SET_|BG_)/.test(b.token || ''));
+  if (style && scene) toast('提醒：' + style.token + ' 会把场景压成白底，做场景图建议去掉画风积木', true);
+  return 0;
+};
+
+const ARTIST_LAYOUT_WARN = () => {
+  const artist = (S.loras || []).find(l => loraCat(l.name) === '画师' && !/animaNai/i.test(l.name));
+  if (!artist || Number(artist.weight) < 0.5) return 0;
+  const blockers = S.pos.filter(b => ['@SINGLE', '@ID', '@BODY_SOFT', '@CAM_CLOSEUP', '@CAM_BUST'].includes(b.token));
+  if (blockers.length) toast('画师 ' + shortLoraName(artist.name) + ' 权重 ' + artist.weight + ' 时建议用文本身份，' + blockers.map(b => b.token).join('/') + ' 会压构图', true);
+  return 0;
+};
+
+async function smartFix() {
+  pushHistory();
+  let changed = 0;
+  const empties = S.pos.filter(b => !b.token && !String(b.text || '').trim());
+  if (empties.length) { S.pos = S.pos.filter(b => b.token || String(b.text || '').trim()); changed += empties.length; }
+  const seen = new Set();
+  S.pos = S.pos.filter(b => { if (!b.token) return true; if (seen.has(b.token)) { changed++; return false; } seen.add(b.token); return true; });
+  changed += CAM_CONFLICT_GUARD();
+  changed += FACE_CHIBI_GUARD();
+  changed += ID_LORA_GUARD();
+  changed += STYLE_LORA_GUARD();
+  PALE_LORA_WARN();
+  STYLE_SCENE_WARN();
+  ARTIST_LAYOUT_WARN();
+  renderLanes();
+  try { await expandPreview(); } catch (e) {}
+  toast(changed ? ('已修正 ' + changed + ' 项') : '结构没问题');
+  return changed;
+}
+
+const STYLE_TEXT = {
+  cel: '(cel shading:0.6), (flat colors:0.5)',
+  anime: '(anime cel shading:0.65), (clean lineart:0.55)',
+  flat: '(flat colors:0.6), (minimal shading:0.5)',
+  water: '(watercolor style:0.6), (soft pigment bleed:0.5)',
+  line: '(clean lineart:0.7), (crisp outlines:0.6)',
+};
+
+const TEXT_ID = '1girl, solo, upper body, ivory white hair, straight fringe, heterochromia one red and one grey eye, a sunflower hair ornament';
+const ARTIST_STYLE_TEXT = {
+  'animaNai': 'clean anime illustration, soft cel shading, gentle gradients',
+  'Lucent': 'heavy ink lineart, bold black areas, textured brush shading, painterly finish',
+  'ashima': 'crisp manga lineart, flat colors, sharp specular highlights',
+  'koukouya': 'high contrast shading, deep shadows, cool desaturated palette',
+  'kanzarin': 'delicate lineart, fine hatching, cool muted palette',
+  'ka-996beshi': 'warm skin tones, sharp eyeliner, glossy highlights',
+  'Skin_Enhancer': 'detailed skin texture, soft pores, subtle subsurface glow',
+};
+function artistStyleText(name) {
+  const n = String(name || '');
+  const key = Object.keys(ARTIST_STYLE_TEXT).find(k => n.includes(k));
+  return key ? ARTIST_STYLE_TEXT[key] : '';
+}
+
+const GENERIC_ARTIST = { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true };
+const ARTIST_RECIPES = {
+  'Lucent': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
+  'Skin_Enhancer': { weight: 0.2, drop: [], add: [] },
+  'ashima': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
+  'koukouya': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
+  'kanzarin': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
+  'ka-996beshi': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
+  'animaNai': { weight: 0.66, drop: [], add: [] },
+};
+function artistRecipe(name) {
+  const n = String(name || '');
+  const key = Object.keys(ARTIST_RECIPES).find(k => n.includes(k));
+  const base = Object.assign({}, GENERIC_ARTIST, key ? ARTIST_RECIPES[key] : {});
+  const ov = (S.artistRecipes || {})[n] || (S.artistRecipes || {})[n.replace('.safetensors', '')];
+  if (ov && ov.weight != null) base.weight = ov.weight;
+  return base;
+}
+
+function styleLoraWeight(name) {
+  const rec = artistRecipe(name);
+  if (rec) return rec.weight;
+  if (/turbo/i.test(name)) return 0.75;
+  return 0.2;
+}
+
+function renderStyleLoraOptions() {
+  const sel = document.querySelector('#style-lora');
+  if (!sel) return;
+  const list = (S.loraFiles || []).filter(f => loraCat(f) === '画师');
+  const cur = (S.loras || []).find(l => loraCat(l.name) === '画师');
+  sel.innerHTML = '<option value="">无</option>' + list.map(f =>
+    '<option value="' + f + '"' + (cur && cur.name === f ? ' selected' : '') + '>' +
+    shortLoraName(f) + '</option>').join('');
+}
+
+function currentCharLora() {
+  const l = (S.loras || []).find(x => loraCat(x.name) === '角色');
+  return l ? l.name : '';
+}
+
+function applyStyleLora(name) {
+  pushHistory();
+  S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
+  S.pos = S.pos.filter(b => !b.artist);
+  if (name && !/animaNai/i.test(name)) S.loras = S.loras.filter(l => !/animaNai/i.test(l.name || ''));
+  if (name) {
+    const charName = currentCharLora();
+    const learned = (S.artistRecipes || {})[name];
+    const w = (learned && learned.byChar && learned.byChar[charName])
+      || (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(name, charName) : null)
+      || styleLoraWeight(name);
+    S.loras.push({ name, weight: w });
+    if (isHeavyStyleLora(name)) toast('画师 LoRA 建议 0.1–0.3（这次用 ' + styleLoraWeight(name) + '）', true);
+  }
+  if (name) {
+    const rec = artistRecipe(name);
+    if (rec) {
+      const removed = [];
+      S.pos = S.pos.filter(b => { if (rec.drop.includes(b.token)) { removed.push(b.token); return false; } return true; });
+      for (const t of rec.add) if (!S.pos.some(b => b.token === t)) S.pos.push({ id: uid(), token: t, text: '', weight: 1, enabled: true });
+      if (rec.textId && !S.pos.some(b => !b.token && /ivory white hair/i.test(b.text || ''))) {
+        S.pos.unshift({ id: uid(), token: '', text: TEXT_ID, weight: 1, enabled: true });
+      }
+      if (removed.length || rec.add.length) toast('画师适配：' + (removed.length ? '移除 ' + removed.join('/') + ' ' : '') + (rec.add.length ? '补 ' + rec.add.join('/') : ''));
+    }
+  }
+  const styleText = name ? artistStyleText(name) : '';
+  if (styleText) {
+    S.pos.push({ id: uid(), token: '', text: styleText, weight: 1, enabled: true, artist: true });
+  }
+  saveJSON('loom.styleLora', name || '');
+  renderLoras(); renderStyleLoraOptions(); expandPreview();
+  const cur = (S.loras || []).find(l => l.name === name);
+  toast(name ? ('画师 LoRA：' + shortLoraName(name) + ' ' + (cur ? cur.weight : '')) : '画师 LoRA：无');
+}
+
+function applyStyle(kind, custom) {
+  pushHistory();
+  S.pos = S.pos.filter(b => !/^@STYLE_/.test(b.token || '') && !(b.text && /^\s*\((cel shading|anime cel shading|flat colors|watercolor style|clean lineart)/i.test(b.text)));
+  S.loras = (S.loras || []).filter(l => !/animaNai/i.test(l.name || ''));
+  let label = '默认';
+  if (kind === 'anima66' || kind === 'anima45') {
+    S.loras.push({ name: 'animaNai5E585B6E4B889.YDAV.safetensors', weight: kind === 'anima66' ? 0.66 : 0.45 });
+    label = 'animaNai ' + (kind === 'anima66' ? '0.66' : '0.45');
+  } else if (kind === 'custom') {
+    const t = String(custom || '').trim();
+    if (t) { S.pos.push({ id: uid(), token: '', text: t, weight: 1, enabled: true }); label = t.slice(0, 24); }
+  } else if (STYLE_TEXT[kind]) {
+    S.pos.push({ id: uid(), token: '', text: STYLE_TEXT[kind], weight: 1, enabled: true });
+    label = kind;
+  }
+  saveJSON('loom.style', { kind, custom: custom || '' });
+  renderLoras(); renderLanes(); expandPreview();
+  toast('风格已切到：' + label);
+}
+
+function restoreStyle() {
+  const v = loadJSON('loom.style', null);
+  if (!v || !v.kind) return;
+  const sel = $('#style-sel'); if (sel) sel.value = v.kind;
+  const inp = $('#style-custom'); if (inp) { inp.value = v.custom || ''; inp.style.display = v.kind === 'custom' ? '' : 'none'; }
+}
+
 async function run() {
+  S._refined = false;
   STYLE_LOCK_APPLY();
+  if (($('#p-smartfix') || {}).checked) { try { await smartFix(); } catch (e) {} }
+  try { await expandPreview(); } catch (e) {}
+  const _hasText = S.pos.some(b => !b.token && (b.text || '').trim());
+  const _hasStyleTok = S.pos.some(b => /^@(STYLE|LIGHT)_/.test(b.token || ''));
+  if (_hasText && _hasStyleTok) toast('提示：自然语言文本块与 @STYLE_/@LIGHT_ 混用容易出怪图，建议只留一种', true);
+  const _steps = Number(($('#p-steps') || {}).value) || 0;
+  if (_steps && _steps < 22) toast('步数 ' + _steps + ' 偏低：16 步左右会明显发灰，正式出图建议 ≥26', true);
+  const _mdl = (($('#p-model') || {}).value || '');
+  if (/29B/i.test(_mdl) && S.pos.length > 8) toast('29B 建议用自然语言短提示：标签堆会让画面发灰', true);
   if (!S.lastExpanded || !S.lastExpanded.positive.trim()) { alert('正向提示词为空'); return; }
   const { w, h } = size();
   const risk = sizeRisk(w, h);
-  if (risk === 'bad' && !confirm('当前 ' + w + '×' + h + ' 很可能爆显存，继续吗？')) return;
+  if (risk === 'bad' && !confirm('当前 ' + w + '×' + h + ' (' + (w * h / 1e6).toFixed(2) + ' MP) 很可能爆显存，继续吗？')) return;
   if (risk === 'warn') toast('⚠ 分辨率接近显存上限，留意 OOM');
   $('#run-btn').disabled = true;
   $('#run-status').textContent = '提交中…';
@@ -674,6 +1278,7 @@ async function run() {
       seed: Number($('#p-seed').value) || 0,
       prefix: $('#p-prefix').value || 'st',
       loras: S.loras.map(l => ({ name: l.name, weight: Number(l.weight) })),
+      model: (($('#p-model') || {}).value || ''),
       blocks_pos: S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
       blocks_neg: S.neg.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
     })});
@@ -686,6 +1291,7 @@ async function run() {
   }
 }
 
+const autoRefine = () => Number(($('#p-refine') || {}).value) || 0;
 async function pollJob(jid, kind) {
   clearInterval(S.jobTimer);
   S.jobTimer = setInterval(async () => {
@@ -693,9 +1299,10 @@ async function pollJob(jid, kind) {
     try { j = await api('/api/job/' + jid); } catch (e) { return; }
     if (kind === 'run') {
       $('#run-bar').style.width = Math.round((j.progress || 0) * 100) + '%';
+      const pct = Math.round((j.progress || 0) * 100);
       const left = Math.max(0, Math.round((S.eta || 60) - (j.elapsed || 0)));
-      $('#run-status').textContent = (j.status === 'running' ? '生成中 ' + (j.elapsed||0) + 's · 约剩 ' + left + 's' : j.status) +
-        ' · ' + Math.round((j.progress||0) * 100) + '%';
+      const tail = left > 0 ? ('约剩 ' + left + 's') : '收尾中';
+      $('#run-status').textContent = (j.status === 'running' ? '生成中 ' + (j.elapsed||0) + 's · ' + tail : j.status) + ' · ' + pct + '%';
     }
     if (j.logs && j.logs.length) {
       if (kind === 'train') $('#tr-log').textContent = j.logs.join('\n');
@@ -706,6 +1313,20 @@ async function pollJob(jid, kind) {
       if (kind === 'run') {
         $('#run-btn').disabled = false;
         if (j.status === 'done' && j.result && j.result.images && j.result.images.length) {
+          const _rf = autoRefine();
+          if (_rf > 0 && !S._refined) {
+            S._refined = true;
+            const _src = j.result.images[0];
+            $('#run-status').textContent = '精修中…';
+            try {
+              const _rec = await api('/api/recipe?path=' + encodeURIComponent(_src));
+              const _r = await api('/api/reproduce', { method: 'POST', body: JSON.stringify({
+                mode: 'keep_person', reference: _src, prompt: _rec.positive || '', negative: _rec.negative || '',
+                denoise: _rf, width: (_rec.size && _rec.size[0]) || 1024, height: (_rec.size && _rec.size[1]) || 1536,
+                steps: _rec.steps || 26, cfg: _rec.cfg || 5.2, seed: _rec.seed || 0, prefix: 'refine', loras: _rec.loras || [], model: _rec.model || (($('#p-model') || {}).value || '') }) });
+              if (_r.job_id) { pollJob(_r.job_id, 'run'); return; }
+            } catch (e) { toast('精修失败，用原图：' + e.message, true); }
+          }
           showResult(j.result.images[0], j.result.seed, j.result.elapsed);
           $('#run-bar').style.width = '100%';
           $('#run-status').textContent = '完成 · ' + j.result.elapsed + 's';
@@ -719,35 +1340,39 @@ async function pollJob(jid, kind) {
   }, 1200);
 }
 
-function showResult(path, seed, elapsed) {
+function showResult(input, seed, elapsed) {
+  const list = Array.isArray(input) ? input.slice() : [input];
+  S.rl = list; S.ri = 0;
+  renderResultView(seed, elapsed);
+}
+
+function renderResultView(seed, elapsed) {
+  const list = S.rl || [];
+  const path = list[S.ri] || '';
   const { w, h } = size();
   const square = Math.abs(w - h) < 4;
+  const multi = list.length > 1;
+  S.lastResultPath = path;
   $('#result').innerHTML =
+    '<div class="result-frame">' +
     '<img class="clickable" id="result-img" src="/api/img?path=' + encodeURIComponent(path) + '">' +
+    (multi ? '<button class="rnav prev" id="r-prev" title="上一张">‹</button><button class="rnav next" id="r-next" title="下一张">›</button><span class="rcount">' + (S.ri + 1) + ' / ' + list.length + '</span>' : '') +
+    '</div>' +
     (square ? '<div class="warn">方图更容易出双人分屏；若出现两个人物，建议换 1024×1536 或点「重抽」。</div>' : '') +
     '<div class="logbar">' +
     '<input id="log-note" placeholder="备注（可空，例如：外套长度对）">' +
-    '<div class="verdicts">' +
-    '<button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button>' +
-    '</div></div>' +
-    '<div class="row2" style="margin-top:6px">' +
-    '<button class="ghost" id="rerun">重抽</button>' +
-    '<button class="ghost" id="open-file">画廊</button>' +
-    '</div>' +
-    '<div class="row2" style="margin-top:6px">' +
-    '<button class="ghost" id="handfix-btn">手部精修</button>' +
-    '<button class="ghost" id="repro-btn">复现</button>' +
-    '</div>' +
-    '<div class="row2" style="margin-top:6px">' +
-    '<button class="ghost" id="batch-btn">批量</button>' +
-    '<button class="ghost" id="params-btn">参数</button>' +
-    '</div>' +
-    '<div class="hint">seed ' + seed + ' · ' + elapsed + 's · ' + path.split('\\').pop() + '</div>';
+    '<div class="verdicts"><button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button></div></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="ghost" id="rerun">重抽</button><button class="ghost" id="open-file">画廊</button></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="primary" id="result-refine">精修</button><button class="ghost danger" id="result-del">删除</button></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="ghost" id="handfix-btn">手部精修</button><button class="ghost" id="repro-btn">复现</button></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="ghost" id="batch-btn">批量</button><button class="ghost" id="params-btn">参数</button></div>' +
+    '<div class="hint">seed ' + seed + ' · ' + elapsed + 's · ' + String(path).split(/[\\/]/).pop() + '</div>';
   const ri = $('#result-img');
   if (ri) ri.onclick = () => openImage(path);
-  $$('#result .verdicts button').forEach(b => b.onclick = () => {
-    logPick(path, b.dataset.v, ($('#log-note') || {}).value || '');
-  });
+  const pv = $('#r-prev'), nx = $('#r-next');
+  if (pv) pv.onclick = () => { S.ri = (S.ri - 1 + list.length) % list.length; renderResultView(seed, elapsed); };
+  if (nx) nx.onclick = () => { S.ri = (S.ri + 1) % list.length; renderResultView(seed, elapsed); };
+  $$('#result .verdicts button').forEach(b => b.onclick = () => { logPick(path, b.dataset.v, ($('#log-note') || {}).value || ''); });
   $('#rerun').onclick = () => { $('#p-seed').value = ''; run(); };
   const hb = $('#handfix-btn');
   if (hb) hb.onclick = () => openHandfix(path);
@@ -757,8 +1382,59 @@ function showResult(path, seed, elapsed) {
   if (bb) bb.onclick = () => openBatch();
   const pb = $('#params-btn');
   if (pb) pb.onclick = () => openRecipe(path);
+  const rf = $('#result-refine');
+  if (rf) rf.onclick = () => refineImage(path);
+  const rd = $('#result-del');
+  if (rd) rd.onclick = async () => { if (await deleteImage(path)) { S.rl = (S.rl || []).filter(x => x !== path); if (S.rl.length) { S.ri = Math.min(S.ri, S.rl.length - 1); renderResultView(seed, elapsed); } else { $('#result').innerHTML = '<div class="hint">已删除，画布还在，可以重抽。</div>'; } renderGallery(); } };
   $('#open-file').onclick = () => { const a = document.querySelector('#tabs button[data-tab="gallery"]'); if (a) a.click(); };
 }
+
+async function refineImage(path) {
+  const v = prompt('精修强度（0.2–0.45，建议 0.3）', '0.3');
+  if (v === null) return;
+  try {
+    let rec = null;
+    try { rec = await api('/api/recipe?path=' + encodeURIComponent(path)); } catch (e) { rec = null; }
+    const sz = size();
+    const ex = S.lastExpanded || {};
+    const payload = {
+      mode: 'keep_person', reference: path,
+      prompt: (rec && rec.positive) || ex.positive || '',
+      negative: (rec && rec.negative) || ex.negative || '',
+      denoise: Math.max(0.1, Math.min(0.6, parseFloat(v) || 0.3)),
+      width: (rec && rec.size && rec.size[0]) || sz.w,
+      height: (rec && rec.size && rec.size[1]) || sz.h,
+      steps: (rec && rec.steps) || Number($('#p-steps').value) || 26,
+      cfg: (rec && rec.cfg) || Number($('#p-cfg').value) || 5.2,
+      seed: (rec && rec.seed) || 0, prefix: 'refine',
+      loras: (rec && rec.loras && rec.loras.length) ? rec.loras : S.loras,
+      model: (rec && rec.model) || (($('#p-model') || {}).value || '')
+    };
+    const r = await api('/api/reproduce', { method: 'POST', body: JSON.stringify(payload) });
+    toast('精修已提交');
+    $('#run-bar').style.width = '2%';
+    $('#run-status').textContent = '精修排队中…';
+    const t = setInterval(async () => {
+      let j; try { j = await api('/api/job/' + r.job_id); } catch (e) { return; }
+      const pct = Math.round((j.progress || 0) * 100);
+      $('#run-bar').style.width = pct + '%';
+      const el = j.elapsed || 0;
+      $('#run-status').textContent = (j.status === 'running' ? '精修中 ' + el + 's' : j.status) + ' · ' + pct + '%';
+      if (j.status === 'running') return;
+      clearInterval(t);
+      $('#run-bar').style.width = '100%';
+      if (j.status === 'done' && j.result && j.result.images && j.result.images.length) {
+        const img = j.result.images[0];
+        S.rl = (S.rl || []).concat([img]); S.ri = S.rl.length - 1;
+        renderResultView(j.result.seed, j.result.elapsed);
+        $('#run-status').textContent = '精修完成 · ' + (j.result.elapsed || 0) + 's';
+        toast('精修完成');
+      } else { $('#run-status').textContent = '精修失败'; toast('精修失败', true); }
+    }, 1500);
+  } catch (e) { toast('精修失败：' + e.message, true); }
+}
+
+
 
 async function logPick(path, verdict, note) {
   const body = { path, verdict, note: note === undefined ? '' : note,
@@ -798,7 +1474,7 @@ async function renderGallery() {
     return true;
   });
 
-  const selMode = !!S.gallerySelect;
+  const selMode = !!S.gallerySelect || !!S.galleryDelMode;
   const total = $('#g-total');
   if (total) total.textContent = items.length + ' / ' + r.total + ' 张';
 
@@ -809,14 +1485,14 @@ async function renderGallery() {
       + (it.verdict ? '<span class="v ' + it.verdict + '">' + it.verdict + '</span>' : '')
       + (selMode ? '<span class="g-check">' + (S.gallerySel[it.path] ? '✓' : '') + '</span>' : '')
       + '<button class="g-params" data-params="' + it.path + '" title="查看这张图的积木与参数">参数</button>'
-      + '<button class="g-del" data-del="' + it.path + '" title="移入回收站">×</button>'
+
       + '<div class="meta"><span>' + it.name.slice(0, 16) + '</span><span>' + (it.note || '') + '</span></div>'
       + '</div>';
   }).join('') || '<div class="hint">没有符合条件的图</div>';
 
   $$('-g-item').forEach(() => {});
   $$('.g-item').forEach(el => el.onclick = () => {
-    if (S.gallerySelect) {
+    if (S.gallerySelect || S.galleryDelMode) {
       const p = el.dataset.path;
       if (S.gallerySel[p]) delete S.gallerySel[p]; else S.gallerySel[p] = 1;
       renderGallery();
@@ -828,15 +1504,27 @@ async function renderGallery() {
     e.stopPropagation();
     openRecipe(btn.dataset.params);
   });
-  $$('.g-item .g-del').forEach(btn => btn.onclick = async e => {
-    e.stopPropagation();
-    await deleteImage(btn.dataset.del);
-    renderGallery();
-  });
   const ex = $('#g-export');
   if (ex) {
-    ex.style.display = selMode ? '' : 'none';
+    ex.style.display = S.gallerySelect ? '' : 'none';
     ex.textContent = '导出选中（' + Object.keys(S.gallerySel).length + '）';
+  const bd = $('#g-bulk-del');
+  if (bd) {
+    bd.style.display = S.galleryDelMode ? '' : 'none';
+    bd.textContent = '删除选中（' + Object.keys(S.gallerySel).length + '）';
+    bd.onclick = async () => {
+      const paths = Object.keys(S.gallerySel);
+      if (!paths.length) { toast('先点几张图选中', true); return; }
+      if (!confirm('把选中的 ' + paths.length + ' 张图移入回收站？\n（可在「维护」里恢复）')) return;
+      let ok = 0;
+      for (const p of paths) {
+        try { await api('/api/delete-image', { method: 'POST', body: JSON.stringify({ path: p, permanent: false }) }); ok++; } catch (e) {}
+      }
+      S.gallerySel = {};
+      toast('已移入回收站 ' + ok + ' 张');
+      renderGallery();
+    };
+  }
   }
 }
 
@@ -879,23 +1567,10 @@ function importRecipe(r) {
   if (b) b.click();
   renderLanes();
   expandPreview();
+  if (typeof updateEta === 'function') updateEta();
   if (typeof persistParams === 'function') persistParams();
   toast('已导入配方：' + S.pos.length + ' 正 / ' + S.neg.length + ' 负 · seed ' + (r.seed ?? '随机'));
 }
-
-const STYLE_LOCK_APPLY = () => {
-  const lock = $('#p-lock');
-  const hard = !!(lock && lock.checked);
-  const anchor = hard ? '@STYLE_ANIME' : '@STYLE_SOFT';
-  const has = (arr, tok) => arr.some(b => b.token === tok);
-  if (!has(S.pos, anchor)) S.pos.push({ id: uid(), token: anchor, text: '', weight: 1, enabled: true });
-  if (hard && has(S.pos, '@STYLE_SOFT')) S.pos = S.pos.filter(b => b.token !== '@STYLE_SOFT');
-  if (!has(S.neg, '@NEG_REAL')) S.neg.push({ id: uid(), token: '@NEG_REAL', text: '', weight: 1, enabled: true });
-  S.loras = (S.loras || []).map((l, i) => Object.assign({}, l, { weight: i === 0 ? 0.5 : 0.66 }));
-  if (typeof renderLanes === 'function') renderLanes();
-  if (typeof renderLoras === 'function') renderLoras();
-};
-
 
 const RAND_SCENE = {
   '@SET_ONSEN':  { time: ['@TIME_NIGHT','@TIME_DUSK'], light: ['@LIGHT_CANDLE','@LIGHT_RIM'], pose: ['@POSE_SIT'], atmo: ['@ATMO_FOG'], mood: ['@MOOD_CALM','@MOOD_TENDER','@MOOD_SHY'] },
@@ -971,14 +1646,6 @@ const RAND_SCENE_OUTFIT = {
 };
 function sceneOutfitFor(scene) { return RAND_SCENE_OUTFIT[scene] || []; }
 
-function weightedPick(arr, tok) {
-  const okW = t => ((S.notes && S.notes[t]) || '').indexOf('成功') >= 0 ? 3 : 1;
-  const total = arr.reduce((s, t) => s + okW(t), 0);
-  let x = Math.random() * total;
-  for (const t of arr) { x -= okW(t); if (x <= 0) return t; }
-  return arr[arr.length - 1] || tok;
-}
-
 function randPickPool(pool) { return pool[Math.floor(Math.random() * pool.length)]; }
 function randReplace(prefix, newTok) {
   S.pos = S.pos.map(b => (b.token || '').startsWith(prefix) ? Object.assign({}, b, { token: newTok }) : b);
@@ -1047,7 +1714,7 @@ function randomCompose() {
   if (!outfitPool.length) outfitPool = outfitsAll;
   const outfit = pick(outfitPool);
 
-  const camPool = exclude(['@CAM_MEDIUM', '@CAM_FULL', '@CAM_BUST', '@CAM_THREEQ', '@CAM_CLOSEUP'], [last1.cam]);
+  const camPool = exclude(['@CAM_THREEQ', '@CAM_BUST', '@CAM_CLOSEUP'], [last1.cam]);
   const cam = pick(camPool);
   const needsPose = cam === '@CAM_FULL' || cam === '@CAM_THREEQ' || cam === '@CAM_MEDIUM';
   const posePoolBase = (prof.pose && prof.pose.length ? prof.pose : byPrefix('@POSE_'))
@@ -1057,15 +1724,19 @@ function randomCompose() {
 
   const timePool = ((prof.time && prof.time.length) ? prof.time : byPrefix('@TIME_')).filter(has);
   const time = timePool.length ? pick(exclude(timePool, [last1.time]).length ? exclude(timePool, [last1.time]) : timePool) : '';
-  const lightPool = ((prof.light && prof.light.length) ? prof.light : byPrefix('@LIGHT_')).filter(has);
+  const paleChar = (S.loras || []).some(l => /sunhimi_(h1|h3|h4|v[2-6])\.safetensors$/i.test(l.name || ''));
+  let lightPool = ((prof.light && prof.light.length) ? prof.light : byPrefix('@LIGHT_')).filter(has);
+  if (paleChar) lightPool = lightPool.filter(t => t !== '@LIGHT_BACK');
   const light = lightPool.length ? pick(exclude(lightPool, [last1.light]).length ? exclude(lightPool, [last1.light]) : lightPool) : '';
 
   const gazePool = byPrefix('@GAZE_').filter(t => t !== '@GAZE_CLOSED');
   const gaze = ((cam === '@CAM_BUST' || cam === '@CAM_CLOSEUP') && Math.random() < 0.6 && has('@GAZE_CAMERA'))
     ? '@GAZE_CAMERA' : (gazePool.length ? pick(gazePool) : '');
-  const bodyPool = byPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH'].includes(t));
-  const body = bodyPool.length ? pick(bodyPool) : '';
-  const facePool = byPrefix('@FACE_').filter(t => t !== '@FACE_ADULT');
+  const chibiPool = byPrefix('@BODY_').filter(t => CHIBI_BODIES.has(t));
+  const bodyPool = byPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH'].includes(t) && !CHIBI_BODIES.has(t));
+  const useChibi = chibiPool.length > 0 && Math.random() < 0.08;
+  const body = useChibi ? pick(chibiPool) : (bodyPool.length ? pick(bodyPool) : '');
+  const facePool = byPrefix('@FACE_').filter(t => t !== '@FACE_ADULT' && (useChibi || t !== '@FACE_CHIBI'));
   const face = facePool.length ? pick(facePool) : '';
 
   const pos = ['@SINGLE', '@ID', body, face, gaze, cam, time, light, scene, '@OUT_' + outfit.toUpperCase()];
@@ -1082,19 +1753,39 @@ function randomCompose() {
     if (hose.length) pos.push(pick(hose));
   }
 
+  // 画师：20% 概率随机一位，按角色权重 + 风格提示
+  let artistName = '';
+  if (Math.random() < 0.2) {
+    const pool = (S.loraFiles || []).filter(f => loraCat(f) === '画师' && !/animaNai/i.test(f));
+    if (pool.length) {
+      artistName = pool[Math.floor(Math.random() * pool.length)];
+      S.loras = (S.loras || []).filter(l => !/animaNai/i.test(l.name || '') && loraCat(l.name) !== '画师');
+      const cw = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(artistName, currentCharLora()) : null) || 0.7;
+      S.loras.push({ name: artistName, weight: cw });
+      const st = typeof artistStyleText === 'function' ? artistStyleText(artistName) : '';
+      if (st) pos.push({ id: uid(), token: '', text: st, weight: 1, enabled: true, artist: true });
+    }
+  }
   const lockOn = !!($('#p-lock') && $('#p-lock').checked);
   const styleAnchor = lockOn && has('@STYLE_ANIME') ? '@STYLE_ANIME' : '@STYLE_SOFT';
-  pos.push(styleAnchor);
+  // @STYLE_* 会压掉场景背景，随机不再添加（2026-11-07）
 
   const neg = ['@NEG_BASE', '@NEG_HANDS', '@NEG_REAL', '@NEG_' + outfit.toUpperCase()];
   if (['@LIGHT_NEON', '@LIGHT_CANDLE'].includes(light) || time === '@TIME_NIGHT') neg.push('@NEG_SKIN');
   if (pose) neg.push('@NEG_ANATOMY');
 
   const mk = t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true });
-  S.pos = pos.filter(t => has(t)).map(mk);
+  S.pos = pos.filter(t => (t && t.text) || has(t)).map(t => (t && t.text) ? { id: uid(), token: '', text: t.text, weight: 1, enabled: true, artist: true } : mk(t));
   S.neg = neg.filter(t => has(t)).map(mk);
   const seed = 100000 + Math.floor(Math.random() * 899999);
-  S.loras = (S.loras || []).map((l, i) => Object.assign({}, l, { weight: i === 0 ? 0.5 : 0.66 }));
+  S.loras = (S.loras || []).map((l) => {
+    const cat = loraCat(l.name);
+    let w = 0.66;
+    if (cat === '角色') w = 0.5;
+    else if (cat === '画师') w = (typeof artistDefaultWeight === 'function' && artistDefaultWeight(l.name, l.name)) || 0.7;
+    else if (cat === '加速') w = 0.75;
+    return Object.assign({}, l, { weight: w });
+  });
   const sizeSel = document.querySelector('#p-size');
   if (sizeSel && [...sizeSel.options].some(o => o.value === '1024x1536')) sizeSel.value = '1024x1536';
   const customSize = document.querySelector('#custom-size');
@@ -1110,6 +1801,7 @@ function randomCompose() {
   toast('随机：' + String(scene || '').replace('@SET_', '') + ' · ' + label + ' · ' + String(light || '无光').replace('@LIGHT_', '') + ' · ' + (lockOn ? '硬边' : '柔和') + ' · seed ' + seed);
 }
 
+function randomComposePlaceholder() {}
 
 async function openImage(path) {
   const qc = await api('/api/qc?path=' + encodeURIComponent(path));
@@ -1124,6 +1816,7 @@ async function openImage(path) {
     '<button class="ghost" id="z-one">1:1</button>' +
     '<button class="ghost" id="z-fit">适应</button>' +
     '<button class="ghost" id="z-marquee">框选放大</button>' +
+    '<button class="ghost" id="z-refine">精修</button>' +
     '<button class="ghost" id="z-del" style="color:#ffb3a6">删除</button>' +
     '<span class="hint" style="margin-left:auto">' + esc(path.split('\\').pop()) + '</span>' +
     '</div>' +
@@ -1131,7 +1824,7 @@ async function openImage(path) {
     '<div class="verdicts">' + ['A','B','C'].map(v => '<button data-v="' + v + '">' + v + '</button>').join('') +
     '</div></div>' +
     '<pre>' + esc(JSON.stringify(qc, null, 2)) + '</pre>');
-  bindZoom();
+  bindZoom(path);
   $$('#modal-content button[data-v]').forEach(b => b.onclick = async () => {
     await logPick(path, b.dataset.v, ($('#m-note') || {}).value || '');
     closeModal(); renderGallery();
@@ -1151,7 +1844,7 @@ async function deleteImage(path) {
   }
 }
 
-function bindZoom() {
+function bindZoom(path) {
   const wrap = $('#zoom-wrap'), img = $('#zoom-img'), mar = $('#zoom-marquee');
   if (!wrap || !img) return;
   ZV = { scale: 1, tx: 0, ty: 0, fitted: false };
@@ -1165,7 +1858,7 @@ function bindZoom() {
   const fit = () => {
     const nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
     const w = wrap.clientWidth, h = wrap.clientHeight;
-    ZV.scale = Math.min(w / nw, h / nh, 4);
+    ZV.scale = Math.min(w / nw, h / nh, 4);   // 允许放大填满窗口，最多 4x
     ZV.tx = (w - nw * ZV.scale) / 2;
     ZV.ty = (h - nh * ZV.scale) / 2;
     ZV.fitted = true;
@@ -1273,6 +1966,25 @@ function bindZoom() {
     closeModal();
     renderGallery();
   };
+  const zref = $('#z-refine');
+  if (zref) zref.onclick = async () => {
+    const v = prompt('精修强度（0.2–0.45，建议 0.3）', '0.3');
+    if (v === null) return;
+    zref.classList.add('loading');
+    try {
+      const rec = await api('/api/recipe?path=' + encodeURIComponent(path));
+      const w = (rec.size && rec.size[0]) || 1024, h = (rec.size && rec.size[1]) || 1536;
+      const r = await api('/api/reproduce', { method: 'POST', body: JSON.stringify({
+        mode: 'keep_person', reference: path, prompt: rec.positive || '', negative: rec.negative || '',
+        denoise: Math.max(0.1, Math.min(0.6, parseFloat(v) || 0.3)),
+        width: w, height: h, steps: rec.steps || 26, cfg: rec.cfg || 5.2,
+        seed: rec.seed || 0, prefix: 'refine', loras: rec.loras || [], model: rec.model || (($('#p-model') || {}).value || '') }) });
+      toast('精修已提交：' + (r.job_id || ''));
+      closeModal();
+      if (r.job_id) pollJob(r.job_id, 'run');
+    } catch (e) { toast('精修失败：' + e.message, true); }
+    finally { zref.classList.remove('loading'); }
+  };
 
   const mb = $('#z-marquee');
   if (mb) mb.onclick = () => {
@@ -1299,25 +2011,29 @@ function bindZoom() {
 
 /* ---------- 词库：组合推荐 ---------- */
 const COMBOS = [
-  { name: '窗光肖像', tokens: ['@SET_ROOM', '@LIGHT_WIN', '@COMP_CENTER'] },
-  { name: '咖啡厅黄昏', tokens: ['@SET_CAFE', '@TIME_DUSK', '@LIGHT_WIN'] },
-  { name: '夜景街拍', tokens: ['@SET_STREET', '@TIME_NIGHT', '@LIGHT_NIGHT'] },
-  { name: '清晨公园', tokens: ['@SET_PARK', '@TIME_MORNING', '@LIGHT_SOFT'] },
-  { name: '书架肖像', tokens: ['@SET_LIBRARY', '@LIGHT_SOFT', '@COMP_THIRDS'] },
-  { name: '干净棚拍', tokens: ['@SET_STUDIO', '@LIGHT_STUDIO', '@COMP_MINIMAL'] },
-  { name: '低机位', tokens: ['@CAM_LOW', '@COMP_LOW', '@LIGHT_RIM'] },
-  { name: '俯视', tokens: ['@CAM_HIGH', '@COMP_OVERHEAD', '@LIGHT_TOP'] },
-  { name: '逆光剪影', tokens: ['@LIGHT_BACK', '@COMP_SILHOUETTE', '@CAM_FULL'] },
-  { name: '三分留白', tokens: ['@COMP_THIRDS', '@COMP_NEGATIVE', '@COMP_LOOKROOM'] },
-  { name: '特写', tokens: ['@CAM_BUST', '@COMP_FILL', '@LIGHT_SOFT'] },
-  { name: '街拍全身', tokens: ['@CAM_FULL', '@SET_STREET', '@LIGHT_BACK'] },
+  { name: '电影感封面', tokens: ['@CUSTOM_FRAMEINFRAME', '@BG_DARKFALL', '@LIGHT_RIM'] },
+  { name: '梦境', tokens: ['@CUSTOM_SURREAL', '@CUSTOM_FLOAT', '@ATMO_FOG'] },
+  { name: '海报', tokens: ['@CUSTOM_SPOTCOLOR', '@CUSTOM_GRAPHIC', '@COMP_MINIMAL'] },
+  { name: '冲击力', tokens: ['@CUSTOM_FORESHORTEN', '@CUSTOM_ZOOMBLUR', '@CAM_LOW'] },
+  { name: '叙事', tokens: ['@CUSTOM_MULTIEXPO', '@CUSTOM_REFLECTION', '@SET_STATION'] },
+  { name: '微缩世界', tokens: ['@CUSTOM_TILTSHIFT', '@CAM_HIGH', '@SET_MARKET'] },
+  { name: '夜景大片', tokens: ['@SET_ROOFTOP', '@BG_BOKEH', '@LIGHT_NEON', '@NEG_SKIN'] },
+  { name: '干净棚拍', tokens: ['@SET_STUDIO', '@BG_CLEAN', '@LIGHT_STUDIO', '@COMP_MINIMAL'] },
+  { name: '温泉夜', tokens: ['@SET_ONSEN', '@TIME_NIGHT', '@BG_DARKFALL', '@LIGHT_CANDLE'] },
+  { name: '雨天情绪', tokens: ['@WEATHER_RAIN', '@ATMO_RAIN', '@COMP_REFLECTION', '@BG_BOKEH'] },
+  { name: '夏日祭', tokens: ['@SET_MARKET', '@OUT_YUKATA', '@LIGHT_GOLDEN', '@BG_BOKEH'] },
+  { name: '居家慵懒', tokens: ['@SET_BEDROOM', '@OUT_PAJAMA', '@TIME_MORNING', '@HAIR_MESSY'] },
 ];
 
 function userCombos() {
   try { return JSON.parse(localStorage.getItem('loom.combos') || '[]'); } catch (e) { return []; }
 }
-function saveUserCombos(arr) { localStorage.setItem('loom.combos', JSON.stringify(arr)); }
-function allCombos() { return COMBOS.concat(userCombos().map(c => Object.assign({ user: true }, c))); }
+function saveUserCombos(arr) {
+  localStorage.setItem('loom.combos', JSON.stringify(arr));
+}
+function allCombos() {
+  return COMBOS.concat(userCombos().map(c => Object.assign({ user: true }, c)));
+}
 
 function renderCombos() {
   const box = document.querySelector('#combo-list');
@@ -1333,10 +2049,12 @@ function renderCombos() {
   box.querySelectorAll('[data-del-combo]').forEach(x => {
     x.onclick = ev => {
       ev.stopPropagation();
-      const c = allCombos()[+x.dataset.delCombo];
+      const idx = +x.dataset.delCombo;
+      const c = allCombos()[idx];
       if (!c || !c.user) return;
       if (!confirm('删除组合「' + c.name + '」？')) return;
-      saveUserCombos(userCombos().filter(u => u.name !== c.name));
+      const list = userCombos().filter(u => u.name !== c.name);
+      saveUserCombos(list);
       renderCombos();
     };
   });
@@ -1414,22 +2132,19 @@ async function loadLibrary(filter) {
   });
 }
 
-async function saveNote() {
-  const name = $('#tk-name').value.trim();
-  if (!name) return alert('先选一个积木');
-  const r = await api('/api/token/note', { method: 'POST', body: JSON.stringify({ name, text: $('#tk-note').value, category: 'note' }) });
-  S.notes = r.notes;
-  renderPalette();
-  toast('备注已保存');
-}
-
 async function saveToken() {
   const name = $('#tk-name').value.trim();
   const text = $('#tk-text').value.trim();
-  if (!name) return alert('需要名称');
+  if (!name) { toast('需要名称', true); return; }
   await api('/api/token/save', { method:'POST', body: JSON.stringify({ name, text, category:$('#tk-cat').value }) });
+  // 保存时把备注一起写掉（不再单独一个「保存备注」按钮）
+  try {
+    const r = await api('/api/token/note', { method: 'POST', body: JSON.stringify({ name, text: $('#tk-note').value, category: 'note' }) });
+    if (r && r.notes) S.notes = r.notes;
+  } catch (e) {}
   S.tokens = (await api('/api/bootstrap')).tokens;
-  renderPalette(); loadLibrary($('#lib-search').value);
+  renderPalette(); renderCombos(); loadLibrary($('#lib-search').value);
+  toast('已保存 ' + name + '（含备注）');
 }
 
 async function delToken() {
@@ -1448,10 +2163,12 @@ function renderGarmentList(activeKey) {
   box.innerHTML = keys.length ? keys.map(k => {
     const g = gs[k] || {};
     const on = k === activeKey ? ' on' : '';
-    return '<div class="gm-item' + on + '" data-key="' + k + '">' +
+    return '<div class="gm-item' + on + '" data-key="' + k + '" title="' + esc(g.note || '') + '">' +
       '<b>' + esc(g.label || k) + '</b><span class="key">' + k + '</span>' +
       '<span class="use">' + esc(g.use_for || '') + '</span>' +
-      '<span class="len">' + ((g.prompt || '').length) + ' 字符</span></div>';
+      '<span class="len">' + ((g.prompt || '').length) + ' 字符</span>' +
+      (g.note ? '<span class="note">' + esc(g.note.slice(0, 26)) + (g.note.length > 26 ? '…' : '') + '</span>' : '') +
+      '</div>';
   }).join('') : '<div class="hint">还没有服装</div>';
   $$('#gm-list .gm-item').forEach(el => el.onclick = () => loadGarment(el.dataset.key));
 }
@@ -1499,6 +2216,7 @@ function loadGarment(key) {
   if ($('#gm-key2')) $('#gm-key2').value = key;
   if ($('#gm-label')) $('#gm-label').value = g.label || '';
   if ($('#gm-use')) $('#gm-use').value = g.use_for || '';
+  if ($('#gm-note')) $('#gm-note').value = g.note || '';
   if ($('#gm-prompt2')) $('#gm-prompt2').value = g.prompt || '';
   if ($('#gm-neg2')) $('#gm-neg2').value = g.negative || '';
   if ($('#gm-hand-r')) $('#gm-hand-r').value = g.hands_right || '';
@@ -1514,6 +2232,7 @@ function newGarment() {
   if ($('#gm-key2')) $('#gm-key2').value = '';
   if ($('#gm-label')) $('#gm-label').value = '';
   if ($('#gm-use')) $('#gm-use').value = '';
+  if ($('#gm-note')) $('#gm-note').value = '';
   if ($('#gm-prompt2')) $('#gm-prompt2').value = '';
   if ($('#gm-neg2')) $('#gm-neg2').value = '';
   if ($('#gm-hand-r')) $('#gm-hand-r').value = '';
@@ -1536,6 +2255,7 @@ async function saveGarment() {
     negative: ($('#gm-neg2') || {}).value || '',
     hands_left: ($('#gm-hand-l') || {}).value || '',
     hands_right: ($('#gm-hand-r') || {}).value || '',
+    note: ($('#gm-note') || {}).value || '',
   };
   try {
     const r = await api('/api/garment/save', { method: 'POST', body: JSON.stringify(body) });
@@ -1622,11 +2342,10 @@ function setMaintLog(txt) {
 async function refreshMaint() {
   const m = await api('/api/maintenance');
   $('#mt-disk').textContent = '可用 ' + m.disk.free_gb + ' GB / ' + m.disk.total_gb + ' GB';
-  const sizes = m.sizes || { '输出': m.output_mb || 0, '回收站': m.trash_mb || 0 };
-  $('#mt-sizes').innerHTML = Object.entries(sizes).map(([k, v]) =>
+  $('#mt-sizes').innerHTML = Object.entries(m.sizes).map(([k, v]) =>
     '<span class="k">' + k + '</span><span class="v">' + v + ' MB</span>').join('');
+  $('#rg-count').textContent = m.registry + ' 条';
   const reg = await api('/api/registry?limit=80');
-  $('#rg-count').textContent = (reg.total != null ? reg.total : (m.registry || 0)) + ' 条';
   $('#rg-table').innerHTML = reg.items.map(e =>
     '<div class="rg-row" data-path="' + (e.file || '') + '"><span>' + (e.ts || '').slice(5, 16) + '</span>' +
     '<span class="v v-' + (e.verdict || '') + '">' + (e.verdict || '') + '</span>' +
@@ -1726,17 +2445,60 @@ function insertDesc(lane) {
 
 async function saveDescAsBlock() {
   const txt = ($('#desc-text').value || '').trim();
-  if (!txt) { alert('先写一段描述'); return; }
-  const name = prompt('给这块积木起个名字（会自动加 @USER_ 前缀）', 'BOOKSHOP');
-  if (!name) return;
-  const token = '@USER_' + name.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-  const r = await api('/api/token/save', { method: 'POST', body: JSON.stringify({ name: token, text: txt, category: 'custom' }) });
-  S.tokens = (await api('/api/bootstrap')).tokens;
-  renderPalette();
-  toast('已存为 ' + token);
+  if (!txt) { toast('先写一段描述', true); return; }
+  openModal('存为积木',
+    '<div class="field"><label>积木名（自动加 @USER_ 前缀）</label>' +
+      '<input id="sd-name" placeholder="例如 BOOKSHOP" value="DESC"></div>' +
+    '<div class="field"><label>内容</label><textarea id="sd-text" rows="4">' + esc(txt) + '</textarea></div>' +
+    '<div class="row2"><button class="ghost" id="sd-cancel">取消</button>' +
+      '<button class="primary" id="sd-ok">保存为积木</button></div>' +
+    '<p class="hint">存好后会出现在左侧「自定义」分类里，可以重复使用。</p>');
+  $('#sd-cancel').onclick = closeModal;
+  $('#sd-ok').onclick = async () => {
+    const name = ($('#sd-name').value || '').trim();
+    const body = ($('#sd-text').value || '').trim();
+    if (!name || !body) { toast('名字和内容都不能空', true); return; }
+    const token = '@USER_' + name.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    try {
+      await api('/api/token/save', { method: 'POST', body: JSON.stringify({ name: token, text: body, category: 'custom' }) });
+      S.tokens = (await api('/api/bootstrap')).tokens;
+      renderPalette();
+      closeModal();
+      toast('已存为 ' + token);
+    } catch (e) { toast('保存失败：' + e.message, true); }
+  };
 }
 
 /* ---------- IR 校验 ---------- */
+const LABEL_MAP = {
+  id:'身份', single:'单人', win:'窗光', soft:'柔光', rim:'轮廓光', candle:'烛光', golden:'金色光', neon:'霓虹', night:'夜', top:'顶光', back:'逆光',
+  corridor:'走廊', cafe:'咖啡厅', station:'站台', tram:'电车', laundry:'洗衣房', bedroom:'卧室', garden:'花园', beach:'海滩',
+  full:'全身', bust:'胸像', medium:'半身', threeq:'3/4', closeup:'特写',
+  denim_set:'牛仔套装', school:'校服', pajama:'睡衣', hoodie_casual:'卫衣', loungewear:'家居服',
+};
+
+function buildSetupSummary() {
+  const short = (t) => String(t).replace(/^@/, '').replace(/^(OUT|SET|BG|LIGHT|TIME|STYLE|CAM|COMP|POSE|GAZE|ID|SINGLE)_/, '').toLowerCase();
+  const pick = (re) => S.pos.filter(b => b.token && re.test(b.token)).map(b => short(b.token));
+  const groups = [
+    ['身份', pick(/^@(ID|SINGLE)$/)],
+    ['服装', pick(/^@OUT_/)],
+    ['场景', pick(/^@SET_|^@BG_/)],
+    ['光', pick(/^@LIGHT_|^@TIME_/)],
+    ['风格', pick(/^@STYLE_/)],
+    ['镜头', pick(/^@CAM_|^@COMP_/)],
+    ['姿势', pick(/^@POSE_|^@GAZE_/)],
+  ];
+  const zh = (x) => LABEL_MAP[x] || x;
+  const first = groups.filter(([, v]) => v.length).map(([k, v]) => k + ' ' + (k === '身份' ? '锁定' : v.slice(0, 2).map(zh).join('/'))).join(' · ');
+  const loras = (S.loras || []).map(l => String(l.name || '').replace(/\.safetensors$/i, '').replace(/^sunhimi_/i, '').replace(/[0-9A-F]{6,}.*$/i, '').replace(/[._-]+$/, '') + ' ' + Number(l.weight).toFixed(2)).join(' + ') || '无';
+  const sz = ($('#p-size') || {}).value === 'custom' ? (($('#p-w') || {}).value + '×' + ($('#p-h') || {}).value) : String(($('#p-size') || {}).value || '').replace('x', '×');
+  const second = [sz, (($('#p-steps') || {}).value || '') + ' 步', 'CFG ' + (($('#p-cfg') || {}).value || ''), '精修 ' + (($('#p-refine') || {}).value || '0'), 'LoRA ' + loras].filter(Boolean).join(' · ');
+  const textBlock = S.pos.find(b => !b.token && (b.text || '').trim());
+  const head = textBlock ? '文本模式（' + textBlock.text.trim().length + ' 字符）' : (first || '未放置积木');
+  return '<span class="ok-t">✓ 通过</span> ' + esc(head) + '<br><span class="kv">' + esc(second) + '</span>';
+}
+
 async function validateBlocks() {
   const bar = $('#validate-bar');
   if (!bar) return;
@@ -1752,7 +2514,7 @@ async function validateBlocks() {
       parts.push('<b class="warn-t">⚠ 实测失败积木</b>：' +
         [...new Set(bad.map(b => b.token))].join('、') + '（自动探针判定不达标）');
     }
-    bar.innerHTML = parts.length ? parts.join('<br>') : '✓ 结构检查通过（身份/服装/型态/负向齐全）';
+    bar.innerHTML = parts.length ? parts.join('<br>') : buildSetupSummary();
     bar.className = 'validate-bar ' + (v.errors.length ? 'bad' : (v.warnings.length ? 'warn' : 'ok'));
   } catch (e) { bar.textContent = ''; }
 }
@@ -2456,7 +3218,9 @@ async function openBatch() {
           $('#bt-go').disabled = false;
           $('#bt-go').textContent = '再跑一批';
           if (doneN) {
-            toast('批量完成 ' + doneN + ' 张，已存入画廊');
+            const _imgs = items.filter(x => x.status === 'done' && x.image).map(x => x.image);
+            if (_imgs.length) { showResult(_imgs, 'batch', '—'); }
+            toast('批量完成 ' + doneN + ' 张，可在结果区左右翻看');
             renderGallery();
           }
         }
@@ -2632,18 +3396,7 @@ async function openRecipe(path, stay) {
 }
 
 /* ---------- 通用 ---------- */
-function toast(msg, bad) {
-  let el = $('#toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.className = 'toast show' + (bad ? ' bad' : '');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.className = 'toast'; }, 2600);
-}
+
 
 function openModal(title, html) {
   $('#modal-title').textContent = title;
@@ -2652,18 +3405,111 @@ function openModal(title, html) {
 }
 function closeModal() { $('#modal').classList.remove('open'); }
 
-function applyTemplate(tpl) {
-  pushHistory();
-  S.pos = (tpl.positive || []).map(b => Object.assign({ id: uid(), weight: 1, enabled: true, text: '' }, b));
-  S.neg = (tpl.negative || []).map(b => Object.assign({ id: uid(), weight: 1, enabled: true, text: '' }, b));
-  // 模板里混进正向的负向积木，自动挪回负向
+/* ---------- 文本块 / 积木详情（专用弹窗） ---------- */
+function openTextBlockDialog(opts) {
+  opts = opts || {};
+  let lane = opts.lane === 'negative' ? 'negative' : 'positive';
+  const title = opts.title || '添加文本块';
+  openModal(title,
+    '<div class="field"><label>放进哪一侧</label><div class="row2">' +
+      '<button class="ghost wide tx-lane' + (lane === 'positive' ? ' on' : '') + '" data-lane="positive">正向</button>' +
+      '<button class="ghost wide tx-lane' + (lane === 'negative' ? ' on' : '') + '" data-lane="negative">负向</button>' +
+    '</div></div>' +
+    '<div class="field"><label>内容（英文标签或中文描述都行）</label>' +
+      '<textarea id="tx-text" rows="5" placeholder="例：sitting on the stairs, warm afternoon light from the left">' + esc(opts.text || '') + '</textarea></div>' +
+    '<div class="row2">' +
+      '<div class="field"><label>权重</label><input id="tx-weight" type="number" step="0.05" min="0.3" max="2" value="' + (opts.weight || 1) + '"></div>' +
+      '<div class="field"><label>&nbsp;</label><button class="primary wide" id="tx-ok">加入画布</button></div>' +
+    '</div>' +
+    '<p class="hint">加进画布后可以拖动排序、改权重、双击再看内容。</p>');
+  $$('#modal-content .tx-lane').forEach(b => b.onclick = () => {
+    lane = b.dataset.lane;
+    $$('#modal-content .tx-lane').forEach(x => x.classList.toggle('on', x === b));
+  });
+  const txt = $('#tx-text');
+  if (txt) { txt.focus(); txt.setSelectionRange(txt.value.length, txt.value.length); }
+  $('#tx-ok').onclick = () => {
+    const text = ($('#tx-text').value || '').trim();
+    if (!text) { toast('内容不能空', true); return; }
+    const weight = Math.max(0.3, Math.min(2, parseFloat($('#tx-weight').value) || 1));
+    closeModal();
+    if (opts.onSave) opts.onSave(text, weight, lane);
+    else { addBlock(lane, { text, weight }); toast('已加入' + (lane === 'positive' ? '正向' : '负向')); }
+  };
+}
+
+function openBlockDetail(b, lane) {
+  const token = b.token || '';
+  const txt = (S.tokens || {})[token] || '';
+  const note = (S.notes || {})[token] || '（这块还没有备注）';
+  const rel = (S.rel || {})[token] || '';
+  const cat = CAT_LABEL[tokenCat(token)] || tokenCat(token);
+  const relBadge = rel === 'X' ? '<span class="rc-chip" data-cat="neg">实测失败</span>'
+    : rel === 'OK' ? '<span class="rc-chip" data-cat="id">实测可用</span>'
+    : rel === '?' ? '<span class="rc-chip">部分成立</span>' : '<span class="hint">未测</span>';
+  openModal(token + ' · ' + cat,
+    '<div class="rc-kv" style="margin:0 0 10px">' +
+      '<span class="k">分类</span><span class="v">' + esc(cat) + '</span>' +
+      '<span class="k">权重</span><span class="v">×' + (b.weight === undefined ? 1 : b.weight) + '</span>' +
+      '<span class="k">位置</span><span class="v">' + (lane === 'negative' ? '负向' : '正向') + '</span>' +
+      '<span class="k">状态</span><span class="v">' + relBadge + '</span>' +
+    '</div>' +
+    '<h4 class="rc-h">展开后的提示词</h4>' +
+    '<pre class="prompt-preview">' + esc(txt || '（这个词没有内容）') + '</pre>' +
+    '<h4 class="rc-h">备注</h4><p class="hint" style="margin:0">' + esc(note) + '</p>' +
+    '<div class="row2" style="margin-top:12px">' +
+      '<button class="ghost" id="bd-copy">复制提示词</button>' +
+      '<button class="primary" id="bd-close">关闭</button></div>');
+  $('#bd-copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(txt); toast('已复制 ' + token); }
+    catch (e) { toast('复制失败：' + e.message, true); }
+  };
+  $('#bd-close').onclick = closeModal;
+}
+
+function applyTemplate(tpl, appendMode) {
+  const isAppend = !!appendMode;
+  if (!isAppend) pushHistory();
+  const norm = b => Object.assign({ id: uid(), weight: 1, enabled: true, text: '' }, b);
+  const mergeInto = (cur, incoming) => {
+    const seen = new Set(cur.map(b => (b.token || '') + '|' + (b.text || '')));
+    let added = 0;
+    for (const b of incoming) {
+      const key = (b.token || '') + '|' + (b.text || '');
+      if (seen.has(key)) continue;
+      seen.add(key); cur.push(norm(b)); added++;
+    }
+    return added;
+  };
+  if (isAppend) {
+    if ((tpl.name || '').startsWith('风格')) {
+      const isStyleFx = t => /^@STYLE_/.test(t.token || '') || /^@FX_(BLACK_BLOCKS|BAND_GLITCH)$/.test(t.token || '');
+      S.pos = S.pos.filter(b => !isStyleFx(b));
+      S.neg = S.neg.filter(b => !/^@NEG_(OUTLINE|GLITCHBAND)$/.test(b.token));
+    }
+    const a = mergeInto(S.pos, tpl.positive || []);
+    const b = mergeInto(S.neg, tpl.negative || []);
+    toast('已叠加：+' + a + ' 正 / +' + b + ' 负');
+  } else {
+    S.pos = (tpl.positive || []).map(norm);
+    S.neg = (tpl.negative || []).map(norm);
+  }
   const moved = S.pos.filter(b => b.token && tokenCat(b.token) === 'neg');
   if (moved.length) {
     S.pos = S.pos.filter(b => !(b.token && tokenCat(b.token) === 'neg'));
     S.neg = S.neg.concat(moved);
   }
-  if (tpl.params) {
-    if (tpl.params.size) $('#p-size').value = tpl.params.size;
+  if (!isAppend && tpl.params) {
+    if (tpl.params.size) {
+      const sel = $('#p-size');
+      const opt = [...sel.options].find(o => o.value === tpl.params.size);
+      if (opt) sel.value = tpl.params.size;
+      else { sel.value = 'custom'; const wh = String(tpl.params.size).split('x'); $('#p-w').value = wh[0]; $('#p-h').value = wh[1]; const cs = $('#custom-size'); if (cs) cs.hidden = false; }
+    }
+    if (tpl.params.model) {
+      const ms = $('#p-model');
+      if (ms && [...ms.options].some(o => o.value === tpl.params.model)) { ms.value = tpl.params.model; S.model = tpl.params.model; }
+    }
     if (tpl.params.steps) $('#p-steps').value = tpl.params.steps;
     if (tpl.params.cfg) $('#p-cfg').value = tpl.params.cfg;
   }
@@ -2674,11 +3520,8 @@ async function loadTemplates() {
   const r = await api('/api/templates');
   S.templates = r.items || [];
   $('#tpl-row').innerHTML = S.templates.map((t, i) =>
-    '<button class="ghost" data-tpl="' + i + '">' + t.name + '</button>').join('') +
-    '<button class="ghost" id="tpl-create">＋ 创造</button>';
-  $$('#tpl-row button[data-tpl]').forEach(el => el.onclick = () => applyTemplate(S.templates[Number(el.dataset.tpl)]));
-  const tc = $('#tpl-create');
-  if (tc) tc.onclick = saveCurrentAsTemplate;
+    '<button class="ghost" data-tpl="' + i + '">' + t.name + '</button>').join('');
+  $$('#tpl-row button[data-tpl]').forEach(el => el.onclick = (ev) => { const t = S.templates[Number(el.dataset.tpl)]; applyTemplate(t, ev.shiftKey || (t.name || '').startsWith('风格')); });
 }
 
 async function loadPresets() {
@@ -2692,41 +3535,110 @@ function guideSteps() {
   const has = t => !!(S.tokens && S.tokens[t]);
   const pick = arr => arr.filter(has);
   const outfits = Object.keys(S.garments || {}).map(k => '@OUT_' + k.toUpperCase()).filter(has);
+  const sets = pick(['@SET_CAFE','@SET_BEDROOM','@SET_LIBRARY','@SET_ROOFTOP','@SET_BEACH','@SET_CLASSROOM',
+                     '@SET_KITCHEN','@SET_STREET','@SET_GREENHOUSE','@SET_ONSEN','@SET_SCHOOL_GATE','@SET_MUSEUM']);
+  const moods = pick(['@MOOD_CALM','@MOOD_SMILE','@MOOD_SHY','@MOOD_AMUSED','@MOOD_TENDER','@MOOD_FOCUSED',
+                      '@MOOD_SLEEPY','@MOOD_SURPRISED']);
+  const gazes = pick(['@GAZE_CAMERA','@GAZE_ASIDE','@GAZE_DOWN','@GAZE_UP','@GAZE_FAR']);
   return [
-    { key:'subject', title:'主体与身份', sub:'先定是谁、几个人', multi:1, cats:['id'], items: pick(['@SUBJ']) },
-    { key:'cam', title:'机位', sub:'构图的第一刀，先选一个', multi:1, cats:['cam'],
-      items: pick(['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_HIGH','@CAM_LOW','@CAM_BACK']) },
-    { key:'set', title:'场景', sub:'可选；没有场景也能出图', multi:1, skip:true, cats:['set'],
-      items: pick(['@SET_ROOM','@SET_CAFE','@SET_STREET','@SET_PARK','@SET_LIBRARY','@SET_STUDIO']) },
-    { key:'light', title:'打光', sub:'影响最大的一项', multi:1, cats:['light'],
-      items: pick(['@LIGHT_WIN','@LIGHT_SOFT','@LIGHT_RIM','@LIGHT_BACK','@LIGHT_NIGHT']) },
-    { key:'time', title:'时间', sub:'可选', multi:1, skip:true, cats:['time'],
-      items: pick(['@TIME_MORNING','@TIME_DUSK','@TIME_NIGHT']) },
-    { key:'outfit', title:'服装', sub:'一套就够，换衣服会自动补负向', multi:1, cats:['outfit'], items: outfits },
-    { key:'mood', title:'表情与视线', sub:'可选，最多两块', multi:2, skip:true, cats:['mood','gaze'],
-      items: pick(['@MOOD_CALM','@MOOD_SMILE','@MOOD_SAD','@MOOD_SURPRISED','@GAZE_CAM','@GAZE_DOWN','@GAZE_CLOSED']) },
-    { key:'comp', title:'构图与风格', sub:'可选', multi:2, skip:true, cats:['comp','style'],
+    { cats:['id'], key:'subject', title:'主体与身份', sub:'先定是谁、几个人；@ID 越强脸越稳', multi:2,
+      items: pick(['@SINGLE','@ID_SOFT','@ID','@ID_TIGHT']) },
+    { cats:['cam'], key:'cam', title:'机位', sub:'构图的第一刀，先选一个', multi:1,
+      items: pick(['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_THREEQ','@CAM_PROFILE','@CAM_HIGH','@CAM_TOP','@CAM_WORM']) },
+    { cats:['set'], key:'set', title:'场景', sub:'可选；没有场景也能出图', multi:1, skip:true, items: sets },
+    { cats:['light'], key:'light', title:'打光', sub:'影响最大的一项，建议必选', multi:1,
+      items: pick(['@LIGHT_WIN','@LIGHT_GOLDEN','@LIGHT_NIGHT','@LIGHT_NEON','@LIGHT_RIM','@LIGHT_STUDIO']) },
+    { cats:['time'], key:'time', title:'时间', sub:'可选；夜景记得配光', multi:1, skip:true,
+      items: pick(['@TIME_MORNING','@TIME_AFTERNOON','@TIME_DUSK','@TIME_NIGHT','@TIME_DAWN']) },
+    { cats:['outfit'], key:'outfit', title:'服装', sub:'一套就够，换衣服会自动补负向', multi:1, items: outfits },
+    { cats:['mood','gaze','hand'], key:'mood', title:'表情与视线', sub:'可选，最多两块', multi:2, skip:true, items: moods.concat(gazes) },
+    { cats:['comp','style'], key:'comp', title:'构图与风格', sub:'可选', multi:2, skip:true,
       items: pick(['@COMP_CENTER','@COMP_THIRDS','@COMP_FRAME','@COMP_NEGATIVE','@COMP_DIAGONAL','@STYLE_ANIME','@STYLE_CEL']) },
-    { key:'neg', title:'负向底线', sub:'建议保持默认两块', multi:2, fixed:true, cats:['neg'],
+    { cats:['neg'], key:'neg', title:'负向底线', sub:'建议保持默认两块', multi:2, fixed:true,
       items: pick(['@NEG_BASE','@NEG_HANDS']) },
   ];
 }
 
-function scrollGuidePaletteTo(st) {
-  if (!st || !st.cats || !S.guide) return;
-  if (S.guide._scrolledStep === S.guide.step) return;
-  const box = document.querySelector('#guide-pal-body');
-  if (!box) return;
-  let target = null;
-  for (const c of st.cats) {
-    const el = box.querySelector('.pal-group[data-cat="' + c + '"]');
-    if (el) { target = el; break; }
+function renderGuide() {
+  const wrap = document.querySelector('#view-guide');
+  if (!wrap) return;
+  if (!S.guide) S.guide = { step: 0, picks: {} };
+  const steps = guideSteps();
+  const g = S.guide;
+  if (g.step >= steps.length) g.step = steps.length - 1;
+  const st = steps[g.step];
+  const chosen = Array.from(new Set(g.picks[st.key] || (st.key === 'neg' ? st.items.slice() : [])));
+
+  const stepsEl = document.querySelector('#guide-steps');
+  if (stepsEl) {
+    stepsEl.innerHTML = steps.map((s, i) => {
+      const n = (g.picks[s.key] || (s.key === 'neg' ? s.items : [])).length;
+      return '<li data-step="' + i + '" class="' + (i === g.step ? 'on' : '') + (i < g.step ? ' done' : '') + '">' +
+        '<span class="idx">' + (i + 1) + '</span><span class="tt">' + s.title + '</span>' +
+        (n ? '<span class="n">' + n + '</span>' : '') + '</li>';
+    }).join('');
+    stepsEl.querySelectorAll('li').forEach(li => li.onclick = () => { g.step = +li.dataset.step; g._scrolledStep = -1; renderGuide(); });
   }
-  if (!target) return;
-  const top = target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 6;
-  box.scrollTop = Math.max(0, top);
-  S.guide._scrolledStep = S.guide.step;
+
+  const title = document.querySelector('#guide-title');
+  if (title) title.textContent = '第 ' + (g.step + 1) + ' / ' + steps.length + ' 步 · ' + st.title;
+  const sub = document.querySelector('#guide-sub');
+  if (sub) sub.textContent = st.sub || '';
+
+  const opts = document.querySelector('#guide-options');
+  if (opts) {
+    opts.innerHTML = st.items.map(t => {
+      const on = chosen.includes(t);
+      const note = (S.notes || {})[t] || '';
+      const nt = note ? note.replace(/\s+/g, ' ').slice(0, 26) : '';
+      return '<button class="guide-chip' + (on ? ' on' : '') + '" data-token="' + t + '" title="' + esc(note) + '">' +
+        '<span>' + t + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
+    }).join('') || '<span class="hint">这一步没有可选项</span>';
+    opts.querySelectorAll('.guide-chip').forEach(b => b.onclick = () => {
+      const t = b.dataset.token;
+      let arr = (g.picks[st.key] || (st.key === 'neg' ? st.items.slice() : [])).slice();
+      if (arr.includes(t)) arr = arr.filter(x => x !== t);
+      else {
+        if (st.multi === 1) arr = [t];
+        else if (arr.length >= st.multi) arr.shift();
+        arr.push(t);
+      }
+      if (st.fixed) arr = arr.length ? arr : st.items.slice();
+      g.picks[st.key] = arr;
+      renderGuide();
+    });
+  }
+
+  const picked = document.querySelector('#guide-picked');
+  if (picked) picked.innerHTML = chosen.length ? chosen.map(t => '<span class="chip on">' + t + '</span>').join('') : '<span class="hint">还没选</span>';
+
+  const prev = document.querySelector('#guide-prev');
+  const next = document.querySelector('#guide-next');
+  const skip = document.querySelector('#guide-skip');
+  if (prev) prev.disabled = g.step === 0;
+  if (next) next.textContent = g.step === steps.length - 1 ? '完成，放进画布 ✓' : '下一步 →';
+  if (skip) { skip.style.display = st.skip ? '' : 'none'; }
+
+  const bar = document.querySelector('#guide-bar');
+  if (bar) bar.style.width = Math.round(((g.step + 1) / steps.length) * 100) + '%';
+  const pre = document.querySelector('#guide-preview');
+  if (pre) {
+    const posTokens = [];
+    const negTokens = [];
+    steps.forEach(s => {
+      const arr = g.picks[s.key] || (s.key === 'neg' ? s.items : []);
+      (s.key === 'neg' ? negTokens : posTokens).push(...arr);
+    });
+    if (!posTokens.length) { pre.textContent = '选几块试试…'; renderGuidePalette(); scrollGuidePaletteTo(st); return; }
+    api('/api/expand', { method:'POST', body: JSON.stringify({
+      positive: posTokens.map(t => ({ token: t })), negative: negTokens.map(t => ({ token: t })) }) })
+      .then(r => { pre.textContent = (r.positive || '') + (negTokens.length ? '\n\n[负向] ' + (r.negative || '') : ''); })
+      .catch(() => { pre.textContent = '（预览失败）'; });
+  }
+  renderGuidePalette();
+  scrollGuidePaletteTo(st);
 }
+
 
 function guidePick(tok) {
   const steps = guideSteps();
@@ -2743,8 +3655,10 @@ function guidePick(tok) {
   if (st.fixed) arr = arr.length ? arr : st.items.slice();
   g.picks[st.key] = arr;
   if (st.key !== 'neg') {
-    const comps = companionsOf(tok).filter(c => c.lane === 'negative').map(c => c.token);
-    if (comps.length && g.suppressNeg) g.suppressNeg = g.suppressNeg.filter(x => comps.indexOf(x) < 0);
+    const negComps = companionsOf(tok).filter(c => c.lane === 'negative').map(c => c.token);
+    const posComps = companionsOf(tok).filter(c => c.lane === 'positive').map(c => c.token);
+    if (negComps.length && g.suppressNeg) g.suppressNeg = g.suppressNeg.filter(x => negComps.indexOf(x) < 0);
+    if (posComps.length && g.suppressPos) g.suppressPos = g.suppressPos.filter(x => posComps.indexOf(x) < 0);
   }
   renderGuide();
   renderGuidePalette();
@@ -2760,9 +3674,13 @@ function renderGuideCurrent() {
     else arr.forEach(t => { if (!pos.includes(t)) pos.push(t); });
   });
   pos.forEach(t => companionsOf(t).forEach(c => {
-    if (c.lane !== 'negative') return;
-    if (S.guide.suppressNeg && S.guide.suppressNeg.indexOf(c.token) >= 0) return;
-    if (!neg.includes(c.token)) neg.push(c.token);
+    if (c.lane === 'negative') {
+      if (S.guide.suppressNeg && S.guide.suppressNeg.indexOf(c.token) >= 0) return;
+      if (!neg.includes(c.token)) neg.push(c.token);
+    } else {
+      if (S.guide.suppressPos && S.guide.suppressPos.indexOf(c.token) >= 0) return;
+      if (!pos.includes(c.token)) pos.push(c.token);
+    }
   }));
   const chip = (t, isNeg) => {
     const cat = tokenCat(t);
@@ -2775,21 +3693,32 @@ function renderGuideCurrent() {
   const np = document.querySelector('#gc-pos-n'), nn = document.querySelector('#gc-neg-n');
   if (np) np.textContent = pos.length + ' 块';
   if (nn) nn.textContent = neg.length + ' 块';
-  [boxP, boxN].forEach(box => box && box.querySelectorAll('.gc-chip').forEach(el => {
+  boxP && boxP.querySelectorAll('.gc-chip').forEach(el => {
+    el.onclick = () => { if (boxP) {} };
     el.onmouseenter = ev => showTip(ev, el.dataset.token);
     el.onmousemove = ev => moveTip(ev);
     el.onmouseleave = () => hideTip();
-  }));
+  });
+  boxN && boxN.querySelectorAll('.gc-chip').forEach(el => {
+    el.onmouseenter = ev => showTip(ev, el.dataset.token);
+    el.onmousemove = ev => moveTip(ev);
+    el.onmouseleave = () => hideTip();
+  });
   document.querySelectorAll('[data-gc-del]').forEach(x => {
     x.onclick = ev => {
       ev.stopPropagation();
       const t = x.getAttribute('data-gc-del');
       if (x.dataset.gcLane === 'pos') {
+        let picked = false;
         steps.forEach(st => {
           if (st.key === 'neg') return;
           const arr = S.guide.picks[st.key] || [];
-          if (arr.indexOf(t) >= 0) S.guide.picks[st.key] = arr.filter(v => v !== t);
+          if (arr.indexOf(t) >= 0) { S.guide.picks[st.key] = arr.filter(v => v !== t); picked = true; }
         });
+        if (!picked) {
+          S.guide.suppressPos = S.guide.suppressPos || [];
+          if (S.guide.suppressPos.indexOf(t) < 0) S.guide.suppressPos.push(t);
+        }
       } else {
         const negArr = S.guide.picks['neg'] || [];
         if (negArr.indexOf(t) >= 0) S.guide.picks['neg'] = negArr.filter(v => v !== t);
@@ -2798,6 +3727,22 @@ function renderGuideCurrent() {
       renderGuide();
     };
   });
+}
+
+function scrollGuidePaletteTo(st) {
+  if (!st || !st.cats || !S.guide) return;
+  if (S.guide._scrolledStep === S.guide.step) return;
+  const box = document.querySelector('#guide-pal-body');
+  if (!box) return;
+  let target = null;
+  for (const c of st.cats) {
+    const el = box.querySelector('.pal-group[data-cat="' + c + '"]');
+    if (el) { target = el; break; }
+  }
+  if (!target) return;
+  const top = target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 6;
+  box.scrollTop = Math.max(0, top);
+  S.guide._scrolledStep = S.guide.step;
 }
 
 function renderGuidePalette() {
@@ -2837,10 +3782,10 @@ function renderGuidePalette() {
     el.onmousemove = ev => moveTip(ev);
     el.onmouseleave = () => hideTip();
   });
-  box.querySelectorAll('.fav').forEach(stp => {
-    stp.onclick = ev => {
+  box.querySelectorAll('.fav').forEach(st => {
+    st.onclick = ev => {
       ev.stopPropagation();
-      const t = stp.dataset.fav;
+      const t = st.dataset.fav;
       S.fav = S.fav || [];
       S.fav = S.fav.includes(t) ? S.fav.filter(x => x !== t) : S.fav.concat(t);
       saveJSON('loom.fav', S.fav);
@@ -2849,95 +3794,34 @@ function renderGuidePalette() {
   });
 }
 
-function renderGuide() {
-  const wrap = document.querySelector('#view-guide');
-  if (!wrap) return;
-  if (!S.guide) S.guide = { step: 0, picks: {} };
-  const steps = guideSteps();
-  const g = S.guide;
-  if (g.step >= steps.length) g.step = steps.length - 1;
-  const st = steps[g.step];
-  const chosen = Array.from(new Set(g.picks[st.key] || (st.key === 'neg' ? st.items.slice() : [])));
-
-  const stepsEl = document.querySelector('#guide-steps');
-  if (stepsEl) {
-    stepsEl.innerHTML = steps.map((s, i) => {
-      const n = (g.picks[s.key] || (s.key === 'neg' ? s.items : [])).length;
-      return '<li data-step="' + i + '" class="' + (i === g.step ? 'on' : '') + (i < g.step ? ' done' : '') + '">' +
-        '<span class="idx">' + (i + 1) + '</span><span class="tt">' + s.title + '</span>' +
-        (n ? '<span class="n">' + n + '</span>' : '') + '</li>';
-    }).join('');
-    stepsEl.querySelectorAll('li').forEach(li => li.onclick = () => { g.step = +li.dataset.step; g._scrolledStep = -1; renderGuide(); });
-  }
-
-  const title = document.querySelector('#guide-title');
-  if (title) title.textContent = '第 ' + (g.step + 1) + ' / ' + steps.length + ' 步 · ' + st.title;
-  const sub = document.querySelector('#guide-sub');
-  if (sub) sub.textContent = st.sub || '';
-
-  const opts = document.querySelector('#guide-options');
-  if (opts) {
-    opts.innerHTML = st.items.map(t => {
-      const on = chosen.includes(t);
-      const note = (S.notes || {})[t] || '';
-      const nt = note ? note.replace(/\s+/g, ' ').slice(0, 26) : '';
-      return '<button class="guide-chip' + (on ? ' on' : '') + '" data-token="' + t + '" title="' + esc(note) + '">' +
-        '<span>' + t + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
-    }).join('') || '<span class="hint">这一步没有可选项</span>';
-    opts.querySelectorAll('.guide-chip').forEach(b => b.onclick = () => guidePick(b.dataset.token));
-  }
-
-  const picked = document.querySelector('#guide-picked');
-  if (picked) picked.innerHTML = chosen.length ? chosen.map(t => '<span class="chip on">' + t + '</span>').join('') : '<span class="hint">还没选</span>';
-
-  const prev = document.querySelector('#guide-prev');
-  const next = document.querySelector('#guide-next');
-  const skip = document.querySelector('#guide-skip');
-  if (prev) prev.disabled = g.step === 0;
-  if (next) next.textContent = g.step === steps.length - 1 ? '完成，放进画布 ✓' : '下一步 →';
-  if (skip) skip.style.display = st.skip ? '' : 'none';
-
-  const bar = document.querySelector('#guide-bar');
-  if (bar) bar.style.width = Math.round(((g.step + 1) / steps.length) * 100) + '%';
-
-  const pre = document.querySelector('#guide-preview');
-  if (pre) {
-    const posTokens = [], negTokens = [];
-    steps.forEach(s => {
-      const arr = g.picks[s.key] || (s.key === 'neg' ? s.items : []);
-      if (s.key === 'neg') arr.forEach(t => { if (!negTokens.includes(t)) negTokens.push(t); });
-      else arr.forEach(t => { if (!posTokens.includes(t)) posTokens.push(t); });
-    });
-    if (!posTokens.length) { pre.textContent = '选几块试试…'; renderGuidePalette(); scrollGuidePaletteTo(st); return; }
-    api('/api/expand', { method:'POST', body: JSON.stringify({
-      positive: posTokens.map(t => ({ token: t })), negative: negTokens.map(t => ({ token: t })) }) })
-      .then(r => { pre.textContent = (r.positive || '') + (negTokens.length ? '\n\n[负向] ' + (r.negative || '') : ''); })
-      .catch(() => { pre.textContent = '（预览失败）'; });
-  }
-  renderGuidePalette();
-  scrollGuidePaletteTo(st);
-}
-
 function guideApply() {
   const steps = guideSteps();
   const g = S.guide || { picks: {} };
+  let added = 0;
   const posTokens = [];
   steps.forEach(s => {
     Array.from(new Set(g.picks[s.key] || (s.key === 'neg' ? s.items : []))).forEach(t => {
       if (s.key === 'neg') return;
-      if (!posTokens.includes(t)) posTokens.push(t);
+      posTokens.push(t);
     });
   });
-  let added = 0;
   posTokens.forEach(t => {
     if (S.pos.some(b => b.token === t)) return;
     addBlock('positive', t); added++;
   });
-  const negTokens = Array.from(new Set(g.picks['neg'] || steps.find(s => s.key === 'neg').items));
+  const negTokens = g.picks['neg'] || steps.find(s => s.key === 'neg').items;
   negTokens.forEach(t => {
     if (S.neg.some(b => b.token === t)) return;
     addBlock('negative', t); added++;
   });
+  // 被压制的自动配套（用户手动删掉的）不要落进画布
+  const supPos = g.suppressPos || [];
+  const supNeg = g.suppressNeg || [];
+  if (supPos.length || supNeg.length) {
+    S.pos = S.pos.filter(b => !(b.auto && supPos.indexOf(b.token) >= 0));
+    S.neg = S.neg.filter(b => !(b.auto && supNeg.indexOf(b.token) >= 0));
+    renderLanes(); expandPreview();
+  }
   const b = document.querySelector('#tabs button[data-tab="build"]');
   if (b) b.click();
   toast('向导已把 ' + added + ' 块积木放进画布');
@@ -2957,6 +3841,31 @@ function bindUI() {
     if (b.dataset.tab === 'maint') refreshMaint();
     if (b.dataset.tab === 'engine') loadEngine();
   });
+  const gcPosClear = $('#gc-pos-clear'), gcNegClear = $('#gc-neg-clear');
+  if (gcPosClear) gcPosClear.onclick = () => {
+    const steps = guideSteps();
+    steps.forEach(st => { if (st.key !== 'neg') delete S.guide.picks[st.key]; });
+    renderGuide(); toast('已清空正向选择');
+  };
+  if (gcNegClear) gcNegClear.onclick = () => {
+    S.guide.picks['neg'] = []; renderGuide(); toast('已清空负向选择');
+  };
+  const gSearch = $('#guide-search');
+  if (gSearch) gSearch.oninput = e => { S.guideFilter = e.target.value; renderGuidePalette(); };
+  const openGuide = $('#open-guide');
+  if (openGuide) openGuide.onclick = () => { const b = document.querySelector('#tabs button[data-tab="guide"]'); if (b) b.click(); };
+  const gPrev = $('#guide-prev'), gNext = $('#guide-next'), gSkip = $('#guide-skip');
+  if (gPrev) gPrev.onclick = () => { if (S.guide && S.guide.step > 0) { S.guide.step--; renderGuide(); } };
+  if (gNext) gNext.onclick = () => {
+    const n = guideSteps().length;
+    if (!S.guide) S.guide = { step: 0, picks: {} };
+    if (S.guide.step >= n - 1) guideApply(); else { S.guide.step++; renderGuide(); }
+  };
+  if (gSkip) gSkip.onclick = () => {
+    if (!S.guide) S.guide = { step: 0, picks: {} };
+    S.guide.step = Math.min(S.guide.step + 1, guideSteps().length - 1);
+    renderGuide();
+  };
   $('#palette-search').oninput = e => { S.paletteFilter = e.target.value; renderPalette(); };
   const comboNew = $('#combo-save-new'), comboForm = $('#combo-save-form');
   const comboName = $('#combo-save-name');
@@ -2983,43 +3892,24 @@ function bindUI() {
   if (showNeg) {
     S.showCompanionNeg = loadJSON('loom.showCompanionNeg', false);
     showNeg.checked = !!S.showCompanionNeg;
-    showNeg.onchange = e => { S.showCompanionNeg = e.target.checked; saveJSON('loom.showCompanionNeg', S.showCompanionNeg); renderPalette(); };
+    showNeg.onchange = e => {
+      S.showCompanionNeg = e.target.checked;
+      saveJSON('loom.showCompanionNeg', S.showCompanionNeg);
+      renderPalette();
+    };
   }
-  const openGuide = $('#open-guide');
-  if (openGuide) openGuide.onclick = () => { const b = document.querySelector('#tabs button[data-tab="guide"]'); if (b) b.click(); };
-  const gPrev = $('#guide-prev'), gNext = $('#guide-next'), gSkip = $('#guide-skip');
-  if (gPrev) gPrev.onclick = () => { if (S.guide && S.guide.step > 0) { S.guide.step--; S.guide._scrolledStep = -1; renderGuide(); } };
-  if (gNext) gNext.onclick = () => {
-    const n = guideSteps().length;
-    if (!S.guide) S.guide = { step: 0, picks: {} };
-    if (S.guide.step >= n - 1) guideApply(); else { S.guide.step++; renderGuide(); }
-  };
-  if (gSkip) gSkip.onclick = () => {
-    if (!S.guide) S.guide = { step: 0, picks: {} };
-    S.guide.step = Math.min(S.guide.step + 1, guideSteps().length - 1);
-    renderGuide();
-  };
-  const gcPosClear = $('#gc-pos-clear'), gcNegClear = $('#gc-neg-clear');
-  if (gcPosClear) gcPosClear.onclick = () => {
-    guideSteps().forEach(st => { if (st.key !== 'neg') delete S.guide.picks[st.key]; });
-    renderGuide(); toast('已清空正向选择');
-  };
-  if (gcNegClear) gcNegClear.onclick = () => { S.guide.picks['neg'] = []; renderGuide(); toast('已清空负向选择'); };
-  const gSearch = $('#guide-search');
-  if (gSearch) gSearch.oninput = e => { S.guideFilter = e.target.value; renderGuidePalette(); };
   $('#lib-search').oninput = e => loadLibrary(e.target.value);
   document.querySelectorAll('[data-adddesc]').forEach(b => b.onclick = () => {
-    const lane = b.dataset.adddesc;
-    const v = prompt('写一段画面描述（中文也行，模型会按英文标签理解；建议用英文关键词混写）', '');
-    if (!v) return;
-    const w = parseFloat(prompt('这段描述的权重（0.6–1.5，默认 1.1）', '1.1') || '1.1') || 1.1;
-    addBlock(lane, { text: v, weight: w });
+    openTextBlockDialog({ lane: b.dataset.adddesc, title: '插入描述', weight: 1.1 });
   });
   document.querySelectorAll('[data-addtext]').forEach(b => b.onclick = () => {
-    const lane = b.dataset.addtext;
-    const v = prompt('文本块内容（可直接写英文标签）', '');
-    if (v) addBlock(lane, { text: v });
+    openTextBlockDialog({ lane: b.dataset.addtext, title: '添加文本块' });
   });
+  const dp = $('#desc-pos'); if (dp) dp.onclick = () => insertDesc('positive');
+  const dn = $('#desc-neg'); if (dn) dn.onclick = () => insertDesc('negative');
+  const ds = $('#desc-save'); if (ds) ds.onclick = () => saveDescAsBlock();
+  const tplCreate = $('#tpl-create');
+  if (tplCreate && !tplCreate.dataset.bound) { tplCreate.dataset.bound = '1'; tplCreate.onclick = saveCurrentAsTemplate; }
   $$('[data-clear]').forEach(b => b.onclick = () => {
     pushHistory();
     if (b.dataset.clear === 'positive') S.pos = []; else S.neg = [];
@@ -3032,7 +3922,7 @@ function bindUI() {
   if (pc0) pc0.onclick = () => setLibCollapsed(true);
   const fab = $('#lib-fab');
   if (fab) fab.onclick = () => setLibCollapsed(false);
-  setLibCollapsed(false);
+  setLibCollapsed(false);  // 不再收起积木库
 
   const cmd = $('#cmdbar');
   if (cmd) {
@@ -3133,16 +4023,27 @@ function bindUI() {
   const gsel = $('#g-select');
   if (gsel) gsel.onclick = () => {
     S.gallerySelect = !S.gallerySelect;
+    if (S.gallerySelect) S.galleryDelMode = false;
     if (!S.gallerySelect) S.gallerySel = {};
     gsel.textContent = S.gallerySelect ? '退出选择' : '选择导出';
     renderGallery();
   };
+  const gdelMode = $('#g-del-mode');
+  if (gdelMode) gdelMode.onclick = () => {
+    S.galleryDelMode = !S.galleryDelMode;
+    if (S.galleryDelMode) S.gallerySelect = false;
+    if (!S.galleryDelMode) S.gallerySel = {};
+    gdelMode.textContent = S.galleryDelMode ? '退出删除' : '批量删除';
+    if (gsel) gsel.textContent = '选择导出';
+    renderGallery();
+  };
+
   const gexp = $('#g-export');
   if (gexp) gexp.onclick = exportSelected;
   $('#g-refresh').onclick = renderGallery;
   $('#tk-save').onclick = saveToken;
   $('#tk-del').onclick = delToken;
-  $('#tk-note-save').onclick = saveNote;
+  // 备注已合并进「保存」
   const gnew = $('#gm-new'); if (gnew) gnew.onclick = newGarment;
   const gsave = $('#gm-save2'); if (gsave) gsave.onclick = saveGarment;
   const gdel = $('#gm-del2'); if (gdel) gdel.onclick = deleteGarment;
@@ -3354,17 +4255,19 @@ boot().then(async () => {
   const gk0 = Object.keys(S.garments || {})[0]; if (gk0) loadGarment(gk0); else newGarment();
   loadRecipes();
   expandPreview();
-  setInterval(async () => {
+  const pollStatus = async () => {
     try {
-      const q = await api('/api/bootstrap');
-      S.comfy = q.comfy || S.comfy;
-      $('#pill-comfy').textContent = q.comfy.up ? ('ComfyUI ' + q.comfy.version) : 'ComfyUI 未启动';
+      const st = await api('/api/status');
+      const q = { comfy: st.comfy, queue: st.queue };
+      $('#pill-comfy').textContent = q.comfy.up ? ('ComfyUI ' + q.comfy.version) : 'ComfyUI 启动中…';
       $('#pill-comfy').className = 'pill ' + (q.comfy.up ? 'ok' : 'bad');
       const n = q.queue.running + q.queue.pending;
       $('#pill-queue').textContent = '队列 ' + n;
       $('#pill-queue').className = 'pill' + (n > 0 ? ' run' : '');
     } catch (e) {}
-  }, 15000);
+    setTimeout(pollStatus, (S.comfy && S.comfy.up) ? 15000 : 3000);
+  };
+  pollStatus();
 });
 
 function tplLine(b) {
@@ -3428,7 +4331,7 @@ async function saveCurrentAsTemplate() {
     if (!name) { alert('模板名不能空'); return; }
     const pick = b => ({ token: b.token || '', text: b.text || '', weight: b.weight || 1 });
     const params = { size: $('#tpl-size').value, steps: Number($('#tpl-steps').value || 28),
-                     cfg: Number($('#tpl-cfg').value || 5.5) };
+                     cfg: Number($('#tpl-cfg').value || 5.5) , model: ($('#p-model') || {}).value || '' };
     try {
       const r = await api('/api/template/save', { method: 'POST', body: JSON.stringify({
         name, params, positive: S.pos.map(pick), negative: S.neg.map(pick) }) });
@@ -3508,17 +4411,31 @@ function cardApply() {
 }
 
 async function cardSave() {
-  const name = prompt('角色卡名字');
-  if (!name) return;
   const keep = ['id', 'body', 'face', 'hair', 'custom'];
   const tokens = [...new Set(S.pos.filter(b => b.token && keep.includes(tokenCat(b.token)))
     .map(b => b.token))];
   const loras = (S.loras || []).map(l => ({ name: l.name, weight: l.weight }));
-  const r = await api('/api/card/save', { method: 'POST',
-    body: JSON.stringify({ name: name.trim(), loras, tokens }) });
-  S.cards = r.items || [];
-  await loadCards();
-  toast('已保存角色卡：' + name + '（' + loras.length + ' LoRA / ' + tokens.length + ' 标签）');
+  openModal('保存角色卡',
+    '<div class="field"><label>名字</label><input id="cs-name" placeholder="例如 篠宮みお"></div>' +
+    '<p class="hint">会保存 <b>' + loras.length + '</b> 个 LoRA、<b>' + tokens.length + '</b> 个身份积木' +
+      (tokens.length ? '：' + esc(tokens.join(' ')) : '（当前画布没有身份类积木）') + '</p>' +
+    '<div class="row2"><button class="ghost" id="cs-cancel">取消</button>' +
+      '<button class="primary" id="cs-ok">保存</button></div>');
+  $('#cs-cancel').onclick = closeModal;
+  const inp = $('#cs-name');
+  if (inp) inp.focus();
+  $('#cs-ok').onclick = async () => {
+    const name = ($('#cs-name').value || '').trim();
+    if (!name) { toast('名字不能空', true); return; }
+    try {
+      const r = await api('/api/card/save', { method: 'POST',
+        body: JSON.stringify({ name, loras, tokens }) });
+      S.cards = r.items || [];
+      await loadCards();
+      closeModal();
+      toast('已保存角色卡：' + name + '（' + loras.length + ' LoRA / ' + tokens.length + ' 标签）');
+    } catch (e) { toast('保存失败：' + e.message, true); }
+  };
 }
 
 async function cardDelete() {
@@ -3539,16 +4456,125 @@ async function cardDelete() {
   bind('#card-save', cardSave);
   bind('#card-del', cardDelete);
   bind('#card-export', () => { window.location = '/api/cards/export'; });
-  bind('#card-import', async () => {
-    const txt = prompt('粘贴角色卡 JSON（或填本地路径）');
-    if (!txt) return;
-    const isPath = txt.length < 300 && !txt.trim().startsWith('{');
-    try {
-      const r = await api('/api/cards/import', { method: 'POST',
-        body: JSON.stringify(isPath ? { path: txt.trim() } : { data: txt }) });
-      S.cards = r.items || [];
-      await loadCards();
-      toast('导入完成，新增 ' + r.added + ' 张');
-    } catch (e) { alert('导入失败：' + e.message); }
+  bind('#card-import', () => {
+    openModal('导入角色卡',
+      '<div class="field"><label>情况一：粘贴 JSON</label>' +
+        '<textarea id="ci-json" rows="6" placeholder=\'[{"name":"角色名","loras":[...],"tokens":[...]}\'></textarea></div>' +
+      '<div class="field"><label>情况二：填本地 JSON 路径</label>' +
+        '<input id="ci-path" placeholder="A:\\...\\character_cards.json"></div>' +
+      '<div class="row2"><button class="ghost" id="ci-cancel">取消</button>' +
+        '<button class="primary" id="ci-ok">导入</button></div>' +
+      '<p class="hint">两种填一种就行：JSON 优先，没有 JSON 才按路径读。</p>');
+    $('#ci-cancel').onclick = closeModal;
+    $('#ci-ok').onclick = async () => {
+      const data = ($('#ci-json').value || '').trim();
+      const path = ($('#ci-path').value || '').trim();
+      if (!data && !path) { toast('JSON 或路径填一个', true); return; }
+      try {
+        const r = await api('/api/cards/import', { method: 'POST',
+          body: JSON.stringify(data ? { data } : { path }) });
+        S.cards = r.items || [];
+        await loadCards();
+        closeModal();
+        toast('导入完成，新增 ' + r.added + ' 张');
+      } catch (e) { toast('导入失败：' + e.message, true); }
+    };
   });
+})();
+
+/* ---------- 提词器（ComfyUI NSFWPromptSelector 桥，正负分流） ---------- */
+(function initPromptLib() {
+  const btn = $('#open-plib');
+  if (!btn) return;
+  const TAG = 'plib';
+  let OPT = null;
+
+  const esc2 = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  async function loadOptions() {
+    if (OPT) return OPT;
+    OPT = await api('/api/promptlib/options');
+    return OPT;
+  }
+
+  function selectHtml(f, idx) {
+    const opts = f.items.map(v => '<option value="' + esc2(v) + '"' + (v === '——' ? ' selected' : '') + '>' + esc2(v) + '</option>').join('');
+    if (f.kind === 'multi') {
+      return '<div class="field"><label>' + esc2(f.name) + '</label>' +
+        '<select id="plib-f' + idx + '" multiple size="6">' + opts + '</select></div>';
+    }
+    return '<div class="field"><label>' + esc2(f.name) + '</label>' +
+      '<select id="plib-f' + idx + '">' + opts + '</select></div>';
+  }
+
+  function collect(fs) {
+    const fields = {};
+    fs.forEach((f, i) => {
+      const el = $('#plib-f' + i);
+      if (!el) return;
+      fields[f.name] = f.kind === 'multi'
+        ? Array.from(el.selectedOptions).map(o => o.value)
+        : el.value;
+    });
+    (OPT.weights || []).forEach((w, i) => {
+      const el = $('#plib-w' + i);
+      if (el) fields[w] = parseFloat(el.value) || 0;
+    });
+    fields['自定义前缀'] = ($('#plib-pre').value || '').trim();
+    fields['自定义后缀'] = ($('#plib-suf').value || '').trim();
+    return fields;
+  }
+
+  function dropTagged(lane) {
+    const arr = lane === 'positive' ? S.pos : S.neg;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (arr[i].plib === TAG) arr.splice(i, 1);
+    }
+  }
+
+  async function write(side, fs) {
+    let r;
+    try {
+      r = await api('/api/promptlib/build', { method: 'POST', body: JSON.stringify({ fields: collect(fs) }) });
+    } catch (e) { toast('生成失败：' + e.message, true); return; }
+    const pos = (r.positive || '').trim().replace(/[,\s]+$/, '');
+    const neg = (r.negative || '').trim().replace(/[,\s]+$/, '');
+    if (side !== 'negative') {
+      dropTagged('positive');
+      if (pos) addBlock('positive', { text: pos, weight: 1, plib: TAG });
+    }
+    if (side !== 'positive') {
+      dropTagged('negative');
+      if (neg) addBlock('negative', { text: neg, weight: 1, plib: TAG });
+    }
+    renderLanes();
+    closeModal();
+    toast('已写入' + (side === 'positive' ? '正向管线' : side === 'negative' ? '负向管线' : '正向 + 负向管线'));
+  }
+
+  btn.onclick = async () => {
+    try { await loadOptions(); } catch (e) { toast('提词器选项加载失败：' + e.message, true); return; }
+    const fs = OPT.fields || [];
+    let html = '<p class="hint">选条件后直接写入对应跑道：正向进正向、负向进负向，各成一块，可再调权重/停用。</p><div class="plib-grid">';
+    fs.forEach((f, i) => { html += selectHtml(f, i); });
+    html += '</div>';
+    html += '<div class="row2" style="margin-top:8px">' +
+      '<div class="field"><label>自定义前缀</label><input id="plib-pre" placeholder="可空"></div>' +
+      '<div class="field"><label>自定义后缀</label><input id="plib-suf" placeholder="可空"></div></div>';
+    html += '<div class="row2" style="margin-top:8px">' + (OPT.weights || []).map((w, i) =>
+      '<div class="field"><label>' + esc2(w) + '</label><input id="plib-w' + i + '" type="number" step="0.1" min="0" max="2" value="' +
+      ({ '权重_场景': 1.0, '权重_动作': 1.5, '权重_服饰': 0.8, '权重_情绪': 1.2 }[w]) + '"></div>').join('') + '</div>';
+    html += '<div class="row2" style="margin-top:12px">' +
+      '<button class="primary" id="plib-both">写入正负向</button>' +
+      '<button class="ghost" id="plib-only-pos">只写正向</button>' +
+      '<button class="ghost" id="plib-only-neg">只写负向</button>' +
+      '<button class="ghost" id="plib-cancel">关闭</button></div>';
+    openModal('提词器', html);
+    $('#plib-cancel').onclick = closeModal;
+    $('#plib-both').onclick = () => write('both', fs);
+    $('#plib-only-pos').onclick = () => write('positive', fs);
+    $('#plib-only-neg').onclick = () => write('negative', fs);
+  };
 })();

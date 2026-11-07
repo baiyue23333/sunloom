@@ -8,63 +8,551 @@
     },
     "positive": [
       {
-        "token": "@SUBJ",
-        "weight": 1
+        "token": "@SINGLE"
       },
       {
-        "token": "@CAM_BUST",
-        "weight": 1
+        "token": "@CAM_BUST"
       },
       {
-        "token": "@FACE",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@OUT_DRESS",
-        "weight": 1
+        "token": "@OUT_SLIP"
       },
       {
-        "token": "@DRAPE_OFF",
-        "weight": 1
+        "token": "@DRAPE_ELBOW"
       },
       {
-        "token": "@BODY",
-        "weight": 1
+        "token": "@BODY"
       },
       {
-        "token": "@MOOD_CALM",
-        "weight": 1
+        "token": "@FACE"
       },
       {
-        "text": "sitting by a window in the afternoon",
-        "weight": 1
+        "text": "sitting by a window in the afternoon, soft daylight from the left"
       },
       {
-        "token": "@LIGHT_WIN",
-        "weight": 1
+        "token": "@LIGHT_WIN"
       }
     ],
     "negative": [
       {
-        "token": "@NEG_HANDS",
-        "weight": 1
+        "text": "(empty windowsill:1.35), (nothing resting on the sill:1.25)"
       },
       {
-        "token": "@NEG_BASE",
-        "weight": 1
+        "token": "@NEG_BEDSIDE"
       },
       {
-        "token": "@NEG_EXPO",
-        "weight": 1
+        "token": "@NEG_HANDS"
       },
       {
-        "token": "@NEG_CUP",
-        "weight": 1
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_SLIP"
+      },
+      {
+        "token": "@NEG_DRAPE_ON"
       }
     ]
   },
   {
-    "name": "半身·室内",
+    "name": "半身·夜灯",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_BUST"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@DRAPE_OFF"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "text": "standing in a dim hallway with wall lamps"
+      },
+      {
+        "token": "@LIGHT_NIGHT"
+      },
+      {
+        "token": "@BG_BOKEH"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_SLIP"
+      },
+      {
+        "token": "@NEG_DRAPE_ON"
+      }
+    ]
+  },
+  {
+    "name": "全身·楼梯",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_INITIAL"
+      },
+      {
+        "token": "@DRAPE_WORN"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "text": "sitting on a wooden staircase step, both hands on her knees"
+      },
+      {
+        "token": "@LIGHT_BACK"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_DRAPE_OFF"
+      },
+      {
+        "token": "@NEG_GARMENT"
+      },
+      {
+        "token": "@NEG_HEM"
+      }
+    ]
+  },
+  {
+    "name": "全身·门厅",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_INITIAL"
+      },
+      {
+        "token": "@DRAPE_WORN"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "text": "standing in a doorway, one hand on the door frame, warm light behind her"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_DRAPE_OFF"
+      },
+      {
+        "token": "@NEG_GARMENT"
+      },
+      {
+        "token": "@NEG_HEM"
+      }
+    ]
+  },
+  {
+    "name": "坐姿·书店",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_INITIAL"
+      },
+      {
+        "token": "@DRAPE_WORN"
+      },
+      {
+        "text": "sitting on a wooden step in an old bookstore, hands on her knees"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@POSE_SIT"
+      },
+      {
+        "token": "@SET_BOOKSTORE"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_GARMENT"
+      },
+      {
+        "token": "@NEG_HEM"
+      }
+    ]
+  },
+  {
+    "name": "雨夜·站台",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@DRAPE_ELBOW"
+      },
+      {
+        "text": "standing on an empty platform at night, rain streaks in the light"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@POSE_STAND"
+      },
+      {
+        "token": "@SET_STATION"
+      },
+      {
+        "token": "@ATMO_RAIN"
+      },
+      {
+        "token": "@ATMO_NEON"
+      },
+      {
+        "text": "(wet platform reflecting the lights:1.3), (cool rim light on her hair:1.25)"
+      },
+      {
+        "token": "@BG_BOKEH"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_DRAPE_ON"
+      }
+    ]
+  },
+  {
+    "name": "画室·持笔",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_BUST"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@DRAPE_WORN"
+      },
+      {
+        "text": "sitting in an art studio, palette in her left hand"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@POSE_SIT"
+      },
+      {
+        "token": "@HOLD_R_BRUSH"
+      },
+      {
+        "token": "@HOLD_L_PALETTE"
+      },
+      {
+        "token": "@SET_ARTROOM"
+      },
+      {
+        "text": "(paintbrush clearly visible in her right hand:1.4), (brush tip loaded with paint:1.25)"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      }
+    ]
+  },
+  {
+    "name": "温室·半身",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_BUST"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@DRAPE_ELBOW"
+      },
+      {
+        "text": "standing among tall green plants inside a glass greenhouse"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@SET_GREENHOUSE"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      }
+    ]
+  },
+  {
+    "name": "屋顶·持剑",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_INITIAL"
+      },
+      {
+        "token": "@DRAPE_WORN"
+      },
+      {
+        "text": "standing on a rooftop at dusk"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@WEAPON_SWORD"
+      },
+      {
+        "token": "@WEAPON_GRIP"
+      },
+      {
+        "token": "@SET_ROOFTOP"
+      },
+      {
+        "token": "@LIGHT_BACK"
+      },
+      {
+        "text": "(sword held point-down at her side:1.35), (both hands on the hilt:1.3)"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_EXPO"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      }
+    ]
+  },
+  {
+    "name": "居中·棚拍",
     "params": {
       "size": "1024x1536",
       "steps": 28,
@@ -72,59 +560,59 @@
     },
     "positive": [
       {
-        "token": "@SUBJ",
-        "weight": 1
+        "token": "@SINGLE"
       },
       {
-        "token": "@CAM_MEDIUM",
-        "weight": 1
+        "token": "@CAM_BUST"
       },
       {
-        "token": "@FACE",
-        "weight": 1
+        "token": "@COMP_CENTER"
       },
       {
-        "token": "@OUT_CASUAL",
-        "weight": 1
+        "token": "@COMP_MINIMAL"
       },
       {
-        "token": "@BODY",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@MOOD_SMILE",
-        "weight": 1
+        "token": "@OUT_SLIP"
       },
       {
-        "text": "standing in a simple room",
-        "weight": 1
+        "token": "@BODY"
       },
       {
-        "token": "@LIGHT_SOFT",
-        "weight": 1
+        "token": "@FACE"
       },
       {
-        "token": "@SET_ROOM",
-        "weight": 1
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "text": "plain pale grey studio backdrop, soft even light"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      },
+      {
+        "token": "@BG_CLEAN"
       }
     ],
     "negative": [
       {
-        "token": "@NEG_HANDS",
-        "weight": 1
+        "token": "@NEG_HANDS"
       },
       {
-        "token": "@NEG_BASE",
-        "weight": 1
+        "token": "@NEG_BASE"
       },
       {
-        "token": "@NEG_EXPO",
-        "weight": 1
+        "token": "@NEG_PROPS"
+      },
+      {
+        "text": "(busy background:1.3), (cluttered:1.25)"
       }
     ]
   },
   {
-    "name": "全身·街景",
+    "name": "三分·留白",
     "params": {
       "size": "1024x1536",
       "steps": 30,
@@ -132,59 +620,56 @@
     },
     "positive": [
       {
-        "token": "@SUBJ",
-        "weight": 1
+        "token": "@SINGLE"
       },
       {
-        "token": "@CAM_FULL",
-        "weight": 1
+        "token": "@CAM_BUST"
       },
       {
-        "token": "@FACE",
-        "weight": 1
+        "token": "@COMP_THIRDS"
       },
       {
-        "token": "@OUT_CASUAL",
-        "weight": 1
+        "token": "@COMP_NEGATIVE"
       },
       {
-        "token": "@BODY",
-        "weight": 1
+        "token": "@COMP_LOOKROOM"
       },
       {
-        "token": "@POSE_STAND",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@SET_STREET",
-        "weight": 1
+        "token": "@OUT_INITIAL"
       },
       {
-        "token": "@TIME_DUSK",
-        "weight": 1
+        "token": "@BODY"
       },
       {
-        "token": "@STYLE_ANIME",
-        "weight": 1
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_ASIDE"
+      },
+      {
+        "text": "empty pale wall on the right side of the frame, soft window light from the left"
+      },
+      {
+        "token": "@LIGHT_WIN"
       }
     ],
     "negative": [
       {
-        "token": "@NEG_HANDS",
-        "weight": 1
+        "token": "@NEG_BASE"
       },
       {
-        "token": "@NEG_BASE",
-        "weight": 1
+        "token": "@NEG_PROPS"
       },
       {
-        "token": "@NEG_EXPO",
-        "weight": 1
+        "text": "(centered subject:1.2), (cramped framing:1.25)"
       }
     ]
   },
   {
-    "name": "坐姿·咖啡馆",
+    "name": "框架·门廊",
     "params": {
       "size": "1024x1536",
       "steps": 30,
@@ -192,59 +677,59 @@
     },
     "positive": [
       {
-        "token": "@SUBJ",
-        "weight": 1
+        "token": "@SINGLE"
       },
       {
-        "token": "@CAM_MEDIUM",
-        "weight": 1
+        "token": "@CAM_FULL"
       },
       {
-        "token": "@FACE",
-        "weight": 1
+        "token": "@COMP_FRAME"
       },
       {
-        "token": "@OUT_CASUAL",
-        "weight": 1
+        "token": "@COMP_LEADING"
       },
       {
-        "token": "@BODY",
-        "weight": 1
+        "token": "@SET_CORRIDOR"
       },
       {
-        "token": "@POSE_SIT",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@SET_CAFE",
-        "weight": 1
+        "token": "@OUT_INITIAL"
       },
       {
-        "token": "@LIGHT_SOFT",
-        "weight": 1
+        "token": "@DRAPE_WORN"
       },
       {
-        "text": "sitting at a wooden table",
-        "weight": 1
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_FAR"
+      },
+      {
+        "token": "@LIGHT_NIGHT"
+      },
+      {
+        "token": "@BG_BOKEH"
       }
     ],
     "negative": [
       {
-        "token": "@NEG_HANDS",
-        "weight": 1
+        "token": "@NEG_HANDS"
       },
       {
-        "token": "@NEG_BASE",
-        "weight": 1
+        "token": "@NEG_BASE"
       },
       {
-        "token": "@NEG_EXPO",
-        "weight": 1
+        "text": "(flat lighting:1.2), (cropped feet:1.25), (two people:1.4)"
       }
     ]
   },
   {
-    "name": "卧室·夜景",
+    "name": "烛光·书桌",
     "params": {
       "size": "1024x1536",
       "steps": 30,
@@ -252,63 +737,59 @@
     },
     "positive": [
       {
-        "token": "@SUBJ",
-        "weight": 1
+        "token": "@SINGLE"
       },
       {
-        "token": "@CAM_BUST",
-        "weight": 1
+        "token": "@CAM_MEDIUM"
       },
       {
-        "token": "@FACE",
-        "weight": 1
+        "token": "@SET_ARTROOM"
       },
       {
-        "token": "@OUT_DRESS",
-        "weight": 1
+        "token": "@OBJ_BOOKS"
       },
       {
-        "token": "@BODY",
-        "weight": 1
+        "token": "@OBJ_CANDLE"
       },
       {
-        "token": "@MOOD_CALM",
-        "weight": 1
+        "token": "@LIGHT_CANDLE"
       },
       {
-        "token": "@SET_ROOM",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@TIME_NIGHT",
-        "weight": 1
+        "token": "@OUT_SLIP"
       },
       {
-        "token": "@LIGHT_NIGHT",
-        "weight": 1
+        "token": "@BODY"
       },
       {
-        "token": "@ATMO_DUST",
-        "weight": 1
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_DOWN"
+      },
+      {
+        "token": "@BG_BOKEH"
       }
     ],
     "negative": [
       {
-        "token": "@NEG_HANDS",
-        "weight": 1
+        "token": "@NEG_HANDS"
       },
       {
-        "token": "@NEG_BASE",
-        "weight": 1
+        "token": "@NEG_BASE"
       },
       {
-        "token": "@NEG_EXPO",
-        "weight": 1
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "text": "(bright daylight:1.3), (overexposed:1.25)"
       }
     ]
   },
   {
-    "name": "持物·画室",
+    "name": "霓虹·夜街",
     "params": {
       "size": "1024x1536",
       "steps": 30,
@@ -316,58 +797,1075 @@
     },
     "positive": [
       {
-        "token": "@SUBJ",
-        "weight": 1
+        "token": "@SINGLE"
       },
       {
-        "token": "@CAM_MEDIUM",
-        "weight": 1
+        "token": "@CAM_THREEQ"
       },
       {
-        "token": "@FACE",
-        "weight": 1
+        "token": "@SET_ROOFTOP"
       },
       {
-        "token": "@OUT_CASUAL",
-        "weight": 1
+        "token": "@TIME_NIGHT"
       },
       {
-        "token": "@BODY",
-        "weight": 1
+        "token": "@LIGHT_NEON"
       },
       {
-        "token": "@POSE_SIT",
-        "weight": 1
+        "token": "@WEATHER_CLEAR"
       },
       {
-        "token": "@PROP_PALETTE",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@PROP_BOOK",
-        "weight": 1
+        "token": "@OUT_INITIAL"
       },
       {
-        "token": "@SET_STUDIO",
-        "weight": 1
+        "token": "@DRAPE_WORN"
       },
       {
-        "token": "@LIGHT_SOFT",
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_FAR"
+      },
+      {
+        "token": "@BG_BOKEH"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_FABRIC"
+      },
+      {
+        "token": "@NEG_EXPO"
+      }
+    ]
+  },
+  {
+    "name": "顶光·特写",
+    "params": {
+      "size": "1024x1536",
+      "steps": 28,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_CLOSEUP"
+      },
+      {
+        "token": "@LIGHT_TOP"
+      },
+      {
+        "token": "@SET_ARTROOM"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@MOOD_SLEEPY"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      }
+    ]
+  },
+  {
+    "name": "黄金时刻·阳台",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@SET_BALCONY"
+      },
+      {
+        "token": "@OBJ_PLANT"
+      },
+      {
+        "token": "@OBJ_CURTAIN"
+      },
+      {
+        "token": "@LIGHT_GOLDEN"
+      },
+      {
+        "token": "@TIME_AFTERNOON"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_WINDOW"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_FABRIC"
+      }
+    ]
+  },
+  {
+    "name": "丝绒·肖像",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_BUST"
+      },
+      {
+        "token": "@COMP_MINIMAL"
+      },
+      {
+        "token": "@FAB_VELVET"
+      },
+      {
+        "token": "@LIGHT_SIDE"
+      },
+      {
+        "token": "@STYLE_PASTEL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "token": "@BG_CLEAN"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_FABRIC"
+      },
+      {
+        "text": "(satin sheen:1.2), (harsh contrast:1.2)"
+      }
+    ]
+  },
+  {
+    "name": "清晨·厨房",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@SET_KITCHEN"
+      },
+      {
+        "token": "@TIME_MORNING"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      },
+      {
+        "token": "@OBJ_PLANT"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@MOOD_AMUSED"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_PROPS"
+      }
+    ]
+  },
+  {
+    "name": "水手服·午后",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@OUT_SCHOOL"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_ASIDE"
+      },
+      {
+        "token": "@TIME_AFTERNOON"
+      },
+      {
+        "token": "@LIGHT_GOLDEN"
+      },
+      {
+        "token": "@SET_BALCONY"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_SCHOOL"
+      }
+    ]
+  },
+  {
+    "name": "浴衣·夏祭",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@OUT_YUKATA"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "token": "@TIME_NIGHT"
+      },
+      {
+        "token": "@LIGHT_NEON"
+      },
+      {
+        "token": "@SET_ROOFTOP"
+      },
+      {
+        "token": "@OBJ_PLANT"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_YUKATA"
+      }
+    ]
+  },
+  {
+    "name": "冬装·雪街",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@OUT_WINTER"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_FAR"
+      },
+      {
+        "token": "@SEASON_SNOW"
+      },
+      {
+        "token": "@TIME_AFTERNOON"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_WINTER"
+      }
+    ]
+  },
+  {
+    "name": "夜市·浴衣",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@OUT_YUKATA"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "token": "@TIME_NIGHT"
+      },
+      {
+        "token": "@LIGHT_NEON"
+      },
+      {
+        "token": "@SET_MARKET"
+      },
+      {
+        "token": "@BG_BOKEH"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_YUKATA"
+      },
+      {
+        "token": "@NEG_SKIN"
+      }
+    ]
+  },
+  {
+    "name": "温泉·夜",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@OUT_SLIP"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@SET_ONSEN"
+      },
+      {
+        "token": "@TIME_NIGHT"
+      },
+      {
+        "token": "@BG_DARKFALL"
+      },
+      {
+        "token": "@LIGHT_CANDLE"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_SKIN"
+      }
+    ]
+  },
+  {
+    "name": "雨夜·书店",
+    "params": {
+      "size": "1024x1536",
+      "steps": 28,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@SET_BOOKSTORE"
+      },
+      {
+        "token": "@ATMO_RAIN"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      },
+      {
+        "token": "@BG_BOKEH"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_CASUAL_KNIT"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_DOWN"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_SKIN"
+      }
+    ]
+  },
+  {
+    "name": "微缩·街景",
+    "params": {
+      "size": "1216x832",
+      "steps": 24,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_HIGH"
+      },
+      {
+        "token": "@SET_MARKET"
+      },
+      {
+        "token": "@TIME_DUSK"
+      },
+      {
+        "token": "@BG_BOKEH"
+      },
+      {
+        "token": "@CUSTOM_TILTSHIFT"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SCHOOL"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_SKIN"
+      }
+    ]
+  },
+  {
+    "name": "夜巷·烟",
+    "params": {
+      "size": "1024x1536",
+      "steps": 28,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@SET_MARKET"
+      },
+      {
+        "token": "@TIME_NIGHT"
+      },
+      {
+        "token": "@LIGHT_NEON"
+      },
+      {
+        "token": "@BG_BOKEH"
+      },
+      {
+        "token": "@MOOD_SMOKE"
+      },
+      {
+        "token": "@STYLE_NOIR"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@OUT_SUIT"
+      },
+      {
+        "token": "@BODY"
+      },
+      {
+        "token": "@FACE"
+      },
+      {
+        "token": "@GAZE_ASIDE"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_SKIN"
+      }
+    ]
+  },
+  {
+    "name": "成年·日常全身",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@FACE_ADULT"
+      },
+      {
+        "token": "@BODY_ADULT"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@OUT_CASUAL_KNIT"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      },
+      {
+        "token": "@BG_CLEAN"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_CHILD"
+      },
+      {
+        "token": "@NEG_SKIN"
+      }
+    ]
+  },
+  {
+    "name": "29B·精细人像",
+    "params": {
+      "size": "896x1152",
+      "steps": 24,
+      "cfg": 5.5,
+      "model": "anima29B_v10_int8.safetensors"
+    },
+    "positive": [
+      {
+        "token": "",
+        "text": "a girl with long white hair, heterochromia eyes (one red one grey), a sunflower hair ornament, wearing a grey hoodie and denim shorts, standing in a bright laundromat, soft window light, detailed face, delicate shading, intricate details, high detail",
         "weight": 1
       }
     ],
     "negative": [
       {
-        "token": "@NEG_HANDS",
+        "token": "",
+        "text": "lowres, bad anatomy, worst quality, blurry, flat colors, washed out, red hair streak, multicolored hair, text, watermark",
         "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "人像·走廊氛围",
+    "params": {
+      "size": "832x1216",
+      "steps": 30,
+      "cfg": 5.5,
+      "model": "anima-base-v1.0.safetensors"
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
       },
       {
-        "token": "@NEG_BASE",
-        "weight": 1
+        "token": "@ID"
       },
       {
-        "token": "@NEG_EXPO",
+        "token": "@FACE_SOFT"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@OUT_DENIM_SET"
+      },
+      {
+        "token": "@SET_CORRIDOR"
+      },
+      {
+        "token": "@TIME_AFTERNOON"
+      },
+      {
+        "token": "@POSE_STAND"
+      },
+      {
+        "token": "@MOOD_AMUSED"
+      },
+      {
+        "token": "@LIGHT_WIN"
+      },
+      {
+        "token": "@ATMO_DUST"
+      },
+      {
+        "token": "@BG_DEPTH"
+      },
+      {
+        "token": "@STYLE_SOFT"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_REAL"
+      },
+      {
+        "token": "@NEG_DENIM_SET"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_HARDCEL"
+      },
+      {
+        "token": "@NEG_SHOES"
+      }
+    ]
+  },
+  {
+    "name": "人像·走廊靠墙",
+    "params": {
+      "size": "832x1216",
+      "steps": 30,
+      "cfg": 5.5,
+      "model": "anima-base-v1.0.safetensors"
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@FACE_SOFT"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@POSE_LEAN"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "token": "@OUT_DENIM_SET"
+      },
+      {
+        "token": "@SET_CORRIDOR"
+      },
+      {
+        "token": "@TIME_AFTERNOON"
+      },
+      {
+        "token": "@MOOD_TEASING"
+      },
+      {
+        "token": "@LIGHT_RIM"
+      },
+      {
+        "token": "@ATMO_DUST"
+      },
+      {
+        "token": "@COMP_NEGATIVE"
+      },
+      {
+        "token": "@STYLE_SOFT"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_REAL"
+      },
+      {
+        "token": "@NEG_DENIM_SET"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_HARDCEL"
+      },
+      {
+        "token": "@NEG_SHOES"
+      }
+    ]
+  },
+  {
+    "name": "夜景·烛光",
+    "params": {
+      "size": "1024x1536",
+      "steps": 30,
+      "cfg": 5.5,
+      "model": "anima-base-v1.0.safetensors"
+    },
+    "positive": [
+      {
+        "token": "@SINGLE"
+      },
+      {
+        "token": "@ID"
+      },
+      {
+        "token": "@FACE_SOFT"
+      },
+      {
+        "token": "@GAZE_CAMERA"
+      },
+      {
+        "token": "@CAM_MEDIUM"
+      },
+      {
+        "token": "@OUT_PAJAMA"
+      },
+      {
+        "token": "@SET_BEDROOM"
+      },
+      {
+        "token": "@TIME_NIGHT"
+      },
+      {
+        "token": "@POSE_SIT"
+      },
+      {
+        "token": "@MOOD_CALM"
+      },
+      {
+        "token": "@LIGHT_SOFT_WARM"
+      },
+      {
+        "token": "@ATMO_CANDLE"
+      },
+      {
+        "token": "@BG_DEPTH"
+      },
+      {
+        "token": "@STYLE_SOFT"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_REAL"
+      },
+      {
+        "token": "@NEG_PAJAMA"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_HARDCEL"
+      },
+      {
+        "token": "@NEG_SHOES"
+      },
+      {
+        "token": "",
+        "text": "duplicate hair ornament, extra flowers in hair, twin sunflowers",
         "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "29B·烛光",
+    "params": {
+      "size": "768x1152",
+      "steps": 24,
+      "cfg": 4.8,
+      "model": "anima29B_v10_int8.safetensors"
+    },
+    "positive": [
+      {
+        "token": "",
+        "text": "full body, a girl sitting on a wooden chair in a dark bedroom at night, a lit candle on the table in the foreground, long white hair, heterochromia eyes one red and one grey, a sunflower hair ornament, cream striped pajamas, clean anime illustration, soft cel shading, muted colors, cinematic soft light, delicate linework, detailed face, crisp details",
+        "weight": 1
+      }
+    ],
+    "negative": [
+      {
+        "token": "",
+        "text": "lowres, bad anatomy, worst quality, blurry, flat colors, painterly, rough brush strokes, oil painting, heavy texture, oversaturated, text, watermark, extra limbs, bad hands",
+        "weight": 1
+      }
+    ]
+  },
+  {
+    "name": "风格·故障风",
+    "params": {},
+    "positive": [
+      {
+        "token": "@STYLE_PHOTO"
+      },
+      {
+        "token": "@STYLE_GLITCH"
+      },
+      {
+        "token": "@STYLE_DATAMOSH"
+      },
+      {
+        "token": "@FX_BLACK_BLOCKS"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_OUTLINE"
+      },
+      {
+        "token": "@NEG_GLITCHBAND"
+      }
+    ]
+  },
+  {
+    "name": "风格·故障风（横带）",
+    "params": {},
+    "positive": [
+      {
+        "token": "@STYLE_PHOTO"
+      },
+      {
+        "token": "@STYLE_GLITCH"
+      },
+      {
+        "token": "@STYLE_DATAMOSH"
+      },
+      {
+        "token": "@FX_BAND_GLITCH"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_OUTLINE"
       }
     ]
   }

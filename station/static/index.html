@@ -6,15 +6,15 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/icon_64.png?v=3">
   <link rel="icon" type="image/png" sizes="256x256" href="/icon_256.png?v=3">
   <link rel="apple-touch-icon" href="/icon_256.png?v=3">
-<title>SUNLOOM · block studio</title>
-<link rel="stylesheet" href="/style.css?v=18">
+<title>SUNLOOM · 织日</title>
+<link rel="stylesheet" href="/style.css?v=54">
 <style>.build-badge{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;color:#ffd98a;border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.12)}</style>
 </head>
 <body>
 <div class="bg-orbs"><i></i><i></i><i></i></div>
 <div class="grain"></div>
 <header class="topbar">
-  <div class="brand"><img class="logo" src="/icon_dark.png" alt=""><b>SUNLOOM</b><span class="sub">block studio</span></div>
+  <div class="brand"><img class="logo" src="/icon_dark.png" alt=""><b>SUNLOOM</b><span class="sub">织日 · 拼装台</span></div>
   <nav class="tabs" id="tabs">
     <button data-tab="build" class="active">拼装</button>
     <button data-tab="guide">向导</button>
@@ -54,9 +54,18 @@
     <section class="canvas">
       <div class="top-row">
         <div id="validate-bar" class="validate-bar ok">结构检查：等待积木…</div>
-        <button class="primary" id="btn-random" title="按场景/服装/机位合理组合">🎲 随机一套</button>
-        <button class="ghost" id="btn-rand-scene" title="只换场景，其他不动">只换场景</button>
-        <button class="ghost" id="btn-rand-outfit" title="只换服装，其他不动">只换服装</button>
+        <div class="top-actions">
+          <button class="primary" id="btn-random" title="按场景/服装/机位合理组合">🎲 随机一套</button>
+          <button class="ghost" id="btn-rand-scene" title="只换场景，其他不动">只换场景</button>
+          <button class="ghost" id="btn-rand-outfit" title="只换服装，其他不动">只换服装</button>
+          <button class="ghost" id="btn-tags2text" title="把当前标签转成自然语言（给 29B 用）">转自然语言</button>
+          <select id="p-polish" title="润色模型" style="width:auto;font-size:12px">
+            <option value="quality">1.5B 准</option>
+            <option value="fast">0.5B 快</option>
+          </select>
+          <button class="ghost" id="btn-smartfix" title="自动修复冲突：散文与标签混用、压灰负向、29B 提示词">一键修正</button>
+          <button class="ghost" id="btn-polish" title="用本地小模型润色成更顺的英文">润色英文</button>
+        </div>
       </div>
       <div class="lane card" data-lane="positive">
         <div class="card-head">
@@ -82,6 +91,10 @@
         <div class="card-head"><h3>工作流向导</h3><span class="hint">不知道从哪块开始？跟着走 9 步</span></div>
         <button class="primary wide" id="open-guide">打开向导 →</button>
       </div>
+      <div class="card guide-entry">
+        <div class="card-head"><h3>提词器</h3><span class="hint">按场景/动作/镜头选项拼正负向</span></div>
+        <button class="ghost wide" id="open-plib">打开提词器 →</button>
+      </div>
       <div class="card combo-save-card">
         <div class="card-head"><h3>组合</h3><span class="hint">把当前画布的正负向存成组合，之后在词库页调用</span>
           <div class="head-actions"><button class="ghost" id="combo-save-new">＋ 存为组合</button></div></div>
@@ -92,7 +105,8 @@
       </div>
       <div class="row2-cards">
         <div class="card tpl-card">
-          <div class="card-head"><h3>快速模板</h3><span class="hint">点一下就把整组积木摆好</span></div>
+          <div class="card-head"><h3>快速模板</h3><span class="hint">点一下就把整组积木摆好</span>
+            <button class="ghost tiny" id="tpl-create" style="margin-left:auto">＋ 创造模板</button></div>
           <div id="tpl-row" class="tpl-row"></div>
         </div>
         <div class="card desc-card">
@@ -117,6 +131,9 @@
     <aside class="params card">
       <div class="card-head"><h3>参数</h3><span class="hint" id="eta">—</span></div>
       <details class="fold" open><summary>画面</summary>
+      <div class="field"><label>底模</label>
+        <select id="p-model"></select>
+      </div>
       <div class="field"><label>尺寸</label>
         <select id="p-size">
           <option value="1024x1536">1024 × 1536 竖</option>
@@ -135,7 +152,40 @@
       </div>
       <p class="size-hint" id="size-hint"></p>
       <div class="row2">
-        <div class="field"><label>步数</label><input id="p-steps" type="number" value="30"></div>
+      <div class="field"><label>出图前自动修正</label>
+        <select id="p-smartfix">
+          <option value="0" selected>关闭（推荐）</option>
+          <option value="1">开启</option>
+        </select>
+      </div>
+      <div class="field"><label>画师 LoRA</label>
+        <select id="style-lora"><option value="">无</option></select>
+      </div>
+      <div class="field"><label>风格提示</label>
+        <div class="row2">
+          <select id="style-sel">
+            <option value="none">默认（不加）</option>
+            <option value="anima66">animaNai 0.66</option>
+            <option value="anima45">animaNai 0.45</option>
+            <option value="cel">赛璐璐（会压白底）</option>
+            <option value="anime">动漫平涂</option>
+            <option value="flat">极简平涂</option>
+            <option value="water">水彩</option>
+            <option value="line">线稿</option>
+            <option value="custom">自定义…</option>
+          </select>
+        </div>
+        <input id="style-custom" placeholder="自定义风格描述，如 (gouache:0.6)" style="display:none;margin-top:6px">
+      </div>
+      <div class="field"><label>自动精修</label>
+        <select id="p-refine">
+          <option value="0" selected>关闭</option>
+          <option value="0.25">轻（0.25）</option>
+          <option value="0.3">标准（0.3）</option>
+          <option value="0.35">强（0.35）</option>
+        </select>
+      </div>
+      <div class="field"><label>步数</label><input id="p-steps" type="number" value="30"></div>
       <div class="field"><label><input id="p-lock" type="checkbox"> 画风锁定（勾选=硬边 / 不勾=柔和）</label></div>
         <div class="field"><label>CFG</label><input id="p-cfg" type="number" step="0.1" value="5.5"></div>
       </div>
@@ -221,6 +271,7 @@
       </div>
     </div>
     </div>
+
     <aside class="card guide-pal">
       <div class="card-head"><h3>积木库</h3></div>
       <input id="guide-search" placeholder="搜索积木…" style="margin:0 12px 8px">
@@ -251,7 +302,9 @@
     </select>
     <input id="g-q" placeholder="搜索文件名 / 备注…">
     <button class="ghost" id="g-select">选择导出</button>
+    <button class="ghost" id="g-del-mode">批量删除</button>
     <button class="ghost" id="g-export" style="display:none">导出选中</button>
+    <button class="ghost" id="g-bulk-del" style="display:none">删除选中</button>
     <button class="ghost" id="g-refresh">刷新</button>
     <span class="hint" id="g-total"></span>
   </div>
@@ -279,14 +332,13 @@
         <select id="tk-cat">
           <option value="cam">机位</option><option value="light">打光</option>
           <option value="id">身份</option><option value="body">体型</option>
-          <option value="face">表情</option><option value="outfit">服装</option>
+          <option value="face">脸型</option><option value="mood">情绪</option><option value="outfit">服装</option>
           <option value="drape">型态</option><option value="neg">负向</option>
           <option value="scene">场景</option><option value="custom">自定义</option>
         </select>
       </div>
       <div class="field"><label>内容</label><textarea id="tk-text" rows="6"></textarea></div>
-      <div class="field"><label>备注（鼠标悬停时显示）</label><textarea id="tk-note" rows="2" placeholder="这块是干什么的、有什么坑…"></textarea>
-        <button class="ghost wide" id="tk-note-save" style="margin-top:6px">保存备注</button></div>
+      <div class="field"><label>备注（鼠标悬停时显示，和内容一起保存）</label><textarea id="tk-note" rows="2" placeholder="这块是干什么的、有什么坑…"></textarea></div>
       <div class="row2">
         <button class="primary" id="tk-save">保存</button>
         <button class="ghost" id="tk-del">删除</button>
@@ -309,10 +361,11 @@
     <div class="card">
       <div class="card-head"><h3>编辑服装</h3><span class="hint" id="gm-status"></span></div>
       <div class="row2">
-        <div class="field"><label>key（英文，保存后不建议改）</label><input id="gm-key2" placeholder="casual"></div>
+        <div class="field"><label>key（英文，保存后不建议改）</label><input id="gm-key2" placeholder="slip"></div>
         <div class="field"><label>名称</label><input id="gm-label" placeholder="简版连衣"></div>
       </div>
       <div class="field"><label>用途</label><input id="gm-use" placeholder="半身 / 特写"></div>
+      <div class="field"><label>注释（这套是什么、什么时候用、有什么坑）</label><textarea id="gm-note" rows="3" placeholder="例：夏季水手服；注意 @NEG_BASE 里原本禁 school uniform，用这套时要把它去掉"></textarea></div>
       <div class="field"><label>型态（点一下追加到正向末尾）</label><div id="gm-drapes" class="chip-row"></div></div>
       <div class="field"><label>姿势（点一下追加到正向末尾）</label><div id="gm-poses" class="chip-row"></div></div>
       <div class="subcard"><div class="sub-title">手持物 · 右手</div>
@@ -364,7 +417,7 @@
         <div class="field"><label>档位</label>
           <select id="tr-profile">
             <option value="auto">auto</option><option value="local">local 8G</option>
-            <option value="local">本机</option>
+            <option value="4090">4090 24G</option><option value="t4">t4</option><option value="a100">a100</option>
           </select></div>
       </div>
       <div class="row2">
@@ -399,7 +452,7 @@
       <div class="card-head"><h3>WD14 打标</h3></div>
       <div class="field"><label>数据集</label><select id="tg-dataset"></select></div>
       <div class="row2">
-        <div class="field"><label>触发词</label><input id="tg-trigger" placeholder="mychar"></div>
+        <div class="field"><label>触发词</label><input id="tg-trigger" placeholder="sunhimi"></div>
         <div class="field"><label>附加</label><input id="tg-extra" value="1girl"></div>
       </div>
       <div class="row2">
@@ -559,10 +612,13 @@ window.addEventListener('error', function (e) {
   document.title = 'PARSE_ERR ' + (e.message || '') + ' @line ' + (e.lineno || 0) + ':' + (e.colno || 0);
 }, true);
 </script>
-<script src="/app.js?v=19"></script>
+<script src="/js/util.js"></script>
+  <script src="/js/lora.js?v=13"></script>
+  <script src="/app.js?v=180"></script>
 <div id="cmdbar" class="cmdbar"><div class="cmd-box">
   <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
   <div id="cmd-list" class="cmd-list"></div>
 </div></div>
+  <button id="tips-fab" class="tips-fab" title="提示卡 / 速查">提示</button>
 </body>
 </html>
