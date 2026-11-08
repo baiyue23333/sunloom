@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="256x256" href="/icon_256.png?v=3">
   <link rel="apple-touch-icon" href="/icon_256.png?v=3">
 <title>SUNLOOM · 织日</title>
-<link rel="stylesheet" href="/style.css?v=54">
+<link rel="stylesheet" href="/style.css?v=104">
 <style>.build-badge{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;color:#ffd98a;border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.12)}</style>
 </head>
 <body>
@@ -18,14 +18,14 @@
   <nav class="tabs" id="tabs">
     <button data-tab="build" class="active">拼装</button>
     <button data-tab="guide">向导</button>
-    <button data-tab="gallery">画廊</button>
-    <button data-tab="library">词库</button>
+    <button data-tab="library" data-sep="1">词库</button>
     <button data-tab="garment">服装</button>
+    <button data-tab="gallery" data-sep="1">画廊</button>
     <button data-tab="recipe">配方</button>
+    <button data-tab="tag" data-sep="1">打标</button>
     <button data-tab="train">训练</button>
-    <button data-tab="tag">打标</button>
     <button data-tab="repro">复现</button>
-    <button data-tab="engine">引擎</button>
+    <button data-tab="engine" data-sep="1">引擎</button>
     <button data-tab="maint">维护</button>
   </nav>
   <div class="statusbar">
@@ -43,7 +43,7 @@
 <section id="view-build" class="view active">
   <div class="builder">
     <aside class="palette card">
-      <div class="card-head"><h3>积木库</h3>
+      <div class="card-head"><h3>积木库</h3><span id="pal-artist-need" class="glow-badge" hidden>画师</span>
         <label class="pal-toggle" title="由正向块配对的专属负向（默认隐藏，加入正向块后自动出现）">
           <input type="checkbox" id="pal-show-neg"><span>专属负向</span></label>
         <button class="ghost tiny" id="pal-collapse" title="收起积木库">‹</button></div>
@@ -63,7 +63,15 @@
             <option value="quality">1.5B 准</option>
             <option value="fast">0.5B 快</option>
           </select>
-          <button class="ghost" id="btn-smartfix" title="自动修复冲突：散文与标签混用、压灰负向、29B 提示词">一键修正</button>
+          <label class="hint" for="guide-mode" style="margin-left:6px">引导</label>
+        <select id="guide-mode" title="分类光引导：亮的分类表示还缺这类积木">
+          <option value="free" selected>自由</option>
+          <option value="portrait">人像</option>
+          <option value="scene">场景</option>
+          <option value="story">剧情</option>
+          <option value="off">关闭</option>
+        </select>
+        <button class="ghost" id="btn-smartfix" title="自动修复冲突：散文与标签混用、压灰负向、29B 提示词">一键修正</button>
           <button class="ghost" id="btn-polish" title="用本地小模型润色成更顺的英文">润色英文</button>
         </div>
       </div>
@@ -114,7 +122,7 @@
           <textarea id="desc-text" rows="3" placeholder="例：她站在书店的旧木梯上，指尖划过书脊，暖黄的吊灯从上方打下来"></textarea>
           <div class="desc-row">
             <label>权重</label>
-            <input id="desc-weight" type="number" step="0.05" min="0.4" max="2" value="1.1">
+            <input id="desc-weight" type="number" step="0.05" min="0.4" max="2" value="1.0">
             <button class="ghost" id="desc-pos">插入正向</button>
             <button class="ghost" id="desc-neg">插入负向</button>
             <button class="ghost" id="desc-save">存为积木</button>
@@ -140,6 +148,7 @@
           <option value="832x1216">832 × 1216 快</option>
           <option value="1024x1024">1024 × 1024 方</option>
           <option value="1216x832">1216 × 832 横</option>
+          <option value="1920x1088">1920 × 1088 宽银幕</option>
           <option value="custom">自定义…</option>
         </select>
       </div>
@@ -152,43 +161,65 @@
       </div>
       <p class="size-hint" id="size-hint"></p>
       <div class="row2">
-      <div class="field"><label>出图前自动修正</label>
-        <select id="p-smartfix">
-          <option value="0" selected>关闭（推荐）</option>
-          <option value="1">开启</option>
-        </select>
+        <div class="field"><label>出图前自动修正</label>
+          <select id="p-smartfix">
+            <option value="0" selected>关闭（推荐）</option>
+            <option value="1">开启</option>
+          </select>
+        </div>
+        <div class="field"><label>自动精修</label>
+          <select id="p-refine">
+            <option value="0" selected>关闭</option>
+            <option value="0.25">轻（0.25）</option>
+            <option value="0.3">标准（0.3）</option>
+            <option value="0.35">强（0.35）</option>
+          </select>
+        </div>
       </div>
+
       <div class="field"><label>画师 LoRA</label>
         <select id="style-lora"><option value="">无</option></select>
       </div>
-      <div class="field"><label>风格提示</label>
+
+      <div class="field"><label>画师强度</label>
         <div class="row2">
-          <select id="style-sel">
-            <option value="none">默认（不加）</option>
-            <option value="anima66">animaNai 0.66</option>
-            <option value="anima45">animaNai 0.45</option>
-            <option value="cel">赛璐璐（会压白底）</option>
-            <option value="anime">动漫平涂</option>
-            <option value="flat">极简平涂</option>
-            <option value="water">水彩</option>
-            <option value="line">线稿</option>
-            <option value="custom">自定义…</option>
+          <select id="artist-strength" title="画师强度">
+            <option value="0.6">温和 0.6</option>
+            <option value="1" selected>标准 1.0</option>
+            <option value="1.3">强烈 1.3</option>
+          </select>
+          <button class="ghost" id="artist-free" title="清空多余积木，只留最简提示词，让画师发挥">自由发挥</button>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <select id="identity-strength" title="身份强度：0=完全交给画师，1=死锁 OC">
+            <option value="0">不锁身份 0</option>
+            <option value="0.5" selected>弱身份 0.5</option>
+            <option value="1">强身份 1.0</option>
           </select>
         </div>
+      </div>
+
+      <div class="field"><label>风格提示（可选）</label>
+        <select id="style-sel">
+          <option value="none">默认（不加）</option>
+          <option value="anima66">animaNai 0.66</option>
+          <option value="anima45">animaNai 0.45</option>
+          <option value="cel">赛璐璐（会压白底）</option>
+          <option value="anime">动漫平涂</option>
+          <option value="flat">极简平涂</option>
+          <option value="water">水彩</option>
+          <option value="line">线稿</option>
+          <option value="custom">自定义…</option>
+        </select>
         <input id="style-custom" placeholder="自定义风格描述，如 (gouache:0.6)" style="display:none;margin-top:6px">
       </div>
-      <div class="field"><label>自动精修</label>
-        <select id="p-refine">
-          <option value="0" selected>关闭</option>
-          <option value="0.25">轻（0.25）</option>
-          <option value="0.3">标准（0.3）</option>
-          <option value="0.35">强（0.35）</option>
-        </select>
-      </div>
-      <div class="field"><label>步数</label><input id="p-steps" type="number" value="30"></div>
-      <div class="field"><label><input id="p-lock" type="checkbox"> 画风锁定（勾选=硬边 / 不勾=柔和）</label></div>
+
+      <div class="row2">
+        <div class="field"><label>步数</label><input id="p-steps" type="number" value="30"></div>
         <div class="field"><label>CFG</label><input id="p-cfg" type="number" step="0.1" value="5.5"></div>
       </div>
+      <div class="field"><label><input id="p-lock" type="checkbox"> 画风锁定（勾选=硬边 / 不勾=柔和）</label></div>
+
       <div class="row2">
         <div class="field"><label>种子</label><input id="p-seed" type="number" placeholder="随机"></div>
         <div class="field"><label>前缀</label><input id="p-prefix" value="st"></div>
@@ -332,10 +363,26 @@
         <select id="tk-cat">
           <option value="cam">机位</option><option value="light">打光</option>
           <option value="id">身份</option><option value="body">体型</option>
-          <option value="face">脸型</option><option value="mood">情绪</option><option value="outfit">服装</option>
-          <option value="drape">型态</option><option value="neg">负向</option>
-          <option value="scene">场景</option><option value="custom">自定义</option>
+          <option value="face">脸型</option><option value="mood">情绪</option>
+          <option value="gaze">视线</option><option value="hand">手部</option>
+          <option value="hold">手持物</option><option value="weapon">武器</option>
+          <option value="hair">头发</option><option value="acc">发饰</option>
+          <option value="outfit">服装</option><option value="fabric">材质</option><option value="drape">型态</option>
+          <option value="set">场景</option><option value="prop">道具</option>
+          <option value="comp">构图</option><option value="style">风格</option>
+          <option value="atmo">氛围</option><option value="time">时间</option>
+          <option value="neg">负向</option><option value="custom">自定义</option>
         </select>
+      </div>
+      <div class="field"><label>子分类</label>
+        <select id="tk-sub-sel"></select>
+        <div id="tk-sub-new" class="sub-new" hidden>
+          <div class="row2">
+            <input id="tk-sub" placeholder="新子分类名称，例：夜景特写">
+            <input id="tk-sub-color" type="color" value="#7aa2d6" title="子分类颜色">
+          </div>
+          <span class="hint">保存后该子分类会出现在左栏与词库的这个分类下</span>
+        </div>
       </div>
       <div class="field"><label>内容</label><textarea id="tk-text" rows="6"></textarea></div>
       <div class="field"><label>备注（鼠标悬停时显示，和内容一起保存）</label><textarea id="tk-note" rows="2" placeholder="这块是干什么的、有什么坑…"></textarea></div>
@@ -613,8 +660,8 @@ window.addEventListener('error', function (e) {
 }, true);
 </script>
 <script src="/js/util.js"></script>
-  <script src="/js/lora.js?v=13"></script>
-  <script src="/app.js?v=180"></script>
+  <script src="/js/lora.js?v=25"></script>
+  <script src="/app.js?v=271"></script>
 <div id="cmdbar" class="cmdbar"><div class="cmd-box">
   <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
   <div id="cmd-list" class="cmd-list"></div>

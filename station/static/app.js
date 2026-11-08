@@ -11,6 +11,7 @@ const S = {
   tokenFilter: '', paletteFilter: '', libraryFilter: '',
 };
 const CAT_LABEL = {
+  set_small:'场景·小', set_medium:'场景·中', set_large:'场景·大', acc:'发饰',
   id:'身份', body:'体型', pose:'姿势', face:'脸型', mood:'情绪', gaze:'视线', hand:'手部',
   hold:'手持物', weapon:'武器', hair:'头发',
   cam:'机位', light:'打光', atmo:'氛围', time:'时间',
@@ -27,7 +28,22 @@ const RAIL_SHORT = { nsfw: '18+' };
 
 const NSFW_TOKENS = new Set(['@MOOD_SMOKE','@MOOD_ALCOHOL','@MOOD_TIRED','@MOOD_COLD','@STYLE_NOIR','@STYLE_GRAIN','@MAKEUP_SICK','@NEG_NSFW']);
 
+
+/* ---------- 场景尺度分类（小 / 中 / 大） ---------- */
+const SET_SCALE_MAP = (() => {
+  const m = {};
+  const add = (arr, tag) => arr.forEach(t => { m[t] = tag; });
+  add(["@SET_BOOKSTORE","@SET_PIANO","@SET_LAUNDRY","@SET_KITCHEN","@SET_BATHROOM","@SET_BEDROOM","@SET_LIBRARY","@SET_CAFE","@SET_ARTROOM","@SET_ELEVATOR","@SET_BALCONY","@SET_FLOWER_SHOP","@SET_PARKING","@SET_ALLEY"], 'set_small');
+  add(["@SET_GREENHOUSE","@SET_CORRIDOR","@SET_CLASSROOM","@SET_SHRINE","@SET_TRAM","@SET_SUBWAY","@SET_ARCADE","@SET_MARKET","@SET_ONSEN","@SET_SCHOOL_GATE","@SET_ROOFTOP","@SET_ROOFTOP_GARDEN","@SET_PARK","@SET_RIVERBANK","@SET_CONSTRUCTION","@SET_CITY_STREET","@SET_GARDEN_PEONY"], 'set_medium');
+  add(["@SET_STATION","@SET_AIRPORT","@SET_MUSEUM","@SET_CASTLE","@SET_TEMPLE","@SET_FOREST","@SET_BEACH","@SET_SNOWFIELD","@SET_RUINS","@SET_DESERT","@SET_HARBOR","@SET_MALL","@SET_SCHOOLYARD","@SET_AQUARIUM","@SET_THEATER","@SET_FESTIVAL","@SET_BRIDGE","@SET_GYM","@SET_CAFETERIA","@SET_LIBRARY_HALL","@SET_OFFICE","@SET_HOTEL_LOBBY","@SET_STATION_HALL","@SET_STADIUM","@SET_CITY_BLOCK","@SET_CITY_SKYLINE","@SET_JUNGLE_POOL"], 'set_large');
+  return m;
+})();
+
+const ACC_SET = ['@PIN', '@CLIP', '@HAIRPIN', '@BERET', '@MINI', '@HEADBAND', '@RIBBON', '@FLOWER_CROWN'];
+
 function tokenCat(name) {
+  const up = name.toUpperCase();
+  if (ACC_SET.some(p => up.startsWith(p))) return 'acc';
   const n = name.toUpperCase();
   if (NSFW_TOKENS.has(n)) return 'nsfw';
   const map = [
@@ -41,10 +57,55 @@ function tokenCat(name) {
     ['@WEATHER', 'atmo'], ['@SEASON', 'time'],
     ['@BODY', 'body'], ['@FACE', 'face'], ['@HAIR', 'hair'], ['@MAKEUP', 'face'],
     ['@PIN', 'hair'], ['@CLIP', 'hair'], ['@BERET', 'hair'], ['@MINI_TOPHAT', 'hair'], ['@HEADBAND', 'hair'], ['@RIBBON', 'hair'], ['@FLOWER_CROWN', 'hair'],
+    ['@HAIRPIN', 'hair'], ['@MINI', 'hair'], ['@FX', 'style'], ['@CROP', 'comp'], ['@BARE', 'body'], ['@SKIN', 'face'],
+    ['@BG', 'comp'], ['@HOSE', 'outfit'], ['@ID', 'id'],
   ];
   for (const [pre, cat] of map) if (n.startsWith(pre)) return cat;
   if (n === '@ID' || n === '@SINGLE') return 'id';
   return 'custom';
+}
+
+
+/* ---------- 画师 LoRA 悬停预览 ---------- */
+function bindArtistHover() {
+  const sel = $('#style-lora');
+  if (!sel || sel.dataset.hoverBound) return;
+  sel.dataset.hoverBound = '1';
+  let card = null, timer = null, seq = 0;
+  const hide = () => { clearTimeout(timer); if (card) { card.remove(); card = null; } };
+  const show = async (name) => {
+    if (!name) return;
+    const my = ++seq;
+    let data;
+    try { data = await api('/api/artist_preview?name=' + encodeURIComponent(name)); } catch (e) { return; }
+    if (my !== seq) return;
+    const r = sel.getBoundingClientRect();
+    card = document.createElement('div');
+    card.className = 'artist-hover';
+    const title = '<div class="ah-title">' + esc((typeof shortLoraName === 'function' ? shortLoraName(name) : name)) + '</div>';
+    const refImg = data.ref ? '<figure class="ah-ref"><img src="/api/img?path=' + encodeURIComponent(data.ref) + '"><figcaption>弱身份参考图</figcaption></figure>' : '';
+    const thumbs = (data.items || []).map(it =>
+      '<figure class="ah-item"><img src="/api/img?path=' + encodeURIComponent(it.path) + '"><figcaption>' + it.weight.toFixed(1) + '</figcaption></figure>').join('');
+    const adv = (data.advice || []).map(a => '<li><b>' + a.weight.toFixed(1) + '</b> ' + esc(a.text) + '</li>').join('');
+    card.innerHTML = title + refImg +
+      (thumbs ? '<div class="ah-thumbs">' + thumbs + '</div>' : '<div class="ah-empty">样张生成中，稍后悬停再看</div>') +
+      '<ul class="ah-advice">' + adv + '</ul>';
+    document.body.appendChild(card);
+    const w = card.offsetWidth, h = card.offsetHeight;
+    // 优先放在控件左侧；左侧空间不足时退回右侧
+    let left = r.left - w - 12;
+    if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
+    let top = r.top - 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
+    card.style.left = Math.max(8, left) + 'px';
+    card.style.top = top + 'px';
+  };
+  sel.addEventListener('mouseenter', () => {
+    timer = setTimeout(() => show(sel.value), 650);
+  });
+  sel.addEventListener('mouseleave', hide);
+  sel.addEventListener('change', hide);
+  window.addEventListener('scroll', hide, true);
 }
 
 /* ---------- 初始化 ---------- */
@@ -75,8 +136,9 @@ const TIPS_HTML = [
     '<h4 class="rc-h">角色 LoRA</h4>',
     '<p class="hint">h2 0.5 层次最好；h1 / h4 / v2–v6 偏白，配逆光容易糊，建议 0.4 以下或换 h2。</p>',
     '<h4 class="rc-h">画师 LoRA</h4>',
-    '<p class="hint">选中即自动：权重 0.7（v2 0.65）、移除 animaNai、换成文本身份、同步替换画师风格提示词、保留服装/场景/表情。</p>',
+    '<p class="hint">选中即自动：权重 1.0（v2 0.9）、移除 animaNai、换成文本身份、同步替换画师风格提示词；「画师强度」可选 0.6 / 1.0 / 1.3。</p>',
     '<p class="hint">画师 ≥0.5 时别再留 @ID/@SINGLE/@BODY_SOFT/@CAM_*，构图会被压。</p>',
+    '<p class="hint">画师强度只放大文件本身的笔触，不会凭空变厚涂；想要重风格优先 Lucent，1.3 时注意身份漂移。</p>',
     '<h4 class="rc-h">画风积木</h4>',
     '<p class="hint">@STYLE_* 会把场景压成白底，场景图不要加；白底立绘才用。</p>',
     '<h4 class="rc-h">一键修正</h4>',
@@ -100,9 +162,18 @@ function fillModelSelect() {
   sel.onchange = () => { S.model = sel.value; persistParams(); };
 }
 
+function bindSubgroupEditor() {
+  const cat = $('#tk-cat');
+  const sel = $('#tk-sub-sel');
+  if (!cat || !sel) return;
+  cat.onchange = () => buildSubOptions(cat.value, '__auto__');
+  sel.onchange = toggleSubNew;
+  buildSubOptions(cat.value, '__auto__');
+}
+
 async function boot() {
   const b = await api('/api/bootstrap');
-  S.tokens = b.tokens; S.notes = b.notes || {}; S.garments = b.garments; S.comfy = b.comfy;
+  S.tokens = b.tokens; S.notes = b.notes || {}; S.tokenMeta = b.token_meta || {}; S.garments = b.garments; S.comfy = b.comfy;
   S.datasets = b.datasets; S.loraFiles = b.loras; S.models = b.models || [];
   S.defaults = b.defaults; S.paths = b.paths;
   $('#pill-comfy').textContent = b.comfy.up ? ('ComfyUI ' + b.comfy.version) : 'ComfyUI 未启动';
@@ -132,7 +203,10 @@ async function boot() {
       if (Array.isArray(sp.loras) && sp.loras.length) S.loras = sp.loras;
     }
   } catch (e) {}
-  renderPalette(); renderLanes(); renderLoras(); renderParams(); fillModelSelect();
+  const gm = $('#guide-mode');
+  if (gm) { gm.value = loadJSON('loom.glowMode', 'free') || 'free'; gm.onchange = () => { saveJSON('loom.glowMode', gm.value); S._glowDone = false; renderGuideGlow(); }; }
+  renderPalette();
+  bindSubgroupEditor(); renderLanes(); renderLoras(); renderParams(); fillModelSelect();
   const psel = document.querySelector('#p-polish');
   if (psel) { try { psel.value = localStorage.getItem('loom.polish') || 'quality'; } catch (e) {} psel.onchange = () => { try { localStorage.setItem('loom.polish', psel.value); } catch (e) {} }; }
   try {
@@ -157,9 +231,12 @@ async function boot() {
     styleInp.onchange = () => { if (styleSel && styleSel.value === 'custom') applyStyle('custom', styleInp.value); };
   }
   restoreStyle();
+  const freeBtn = document.querySelector('#artist-free');
+  if (freeBtn) freeBtn.onclick = applyArtistFree;
   const slSel = document.querySelector('#style-lora');
   if (slSel) {
     renderStyleLoraOptions();
+  bindArtistHover();
     slSel.onchange = () => applyStyleLora(slSel.value);
   }
   const tipsOpen = () => openModal('提示卡', TIPS_HTML);
@@ -318,6 +395,189 @@ function jumpToCategory(cat) {
   toast('已跳到分类：' + cat);
 }
 
+
+/* 场景类型（子颜色） */
+const SCENE_FAMILY_MAP = (() => {
+  const m = {};
+  const add = (a, f) => a.forEach(t => { m[t] = f; });
+  add(["@SET_BEACH","@SET_HARBOR","@SET_RIVERBANK","@SET_AQUARIUM","@SET_ONSEN","@SET_JUNGLE_POOL"], 'water');
+  add(["@SET_CITY_STREET","@SET_CITY_BLOCK","@SET_CITY_SKYLINE","@SET_ALLEY","@SET_MALL","@SET_OFFICE","@SET_HOTEL_LOBBY","@SET_STATION_HALL","@SET_STATION","@SET_AIRPORT","@SET_BRIDGE","@SET_PARKING","@SET_ROOFTOP","@SET_ROOFTOP_GARDEN","@SET_CONSTRUCTION","@SET_MARKET","@SET_FESTIVAL","@SET_SCHOOL_GATE"], 'urban');
+  add(["@SET_CLASSROOM","@SET_GYM","@SET_CAFETERIA","@SET_SCHOOLYARD","@SET_LIBRARY","@SET_LIBRARY_HALL","@SET_CORRIDOR","@SET_ARTROOM"], 'school');
+  add(["@SET_SHRINE","@SET_TEMPLE","@SET_CASTLE","@SET_THEATER","@SET_MUSEUM","@SET_ONSEN"], 'culture');
+  add(["@SET_FOREST","@SET_SNOWFIELD","@SET_DESERT","@SET_GARDEN_PEONY","@SET_PARK","@SET_GREENHOUSE"], 'nature');
+  add(["@SET_BOOKSTORE","@SET_PIANO","@SET_LAUNDRY","@SET_KITCHEN","@SET_BATHROOM","@SET_BEDROOM","@SET_CAFE","@SET_FLOWER_SHOP","@SET_BALCONY","@SET_ELEVATOR","@SET_TRAM","@SET_SUBWAY","@SET_ARCADE"], 'indoor');
+  return m;
+})();
+function setFamilyOf(name) { return SCENE_FAMILY_MAP[String(name || '').toUpperCase()] || 'indoor'; }
+
+
+/* 分类子组（label / color / tokens） */
+const SUBGROUP_DEFS = {
+  outfit: [
+    { label: '默认套装', color: '#d98c72', tokens: [] },
+    { label: '日常便服', color: '#7aa2d6', tokens: [] },
+    { label: '校园制服', color: '#7fc79a', tokens: [] },
+    { label: '正式礼服', color: '#d9b268', tokens: [] },
+    { label: '主题造型', color: '#a78bd6', tokens: [] },
+    { label: '散件', color: '#6fc2c9', tokens: [] },
+  ],
+  hair: [
+    { label: '长度/轮廓', color: '#7aa2d6', tokens: ['@HAIR_BOB','@HAIR_HIME','@HAIR_WAVY','@HAIR_CURLY','@HAIR_STRAND','@HAIR_TUCKED'] },
+    { label: '扎发', color: '#7fc79a', tokens: ['@HAIR_TWINTAIL','@HAIR_PONY_HIGH','@HAIR_PONY_SIDE','@HAIR_BRAID','@HAIR_TWIN_BRAID','@HAIR_BUN','@HAIR_HALF_UP'] },
+    { label: '状态', color: '#d9b268', tokens: ['@HAIR_WIND','@HAIR_DAMP','@HAIR_MESSY'] },
+  ],
+  acc: [
+    { label: '发夹/发簪', color: '#d98c72', tokens: ['@PIN_MOON','@PIN_FEATHER','@PIN_HEART','@PIN_CROSS','@HAIRPIN_ROSE','@HAIRPIN_STAR'] },
+    { label: '帽子/头饰', color: '#a78bd6', tokens: ['@BERET','@MINI_TOPHAT','@HEADBAND_PEARL','@RIBBON_BOW','@FLOWER_CROWN'] },
+    { label: '发夹造型', color: '#6fc2c9', tokens: ['@CLIP_CAT_EAR','@CLIP_BUTTERFLY'] },
+  ],
+  weapon: [
+    { label: '冷兵器', color: '#d98c72', tokens: ['@WEAPON_SWORD','@WEAPON_KATANA','@WEAPON_DAGGER','@WEAPON_SPEAR','@WEAPON_SCYTHE','@WEAPON_CHAIN'] },
+    { label: '火器', color: '#7aa2d6', tokens: ['@WEAPON_RIFLE','@WEAPON_PISTOL'] },
+    { label: '远程/长柄', color: '#7fc79a', tokens: ['@WEAPON_BOW','@WEAPON_STAFF'] },
+    { label: '用法', color: '#d9b268', tokens: ['@WEAPON_GRIP','@WEAPON_SHIELD'] },
+  ],
+  "cam": [
+    { label: "近景", color: "#e08a7a", tokens: ["@CAM_CLOSEUP","@CAM_BUST","@CAM_PROFILE","@CAM_HIP"] },
+    { label: "全身/中景", color: "#7aa2d6", tokens: ["@CAM_FULL","@CAM_MEDIUM","@CAM_THREEQ","@CAM_BACKSIDE","@CAM_REAR"] },
+    { label: "角度", color: "#a78bd6", tokens: ["@CAM_LOW","@CAM_HIGH","@CAM_TOP","@CAM_WORM","@CAM_POV"] },
+    { label: "镜头效果", color: "#6fc2c9", tokens: ["@CAM_FISHEYE","@CAM_DUTCH","@CAM_ZOOMBLUR","@CAM_ORBIT"] },
+  ],
+  "light": [
+    { label: "自然光", color: "#d9b268", tokens: ["@LIGHT_WIN","@LIGHT_GOLDEN","@LIGHT_SIDE","@LIGHT_SOFT","@LIGHT_SOFT_WARM","@LIGHT_SHEEN"] },
+    { label: "人造光", color: "#a78bd6", tokens: ["@LIGHT_NEON","@LIGHT_CANDLE","@LIGHT_STUDIO","@LIGHT_NIGHT","@LIGHT_TOP"] },
+    { label: "氛围光", color: "#6fc2c9", tokens: ["@LIGHT_BACK","@LIGHT_RIM","@LIGHT_RAY"] },
+  ],
+  "pose": [
+    { label: "站/靠", color: "#7fc79a", tokens: ["@POSE_STAND","@POSE_LEAN"] },
+    { label: "坐/卧", color: "#7aa2d6", tokens: ["@POSE_SIT","@POSE_KNEEL","@POSE_LIE","@POSE_CROUCH","@POSE_CURL","@POSE_CROSS_LEGS"] },
+    { label: "动作", color: "#d98c72", tokens: ["@POSE_WALK","@POSE_FLOAT","@POSE_STRETCH","@POSE_BACK","@POSE_LOOK_BACK"] },
+    { label: "手部小动作", color: "#d9b268", tokens: ["@POSE_CHIN_REST","@POSE_TUCK_HAIR"] },
+  ],
+  "comp": [
+    { label: "取景", color: "#7aa2d6", tokens: ["@COMP_FOREGROUND","@COMP_CENTER","@COMP_THIRDS","@COMP_FILL","@COMP_CROP","@COMP_MACRO","@COMP_FRAME"] },
+    { label: "线条", color: "#7fc79a", tokens: ["@COMP_LEADING","@COMP_DIAGONAL","@COMP_CURVE","@COMP_TRIANGLE","@COMP_SYMMETRY","@COMP_RHYTHM"] },
+    { label: "视角", color: "#a78bd6", tokens: ["@COMP_LOW","@COMP_OVERHEAD","@COMP_OVER_SHOULDER","@COMP_DUTCH","@COMP_HORIZON_LOW","@COMP_HORIZON_HIGH","@COMP_TELE","@COMP_WIDE"] },
+    { label: "特技", color: "#6fc2c9", tokens: ["@COMP_MIRROR","@COMP_DOF","@COMP_NEGATIVE","@COMP_GOLDEN","@COMP_MINIMAL","@COMP_LOOKROOM","@COMP_LAYERS","@COMP_REFLECTION","@COMP_SILHOUETTE","@COMP_FRAMEINFRAME","@COMP_GRAPHIC","@COMP_TILTSHIFT","@COMP_VAST","@COMP_STD"] },
+  ],
+  "prop": [
+    { label: "植物/光", color: "#d9b268", tokens: ["@PROP_SUNFLOWER","@PROP_LANTERN","@PROP_BALLOON"] },
+    { label: "文具/艺术", color: "#7fc79a", tokens: ["@PROP_BOOK","@PROP_BRUSH","@PROP_PALETTE","@PROP_CANVAS","@PROP_LETTER"] },
+    { label: "生活", color: "#7aa2d6", tokens: ["@PROP_CAMERA","@PROP_VINYL","@PROP_HEADPHONES","@PROP_BLANKET","@PROP_UMBRELLA","@PROP_KEY"] },
+    { label: "乐器", color: "#d98c72", tokens: ["@PROP_VIOLIN"] },
+  ],
+  "style": [
+    { label: "绘画", color: "#7fc79a", tokens: ["@STYLE_PAINTERLY","@STYLE_WATERCOLOR","@STYLE_SOFT","@STYLE_FLAT","@STYLE_CEL","@STYLE_LINE"] },
+    { label: "影像", color: "#7aa2d6", tokens: ["@STYLE_FILM","@STYLE_PHOTO","@STYLE_NOIR","@STYLE_GRAIN"] },
+    { label: "特效", color: "#a78bd6", tokens: ["@STYLE_GLITCH","@STYLE_DATAMOSH","@STYLE_SURREAL","@STYLE_CHROMA","@STYLE_WATER"] },
+  ],
+  "neg": [
+    { label: "基础", color: "#d98c72", tokens: ["@NEG_BASE","@NEG_EXPO","@NEG_ANATOMY","@NEG_AI","@NEG_PERSPECTIVE","@NEG_BLUR","@NEG_OVEREXP","@NEG_SKIN","@NEG_CHILD","@NEG_NSFW"] },
+    { label: "服装/细节", color: "#d9b268", tokens: ["@NEG_FABRIC","@NEG_DRAPE_ON","@NEG_DRAPE_OFF","@NEG_HEM","@NEG_SHOES","@NEG_SOCKS","@NEG_THICKHOSE","@NEG_GARMENT","@NEG_COLORBLEED","@NEG_ACC_FACE","@NEG_FLOWER","@NEG_LONGHAIR","@NEG_CEL","@NEG_REAL","@NEG_HARDCEL"] },
+    { label: "布局", color: "#7aa2d6", tokens: ["@NEG_TEXT","@NEG_DOUBLE","@NEG_BGCLUTTER","@NEG_DIORAMA","@NEG_LETTERBOX","@NEG_GLITCHBAND","@NEG_OUTLINE","@NEG_CHIBI"] },
+    { label: "手/道具", color: "#7fc79a", tokens: ["@NEG_HANDS","@NEG_CUP","@NEG_BEDSIDE","@NEG_DESK","@NEG_TABLE","@NEG_HAND_ART","@NEG_PROPS"] },
+  ],
+};
+const SUBGROUP_MAP = (() => { const m = {}; for (const [cat,arr] of Object.entries(SUBGROUP_DEFS)) { arr.forEach((g,i) => g.tokens.forEach(t => { m[t] = { cat, idx: i, label: g.label, color: g.color }; })); } return m; })();
+function tintAttrs(name) {
+  const g = subgroupOf(name);
+  return g ? ' data-tint="1" style="--sc:' + g.color + '55"' : '';
+}
+
+
+
+/* 服装子分组（2026-11-08） */
+const OUTFIT_FAMILY = {
+  '日常便服': ['casual_knit','hoodie_casual','denim_set','cardigan_set','overalls','loungewear','sundress','sundress_floral','pajama','initial_fine_lite'],
+  '校园制服': ['school','school_bare','sailor_winter','gym','lab_coat','smock'],
+  '正式礼服': ['gala','initial_fine','initial_fine_gala','cheongsam','hanfu','suit','idol'],
+  '主题造型': ['maid','santa','swimsuit','yukata','yukata_bare','raincoat','winter'],
+  '默认套装': ['initial'],
+  '散件': ['tights']
+};
+const OUTFIT_FAMILY_COLOR = {
+  '日常便服': '#7aa2d6', '校园制服': '#7fc79a', '正式礼服': '#d9b268',
+  '主题造型': '#a78bd6', '默认套装': '#d98c72', '散件': '#6fc2c9'
+};
+function outfitFamilyOf(name) {
+  const k = String(name || '').toUpperCase();
+  if (/^@HOSE_/.test(k) || /^@OUT_(TIGHTS|SOCKS)/.test(k)) return '散件';
+  if (/^@OUTFIT/.test(k) || k === '@OUT_INITIAL') return '默认套装';
+  const key = k.replace(/^@OUT_/, '').toLowerCase();
+  for (const [fam, keys] of Object.entries(OUTFIT_FAMILY)) if (keys.includes(key)) return fam;
+  return '散件';
+}
+
+const SUBGROUP_PREFIX_RULES = {
+  neg: [
+    [/^@NEG_(BASE|EXPO|ANATOMY|AI|PERSPECTIVE|BLUR|OVEREXP|SKIN|CHILD|NSFW)/, '基础'],
+    [/^@NEG_(TEXT|DOUBLE|BGCLUTTER|DIORAMA|LETTERBOX|GLITCHBAND|OUTLINE|CHIBI)/, '布局'],
+    [/^@NEG_(HANDS|CUP|BEDSIDE|DESK|TABLE|HAND_ART|PROPS)/, '手/道具']
+  ]
+};
+
+function subgroupOf(name) {
+  const key = String(name || '').toUpperCase();
+  const custom = (S.tokenMeta && S.tokenMeta.subgroups) ? S.tokenMeta.subgroups[key] : null;
+  if (custom) return { cat: tokenCat(key), idx: 90, label: custom.label, color: custom.color || '#7aa2d6', custom: true };
+  const hit = SUBGROUP_MAP[key];
+  if (hit) return hit;
+  const cat = tokenCat(key);
+  if (cat === 'outfit') {
+    const fam = outfitFamilyOf(key);
+    const defs = SUBGROUP_DEFS.outfit || [];
+    const idx = defs.findIndex(d => d.label === fam);
+    return { cat, idx: idx >= 0 ? idx : 98, label: fam, color: OUTFIT_FAMILY_COLOR[fam] || '#7d8798' };
+  }
+  const rules = SUBGROUP_PREFIX_RULES[cat] || [];
+  for (const [re, label] of rules) {
+    if (re.test(key)) {
+      const defs = SUBGROUP_DEFS[cat] || [];
+      const idx = defs.findIndex(d => d.label === label);
+      const def = idx >= 0 ? defs[idx] : null;
+      return { cat, idx: idx >= 0 ? idx : 98, label, color: def ? def.color : '#7d8798' };
+    }
+  }
+  if (cat === 'neg') {
+    const defs = SUBGROUP_DEFS.neg || [];
+    const idx = defs.findIndex(d => d.label === '服装/细节');
+    return { cat, idx: idx >= 0 ? idx : 98, label: '服装/细节', color: idx >= 0 ? defs[idx].color : '#d9b268' };
+  }
+  return null;
+}
+
+
+/* 场景 × 机位 兼容表（2026-11-08） */
+const CAM_FRAMING = {
+  '@CAM_CLOSEUP': 'near', '@CAM_BUST': 'near', '@CAM_PROFILE': 'near', '@CAM_HIP': 'near',
+  '@CAM_MEDIUM': 'mid', '@CAM_THREEQ': 'mid',
+  '@CAM_FULL': 'far', '@CAM_BACKSIDE': 'far', '@CAM_REAR': 'far'
+};
+// 每个尺度的场景，适合哪些景别
+const SCENE_CAM_RULES = {
+  small: ['near', 'mid'],
+  medium: ['near', 'mid', 'far'],
+  large: ['mid', 'far']
+};
+function sceneScaleKey(name) {
+  const t = setScaleOf(name);
+  return t === '小' ? 'small' : t === '中' ? 'medium' : 'large';
+}
+function camFraming(cam) { return CAM_FRAMING[cam] || 'mid'; }
+function sceneCamCompatible(sceneTok, camTok) {
+  if (!sceneTok || !camTok) return true;
+  const sc = sceneScaleKey(sceneTok);
+  return (SCENE_CAM_RULES[sc] || []).includes(camFraming(camTok));
+}
+
+function setScaleOf(name) {
+  const k = String(name || '').toUpperCase();
+  for (const sc of ['set_small', 'set_medium', 'set_large']) {
+    if ((SET_SCALE_MAP[k] || '') === sc) return sc === 'set_small' ? '小' : sc === 'set_medium' ? '中' : '大';
+  }
+  return '中';
+}
+
 function paletteGroups() {
   const groups = {};
   for (const [name, text] of Object.entries(S.tokens)) {
@@ -327,12 +587,79 @@ function paletteGroups() {
   return groups;
 }
 
+
+/* ---------- 分类光引导（2026-11-08） ---------- */
+const GLOW_MODES = {
+  free:     ['id', 'cam', 'light', 'set', 'outfit', 'neg'],
+  portrait: ['id', 'cam', 'light', 'outfit', 'neg'],
+  scene:    ['id', 'cam', 'light', 'time', 'set', 'outfit', 'neg'],
+  story:    ['id', 'cam', 'set', 'pose', 'mood', 'neg']
+};
+function glowMode() {
+  const el = $('#guide-mode');
+  const v = el ? el.value : (loadJSON('loom.glowMode', 'free') || 'free');
+  return v || 'free';
+}
+function categoryCoverage() {
+  const pos = S.pos || [], neg = S.neg || [];
+  const hasTok = re => pos.some(b => re.test(b.token || ''));
+  const hasText = re => pos.some(b => !b.token && re.test(b.text || ''));
+  const hasNeg = re => neg.some(b => re.test(b.token || ''));
+  return {
+    id: hasTok(/^@ID/) || (hasText(/ivory white hair/i) && hasText(/heterochromia|red and one grey/i)),
+    body: hasTok(/^@BODY_/),
+    face: hasTok(/^@FACE_/),
+    cam: hasTok(/^@CAM_/),
+    light: hasTok(/^@LIGHT_/),
+    time: hasTok(/^@TIME_/),
+    set: hasTok(/^@SET_/),
+    outfit: hasTok(/^@OUT_/) || hasTok(/^@OUTFIT/),
+    pose: hasTok(/^@POSE_/),
+    mood: hasTok(/^@MOOD_/),
+    gaze: hasTok(/^@GAZE_/),
+    comp: hasTok(/^@COMP_/),
+    neg: hasNeg(/^@NEG_BASE/)
+  };
+}
+function artistCovered() {
+  return (S.loras || []).some(l => { try { return loraCat(l.name) === '画师'; } catch (e) { return false; } });
+}
+function renderGuideGlow() {
+  const mode = glowMode();
+  const on = mode !== 'off';
+  const cov = categoryCoverage();
+  const need = on ? (GLOW_MODES[mode] || GLOW_MODES.free) : [];
+  const missing = need.filter(k => !cov[k]);
+  $$('.rail-item').forEach(b => {
+    const cat = b.dataset.cat || '';
+    const isNeed = on && need.includes(cat) && !cov[cat];
+    b.classList.toggle('need', isNeed);
+  });
+  $$('.pal-group').forEach(g => {
+    const cat = g.dataset.cat || '';
+    const isNeed = on && need.includes(cat) && !cov[cat];
+    g.classList.toggle('need', isNeed);
+  });
+  const badge = $('#pal-artist-need');
+  if (badge) {
+    const miss = on && !artistCovered();
+    badge.hidden = !miss;
+    badge.textContent = miss ? '画师' : '';
+  }
+  if (on && missing.length === 0 && !S._glowDone) {
+    S._glowDone = true;
+    toast('主分类齐了，可以出图');
+  }
+  if (!on || missing.length) S._glowDone = false;
+}
+
 function renderPalette() {
   const box = $('#palette'), rail = $('#pal-rail');
   if (!box || !rail) return;
   const groups = paletteGroups();
-  const order = ['id','body','pose','face','mood','gaze','hand','hold','weapon','hair','cam','light','atmo','time',
-                 'outfit','fabric','drape','set','prop','comp','style','nsfw','neg','custom'];
+  const order = ['id','body','face','hair','acc','cam','set','prop','light','time','atmo',
+                 'outfit','fabric','drape','mood','gaze','pose','hand','hold','weapon',
+                 'comp','style','neg','nsfw','custom'];
   const collapsed = S.collapsedCats || (S.collapsedCats = loadJSON('loom.collapsedCats', {}));
   let html = '', railHtml = '';
   const hiddenNeg = S.showCompanionNeg ? new Set() : companionNegSet();
@@ -363,9 +690,57 @@ function renderPalette() {
       '<span class="caret">▾</span>' + label +
       '<span class="num">' + items.length + '</span></div>' +
       '<div class="pal-items' + (closed ? ' hidden' : '') + '" data-items="' + key + '">';
+    if (key === 'set') {
+      const order2 = ['小', '中', '大'];
+      items.sort((a, b) => order2.indexOf(setScaleOf(a[0])) - order2.indexOf(setScaleOf(b[0])));
+      let cur = '';
+      for (const [name] of items) {
+        const sc = setScaleOf(name);
+        if (sc !== cur) {
+          cur = sc;
+          html += '<div class="pal-sub" data-sub="' + sc + '">' + sc + '场景</div>';
+        }
+        const isFav = (S.fav || []).indexOf(name) >= 0;
+        html += '<div class="pal-item sc-' + (sc === '小' ? 'small' : sc === '中' ? 'medium' : 'large') + '" draggable="true" data-token="' + name + '" data-cat="' + key + '" title="' + sc + '场景">'
+          
+          + '<span class="tk">' + name + '</span>'
+          + '<span class="fav' + (isFav ? ' on' : '') + '" data-fav="' + name + '" title="收藏">' + (isFav ? '★' : '☆') + '</span>'
+          + '<span class="add">＋</span></div>';
+      }
+      html += '</div>';
+      railHtml += '<button class="rail-item" data-jump="' + key + '" data-cat="' + key + '" title="' + label + '"><i></i>' + (RAIL_SHORT[key] || label.slice(0, 2)) + '</button>';
+      continue;
+    }
+    const defs = SUBGROUP_DEFS[key];
+    if (defs) {
+      const rank = t => { const g = subgroupOf(t); return g ? g.idx : 99; };
+      items.sort((a, b) => rank(a[0]) - rank(b[0]));
+      let curIdx = -2, curLabel = '';
+      for (const [name] of items) {
+        const g = subgroupOf(name);
+        const gi = g ? g.idx : 99;
+        const lab0 = g ? g.label : '其他';
+        if (lab0 !== curLabel) {
+          curIdx = gi; curLabel = lab0;
+          const lab = g ? g.label : '其他';
+          const col = g ? g.color : '#7d8798';
+          html += '<div class="pal-sub" data-sub="' + esc(lab) + '" style="border-color:' + col + ';color:' + col + '">' + esc(lab) + '</div>';
+        }
+        const isFav = (S.fav || []).indexOf(name) >= 0;
+        html += '<div class="pal-item" draggable="true" data-token="' + name + '" data-cat="' + key + '"' + tintAttrs(name) + '>'
+          + '<span class="tk">' + name + '</span>'
+          + '<span class="fav' + (isFav ? ' on' : '') + '" data-fav="' + name + '" title="收藏">' + (isFav ? '★' : '☆') + '</span>'
+          + '<span class="add">＋</span></div>';
+      }
+      html += '</div>';
+      railHtml += '<button class="rail-item" data-jump="' + key + '" data-cat="' + key + '" title="' + label + '"><i></i>' + (RAIL_SHORT[key] || label.slice(0, 2)) + '</button>';
+      continue;
+    }
+    const szTag = '';
     for (const [name] of items) {
       const isFav = (S.fav || []).indexOf(name) >= 0;
       html += '<div class="pal-item" draggable="true" data-token="' + name + '" data-cat="' + key + '">'
+        + (szTag ? '<span class="sz sz-' + szTag + '" title="' + szTag + '场景">' + szTag + '</span>' : '')
         + '<span class="tk">' + name + '</span>'
         + '<span class="fav' + (isFav ? ' on' : '') + '" data-fav="' + name + '" title="收藏">' + (isFav ? '★' : '☆') + '</span>'
         + '<span class="add">＋</span></div>';
@@ -376,6 +751,7 @@ function renderPalette() {
   }
   box.innerHTML = html || '<div class="hint">没有匹配的积木</div>';
   rail.innerHTML = railHtml;
+  renderGuideGlow();
   bindTips(box);
 
   $$('.pal-group', box).forEach(g => g.onclick = () => {
@@ -612,6 +988,7 @@ function companionsOf(token) {
 
 function addBlock(lane, tokenOrObj) {
   const _t0 = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
+  if (/\.safetensors$/i.test(_t0)) { toast('LoRA 文件名不能当积木', true); return; }
   const _x0 = typeof tokenOrObj === 'object' && tokenOrObj ? String(tokenOrObj.text || '').trim() : '';
   if (!_t0 && !_x0) { toast('空积木已忽略（没有 token 也没有文本）', true); return; }
   if (lane === 'positive') {
@@ -664,10 +1041,12 @@ function renderLanes() {
       const body = b.token ? '<span class="tk">' + b.token + '</span>'
         : '<span class="txt">' + esc(b.text || '（空）') + '</span>';
       const cat = b.token ? tokenCat(b.token) : 'custom';
+      const scCls = (b.token && /^@SET_/.test(b.token)) ? ' sc-' + (setScaleOf(b.token) === '小' ? 'small' : setScaleOf(b.token) === '中' ? 'medium' : 'large') : '';
       const relX = b.token && (S.rel || {})[b.token] === 'X';
-      return '<div class="chip ' + (lane === 'positive' ? 'pos' : 'neg') + (b.enabled ? '' : ' off') +
+      return '<div class="chip' + scCls + ' ' + (lane === 'positive' ? 'pos' : 'neg') + (b.enabled ? '' : ' off') +
         (relX ? ' rel-x' : '') +
         '" draggable="true" data-id="' + b.id + '" data-lane="' + lane + '" data-cat="' + cat + '"' +
+        (b.token ? tintAttrs(b.token) : '') +
         (b.token ? ' data-token="' + b.token + '"' : '') + '>' +
         '<span class="grab">⠿</span>' +
         '<button class="on" data-toggle="' + b.id + '" data-lane="' + lane + '">' + (b.enabled ? '●' : '○') + '</button>' +
@@ -903,7 +1282,7 @@ function updateEta() {
   updateSizeHint();
 }
 
-const LORA_CAT_ORDER = ['角色', '动作', '画师', '加速'];
+const LORA_CAT_ORDER = ['角色', '动作', '画师', '风格', '加速'];
 function renderLoras() {
   if (typeof renderStyleLoraOptions === 'function') setTimeout(renderStyleLoraOptions, 0);
   const box = $('#lora-list');
@@ -918,16 +1297,27 @@ function renderLoras() {
     it.weight = loraCat(el.value) === '画师'
       ? ((typeof artistDefaultWeight === 'function' && artistDefaultWeight(el.value, currentCharLora())) || loraDefaultWeight(el.value))
       : loraDefaultWeight(el.value);
-    if (typeof isHeavyStyleLora === 'function' && isHeavyStyleLora(el.value)) toast('画师 LoRA 建议 0.1–0.3，过高会糊', true);
+    if (typeof isHeavyStyleLora === 'function' && isHeavyStyleLora(el.value)) toast('画师 LoRA 建议 0.6–1.3（标准 1.0）；低于 0.6 像没开，高于 1.3 容易糊', true);
     renderLoras();
   });
   $$('[data-lora-w]').forEach(el => {
-    const save = () => { const v = parseFloat(el.value); if (Number.isFinite(v)) S.loras[Number(el.dataset.loraW)].weight = v; };
+    const save = () => {
+      const v = parseFloat(el.value);
+      if (!Number.isFinite(v)) return;
+      const l = S.loras[Number(el.dataset.loraW)];
+      if (!l) return;
+      l.weight = v;
+      // 手动填的值就是最终值：标记 force，后续自动流程不再夹紧
+      l.force = true;
+      if (typeof artistLimit === 'function' && v > artistLimit(l.name) + 1e-6) {
+        toast('⚠ 权重 ' + v + ' 超过建议上限 ' + artistLimit(l.name) + '，画面可能糊或串色（已补 @NEG_COLORBLEED）', true);
+      }
+    };
     el.oninput = save; el.onchange = save;
     el.onblur = async () => {
       save();
       const l = S.loras[Number(el.dataset.loraW)];
-      if (l && loraCat(l.name) === '画师') {
+      if (l && loraCat(l.name) === '画师' && !l.force) {
         try {
           const byChar = {}; const ch = currentCharLora(); if (ch) byChar[ch] = l.weight;
           await api('/api/artist_recipe', { method: 'POST', body: JSON.stringify({ name: l.name, weight: l.weight, byChar }) });
@@ -949,42 +1339,67 @@ function renderLoras() {
 }
 
 /* ---------- 出图 ---------- */
-const STYLE_LOCK_APPLY = () => {
-  const lock = $('#p-lock');
-  const hard = !!(lock && lock.checked);
-  const anchor = hard ? '@STYLE_ANIME' : '@STYLE_SOFT';
-  const has = (arr, tok) => arr.some(b => b.token === tok);
-  S.pos = S.pos.filter(b => !(b.token || '').startsWith('@STYLE_') || b.token === anchor);
-  if (!has(S.pos, anchor)) S.pos.push({ id: uid(), token: anchor, text: '', weight: 1, enabled: true });
-  if (!has(S.neg, '@NEG_REAL')) S.neg.push({ id: uid(), token: '@NEG_REAL', text: '', weight: 1, enabled: true });
-  const ensureSoftLight = () => {
-    if (hard) return;
-    const hardLights = new Set(['@LIGHT_GOLDEN', '@LIGHT_TOP']);
-    const anyLight = S.pos.some(b => /^@LIGHT_/.test(b.token || ''));
-    const hardHit = S.pos.some(b => hardLights.has(b.token));
-    if (hardHit) {
-      const warm = S.pos.some(b => b.token === '@LIGHT_GOLDEN');
-      const softTok = warm ? '@LIGHT_SOFT_WARM' : '@LIGHT_SOFT';
-      S.pos = S.pos.filter(b => !hardLights.has(b.token));
-      if (!S.pos.some(b => b.token === softTok)) S.pos.push({ id: uid(), token: softTok, text: '', weight: 1, enabled: true });
-      return;
-    }
-    // 已有光型（WIN/NEON/CANDLE…）就尊重用户选择，不再叠加第二盏灯，避免发白
-    if (!anyLight) S.pos.push({ id: uid(), token: '@LIGHT_SOFT', text: '', weight: 1, enabled: true });
-  };
-  ensureSoftLight();
-  if (!hard) {
-    if (!has(S.neg, '@NEG_HARDCEL')) S.neg.push({ id: uid(), token: '@NEG_HARDCEL', text: '', weight: 1, enabled: true });
+
+function identityLevel() {
+  const el = $('#identity-strength');
+  const v = el ? Number(el.value) : 0.5;
+  return Number.isFinite(v) ? v : 0.5;
+}
+
+function artistDilutionGuard() {
+  // 画师权重较高时，按“身份强度”决定保留多少 OC 特征（0=交给画师，1=死锁）
+  const artist = (S.loras || []).find(l => {
+    try { return loraCat(l.name) === '画师' && Number(l.weight) >= 0.8; } catch (e) { return false; }
+  });
+  if (!artist) return 0;
+  const lvl = identityLevel();
+  let changed = 0;
+  const before = (S.pos || []).length;
+
+  // 画风竞争文本一律移除
+  S.pos = S.pos.filter(b => {
+    if (b.token) return true;
+    const tx = String(b.text || '').toLowerCase();
+    if (/soft focus|muted colors|clean anime illustration|soft cel shading|gentle gradient/.test(tx)) { changed++; return false; }
+    return true;
+  });
+  S.pos = S.pos.filter(b => {
+    const t = b.token || '';
+    if (t.startsWith('@STYLE_')) { changed++; return false; }
+    if (lvl < 1 && (t === '@ID' || t === '@SINGLE')) { changed++; return false; }
+    return true;
+  });
+
+  if (lvl <= 0) {
+    // 完全不锁身份：清掉所有身份描述
+    S.pos = S.pos.filter(b => {
+      if (b.token) return true;
+      return !/ivory white hair|heterochromia|white hair/i.test(b.text || '');
+    });
+    changed++;
   } else {
-    S.neg = S.neg.filter(b => b.token !== '@NEG_HARDCEL');
+    // 弱身份：用紧凑、无权重的描述；强身份：保留 @ID
+    S.pos = S.pos.filter(b => !(!b.token && /ivory white hair/i.test(b.text || '') && lvl >= 1));
+    if (lvl < 1 && !S.pos.some(b => !b.token && /ivory white hair/i.test(b.text || ''))) {
+      S.pos.unshift({ id: uid(), token: '', text: TEXT_ID, weight: lvl < 1 ? lvl : 1, enabled: true });
+      changed++;
+    }
   }
-  // 不再强制覆盖用户手填的权重；只在缺失/非法时才补建议值
+  if (changed) toast('画师模式（身份 ' + lvl + '）：已清画风文本' + (lvl < 1 ? '，身份改为紧凑描述' : '') + '（' + before + '→' + S.pos.length + ' 块）');
+  return changed;
+}
+
+const STYLE_LOCK_APPLY = () => {
+  artistDilutionGuard();
+  // 只补基础负向 @NEG_BASE；画风/光型/其他负向一律不自动加（2026-11-08）
+  if (!S.neg.some(b => b.token === '@NEG_BASE')) {
+    S.neg.push({ id: uid(), token: '@NEG_BASE', text: '', weight: 1, enabled: true });
+  }
   S.loras = (S.loras || []).map(l => {
     const w = Number(l.weight);
     if (!Number.isFinite(w) || w <= 0) return Object.assign({}, l, { weight: loraDefaultWeight(l.name) });
     return l;
   });
-  // 角色 LoRA 只能挂一个：同时挂 h2 + h4 会过曝/融脸
   let loraChanged = false;
   const hLoRas = S.loras.filter(l => /^sunhimi_h/i.test(l.name || ''));
   if (hLoRas.length > 1) {
@@ -993,9 +1408,20 @@ const STYLE_LOCK_APPLY = () => {
     loraChanged = true;
     toast('只保留一个角色 LoRA：' + keep.name);
   }
-  const hasH4 = S.loras.some(l => /sunhimi_h4/i.test(l.name || ''));
-  if (hasH4 && !S.neg.some(b => b.token === '@NEG_OVEREXP')) {
-    S.neg.push({ id: uid(), token: '@NEG_OVEREXP', text: '', weight: 1, enabled: true });
+  // 串色保护：白发角色 + 偏重画师/皮肤 LoRA 时补 @NEG_COLORBLEED
+  const whiteHair = (S.pos || []).some(b => b.token === '@ID' || /white hair/i.test(b.text || ''));
+  const heavy = (S.loras || []).some(l => {
+    const n = String(l.name || '');
+    const w = Number(l.weight) || 0;
+    if (/animaNai/i.test(n)) return w > 0.75;
+    if (/Skin_Enhancer/i.test(n)) return w > 0.45;
+    return w > 1.05;
+  });
+  if (whiteHair && heavy) {
+    if (!S.neg.some(b => b.token === '@NEG_COLORBLEED')) {
+      S.neg.push({ id: uid(), token: '@NEG_COLORBLEED', text: '', weight: 1, enabled: true });
+      toast('白发 + 偏重画师：已补 @NEG_COLORBLEED 防串色');
+    }
   }
   if (typeof renderLanes === 'function') renderLanes();
   if (loraChanged && typeof renderLoras === 'function') renderLoras();
@@ -1010,45 +1436,22 @@ function lostTraits(src, out) {
   return IDENT_TRAITS.filter(t => t.test.test(src || '') && !t.test.test(out || ''));
 }
 
-const QUALITY_SUFFIX = ', delicate shading, detailed face, subtle shadows, crisp details';
-const TEXT_NEG = 'soft focus, hazy, flat colors, washed out, blurry, oversaturated, yellow cast';
-function polishTextBlock(b) {
-  if (!b || b.token) return false;
-  let t = b.text || '';
-  const before = t;
-  t = t.replace(/[,;]?\s*soft focus[^,.;]*/gi, '').replace(/[,;]?\s*dreamy glow[^,.;]*/gi, '');
-  if (!/delicate shading|detailed face|intricate details/i.test(t)) t = t.replace(/[.\s]*$/, '') + QUALITY_SUFFIX;
-  b.text = t.replace(/\s{2,}/g, ' ').replace(/,\s*,/g, ',');
-  return b.text !== before;
-}
-function ensureTextNegatives() {
-  const has = S.neg.some(b => (b.text || '').includes('soft focus'));
-  if (!has) S.neg.push({ id: uid(), token: '', text: TEXT_NEG, weight: 1, enabled: true });
-}
-
 const ID_LORA_GUARD = () => {
   const hasId = S.pos.some(b => b.token === '@ID' || (!b.token && /white hair/i.test(b.text || '')));
   const charLoras = (S.loras || []).filter(l => /^sunhimi_/i.test(l.name || ''));
-  let changed = 0;
   if (!hasId || !charLoras.length) return 0;
-  for (const l of charLoras) {
-    const w = Number(l.weight) || 0;
-    if (w >= 0.7) { l.weight = 0.55; changed++; }
+  const heavy = charLoras.filter(l => (Number(l.weight) || 0) > 0.7);
+  if (heavy.length) {
+    toast('提醒：@ID + 角色 LoRA ' + heavy.map(l => l.weight).join('/') + ' 可能过曝，建议降到 0.5–0.6（未自动修改）', true);
   }
-  if (changed) toast('身份锁 + 角色 LoRA 易过曝：已把 ' + changed + ' 个 LoRA 降到 0.55');
-  if (!S.neg.some(b => b.token === '@NEG_OVEREXP')) {
-    S.neg.push({ id: uid(), token: '@NEG_OVEREXP', text: '', weight: 1, enabled: true });
-    toast('已补 @NEG_OVEREXP 防死白');
-    changed++;
-  }
-  return changed;
+  return 0;
 };
 
 
 const STYLE_LORA_GUARD = () => {
   let changed = 0;
   const anima = (S.loras || []).find(l => /animaNai/i.test(l.name || ''));
-  if (anima && Number(anima.weight) > 0.75) { anima.weight = 0.75; changed++; toast('animaNai 已压到 0.75'); }
+  if (anima && Number(anima.weight) > 0.75) { toast('提醒：animaNai ' + anima.weight + ' 偏高，建议 ≤0.7（未自动修改）', true); }
   return changed;
 };
 
@@ -1069,11 +1472,24 @@ const FACE_CHIBI_GUARD = () => {
   return changed;
 };
 
+const SCENE_CAM_WARN = () => {
+  const scene = (S.pos.find(b => (b.token || '').startsWith('@SET_')) || {}).token;
+  const cam = (S.pos.find(b => (b.token || '').startsWith('@CAM_')) || {}).token;
+  if (scene && cam && !sceneCamCompatible(scene, cam)) {
+    toast('场景与机位不搭：' + scene + '（' + setScaleOf(scene) + '）配 ' + cam + '，建议换 ' + (sceneScaleKey(scene) === 'large' ? '@CAM_MEDIUM 或 @CAM_FULL' : '@CAM_BUST 或 @CAM_MEDIUM'), true);
+    return 1;
+  }
+  return 0;
+};
+
 const CAM_CONFLICT_GUARD = () => {
   const hasSingle = S.pos.some(b => b.token === '@SINGLE');
-  const bad = S.pos.filter(b => b.token === '@CAM_FULL' || b.token === '@CAM_MEDIUM');
+  const hasScene = S.pos.some(b => (b.token || '').startsWith('@SET_'));
+  const wide = new Set(['@CAM_FULL', '@CAM_MEDIUM']);
+  if (hasScene) wide.add('@CAM_THREEQ');
+  const bad = S.pos.filter(b => wide.has(b.token));
   if (!hasSingle || !bad.length) return 0;
-  S.pos = S.pos.filter(b => !(b.token === '@CAM_FULL' || b.token === '@CAM_MEDIUM'));
+  S.pos = S.pos.filter(b => !wide.has(b.token));
   toast('构图冲突：@SINGLE 已声明“填满画面”，已移除 ' + bad.map(b => b.token).join('/'));
   return bad.length;
 };
@@ -1111,6 +1527,7 @@ async function smartFix() {
   changed += FACE_CHIBI_GUARD();
   changed += ID_LORA_GUARD();
   changed += STYLE_LORA_GUARD();
+  SCENE_CAM_WARN();
   PALE_LORA_WARN();
   STYLE_SCENE_WARN();
   ARTIST_LAYOUT_WARN();
@@ -1128,7 +1545,7 @@ const STYLE_TEXT = {
   line: '(clean lineart:0.7), (crisp outlines:0.6)',
 };
 
-const TEXT_ID = '1girl, solo, upper body, ivory white hair, straight fringe, heterochromia one red and one grey eye, a sunflower hair ornament';
+const TEXT_ID = '1girl, solo, upper body, ivory white hair, straight fringe, heterochromia one red and one grey eye';
 const ARTIST_STYLE_TEXT = {
   'animaNai': 'clean anime illustration, soft cel shading, gentle gradients',
   'Lucent': 'heavy ink lineart, bold black areas, textured brush shading, painterly finish',
@@ -1144,6 +1561,13 @@ function artistStyleText(name) {
   return key ? ARTIST_STYLE_TEXT[key] : '';
 }
 
+const ARTIST_NOTES = {
+  'silver palace': '弱 3D 风格：权重 1.3、只挂它一个 LoRA、身份用文本别用 @ID；场景/服装/光各留 1 块。',
+  'koukouya': '扁平矢量风（低对比、硬边），想要厚涂请换 Lucent / ashima',
+  'kanzarin': '线条细、冷调，适合清爽插画',
+  'ka-996beshi': '暖肤色、锐眼线，适合特写',
+};
+
 const GENERIC_ARTIST = { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true };
 const ARTIST_RECIPES = {
   'Lucent': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
@@ -1158,9 +1582,17 @@ function artistRecipe(name) {
   const n = String(name || '');
   const key = Object.keys(ARTIST_RECIPES).find(k => n.includes(k));
   const base = Object.assign({}, GENERIC_ARTIST, key ? ARTIST_RECIPES[key] : {});
+  // 权重单一来源：优先学习值，其次角色默认表，最后 1.0
+  const learned = (typeof artistDefaultWeight === 'function') ? artistDefaultWeight(name, currentCharLora()) : null;
+  base.weight = (learned != null ? learned : 1.0);
   const ov = (S.artistRecipes || {})[n] || (S.artistRecipes || {})[n.replace('.safetensors', '')];
   if (ov && ov.weight != null) base.weight = ov.weight;
   return base;
+}
+
+function isHeavyStyleLora(name) {
+  // 只有"画师"类且默认权重要在 0.6 以上时才提示，避免每选一次都弹
+  try { return loraCat(name) === '画师'; } catch (e) { return false; }
 }
 
 function styleLoraWeight(name) {
@@ -1185,8 +1617,23 @@ function currentCharLora() {
   return l ? l.name : '';
 }
 
+function applyArtistFree() {
+  const sel = document.querySelector('#style-lora');
+  const name = sel ? sel.value : '';
+  if (!name) { toast('先选一位画师 LoRA', true); return; }
+  pushHistory();
+  S.pos = [{ id: uid(), token: '', text: '1girl, solo, upper body, looking at viewer, grey background', weight: 1, enabled: true }];
+  S.neg = ['@NEG_BASE'].map(t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true }));
+  S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师' && !/animaNai/i.test(l.name || ''));
+  const w = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(name, currentCharLora()) : null) || 1.0;
+  S.loras.push({ name, weight: w });
+  renderLoras(); renderLanes(); expandPreview();
+  toast('画师自由发挥：' + shortLoraName(name) + ' ' + w + '（画布已简化）');
+}
+
 function applyStyleLora(name) {
   pushHistory();
+  const prevForced = (S.loras || []).find(l => l.name === name && l.force);
   S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
   S.pos = S.pos.filter(b => !b.artist);
   if (name && !/animaNai/i.test(name)) S.loras = S.loras.filter(l => !/animaNai/i.test(l.name || ''));
@@ -1196,14 +1643,20 @@ function applyStyleLora(name) {
     const w = (learned && learned.byChar && learned.byChar[charName])
       || (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(name, charName) : null)
       || styleLoraWeight(name);
-    S.loras.push({ name, weight: w });
-    if (isHeavyStyleLora(name)) toast('画师 LoRA 建议 0.1–0.3（这次用 ' + styleLoraWeight(name) + '）', true);
+    const mult = Number(($('#artist-strength') || {}).value) || 1;
+    const baseW = prevForced ? prevForced.weight : (w * mult);
+    S.loras = (S.loras || []).filter(l => l.name !== name);
+    S.loras.push({ name, weight: Math.round(baseW * 100) / 100, force: !!prevForced });
+    if (typeof artistLimit === 'function' && baseW > artistLimit(name) + 1e-6) {
+      toast('⚠ 这次权重 ' + baseW + ' 超过建议上限 ' + artistLimit(name) + '，可能糊或串色', true);
+    }
   }
   if (name) {
     const rec = artistRecipe(name);
     if (rec) {
       const removed = [];
-      S.pos = S.pos.filter(b => { if (rec.drop.includes(b.token)) { removed.push(b.token); return false; } return true; });
+      const dropList = identityLevel() >= 1 ? rec.drop.filter(t => t !== '@ID') : rec.drop;
+      S.pos = S.pos.filter(b => { if (dropList.includes(b.token)) { removed.push(b.token); return false; } return true; });
       for (const t of rec.add) if (!S.pos.some(b => b.token === t)) S.pos.push({ id: uid(), token: t, text: '', weight: 1, enabled: true });
       if (rec.textId && !S.pos.some(b => !b.token && /ivory white hair/i.test(b.text || ''))) {
         S.pos.unshift({ id: uid(), token: '', text: TEXT_ID, weight: 1, enabled: true });
@@ -1215,10 +1668,13 @@ function applyStyleLora(name) {
   if (styleText) {
     S.pos.push({ id: uid(), token: '', text: styleText, weight: 1, enabled: true, artist: true });
   }
+  const note = Object.keys(ARTIST_NOTES).find(k => String(name || '').includes(k));
   saveJSON('loom.styleLora', name || '');
   renderLoras(); renderStyleLoraOptions(); expandPreview();
   const cur = (S.loras || []).find(l => l.name === name);
-  toast(name ? ('画师 LoRA：' + shortLoraName(name) + ' ' + (cur ? cur.weight : '')) : '画师 LoRA：无');
+  toast(name
+    ? ('画师 LoRA：' + shortLoraName(name) + ' ' + (cur ? cur.weight : '') + (note ? '｜' + ARTIST_NOTES[note] : ''))
+    : '画师 LoRA：无', !!note);
 }
 
 function applyStyle(kind, custom) {
@@ -1344,6 +1800,11 @@ function showResult(input, seed, elapsed) {
   const list = Array.isArray(input) ? input.slice() : [input];
   S.rl = list; S.ri = 0;
   renderResultView(seed, elapsed);
+}
+
+function refreshRecipesIfVisible() {
+  const tab = document.querySelector('#tabs button.active');
+  if (tab && tab.dataset.tab === 'recipe') loadRecipes();
 }
 
 function renderResultView(seed, elapsed) {
@@ -1544,6 +2005,8 @@ async function exportSelected() {
 let ZV = { scale: 1, tx: 0, ty: 0, fitted: false };
 
 function importRecipe(r) {
+  const before = (S.pos || []).length + (S.neg || []).length;
+  if (typeof pushHistory === 'function') pushHistory();
   const pick = b => ({ id: uid(), token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false });
   S.pos = (r.blocks_pos || []).filter(b => b.token || b.text).map(pick);
   S.neg = (r.blocks_neg || []).filter(b => b.token || b.text).map(pick);
@@ -1569,7 +2032,7 @@ function importRecipe(r) {
   expandPreview();
   if (typeof updateEta === 'function') updateEta();
   if (typeof persistParams === 'function') persistParams();
-  toast('已导入配方：' + S.pos.length + ' 正 / ' + S.neg.length + ' 负 · seed ' + (r.seed ?? '随机'));
+  toast('已导入并清空原画布（原 ' + before + ' 块）→ ' + S.pos.length + ' 正 / ' + S.neg.length + ' 负 · seed ' + (r.seed ?? '随机'));
 }
 
 const RAND_SCENE = {
@@ -1686,106 +2149,167 @@ function randomOutfitOnly() {
   toast('只换服装：' + label);
 }
 
+const RAND_TIME_LIGHT = {
+  '@TIME_MORNING': ['@LIGHT_WIN', '@LIGHT_SIDE', '@LIGHT_TOP'],
+  '@TIME_AFTERNOON': ['@LIGHT_WIN', '@LIGHT_GOLDEN', '@LIGHT_SIDE'],
+  '@TIME_DUSK': ['@LIGHT_GOLDEN', '@LIGHT_RIM', '@LIGHT_BACK'],
+  '@TIME_NIGHT': ['@LIGHT_NEON', '@LIGHT_CANDLE', '@LIGHT_TOP', '@LIGHT_STUDIO'],
+  '@TIME_NOON': ['@LIGHT_WIN', '@LIGHT_TOP'],
+  '@TIME_DAWN': ['@LIGHT_RAY', '@LIGHT_BACK']
+};
+const RAND_CAM_BY_FRAME = {
+  near: ['@CAM_BUST', '@CAM_CLOSEUP', '@CAM_PROFILE', '@CAM_HIP'],
+  mid: ['@CAM_MEDIUM', '@CAM_THREEQ', '@CAM_LOW', '@CAM_HIGH'],
+  far: ['@CAM_FULL', '@CAM_BACKSIDE', '@CAM_REAR', '@CAM_TOP', '@CAM_WORM']
+};
+const RAND_COMP_BY_FRAME = {
+  near: ['@COMP_CENTER', '@COMP_THIRDS', '@COMP_MACRO', '@COMP_DOF', '@COMP_FRAME', '@COMP_LOOKROOM'],
+  mid: ['@COMP_THIRDS', '@COMP_LEADING', '@COMP_LAYERS', '@COMP_FRAME', '@COMP_CURVE', '@COMP_OVER_SHOULDER'],
+  far: ['@COMP_WIDE', '@COMP_VAST', '@COMP_LEADING', '@COMP_SYMMETRY', '@COMP_HORIZON_HIGH', '@COMP_LAYERS', '@COMP_SILHOUETTE']
+};
+const RAND_SCENE_ONLY_OUTFITS = {
+  '@SET_BEACH': ['swimsuit', 'sundress'],
+  '@SET_ONSEN': ['yukata', 'loungewear'],
+  '@SET_FESTIVAL': ['yukata'],
+  '@SET_SHRINE': ['yukata', 'casual_knit'],
+  '@SET_SNOWFIELD': ['winter'],
+  '@SET_STADIUM': ['gym', 'casual_knit'],
+  '@SET_GYM': ['gym'],
+  '@SET_CAFETERIA': ['school', 'casual_knit'],
+  '@SET_SCHOOLYARD': ['school', 'gym'],
+  '@SET_HARBOR': ['raincoat', 'casual_knit'],
+  '@SET_OFFICE': ['suit'],
+  '@SET_HOTEL_LOBBY': ['gala', 'suit'],
+  '@SET_THEATER': ['gala', 'idol'],
+  '@SET_CLASSROOM': ['school'],
+  '@SET_STATION_HALL': ['school', 'winter'],
+  '@SET_AIRPORT': ['casual_knit', 'suit'],
+};
+
 function randomCompose() {
   const all = Object.keys(S.tokens || {});
   if (!all.length) return;
+  const has = t => !!t && all.includes(t);
   const hist = S._randHist || [];
-  const last1 = hist[hist.length - 1] || {};
+  const last = hist[hist.length - 1] || {};
   const last2 = hist[hist.length - 2] || {};
-  const last3 = hist[hist.length - 3] || {};
-  const pick = a => weightedPick(a, a[0]);
-  const has = t => all.includes(t);
-  const okNote = t => !(S.notes[t] || '').includes('失败');
-  const byPrefix = p => all.filter(t => t.startsWith(p) && okNote(t));
-  const exclude = (arr, vals) => arr.filter(t => !vals.includes(t));
-  const some = a => a.filter(Boolean);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const fromPrefix = p => all.filter(t => t.startsWith(p) && !(S.notes[t] || '').includes('失败'));
+  const without = (arr, vals) => arr.filter(t => !vals.includes(t));
 
-  const outfitsAll = Object.keys(S.garments || {}).filter(k => !['swimsuit', 'school_bare', 'yukata_bare'].includes(k));
-
-  const scenePool = exclude(byPrefix('@SET_'), [last1.scene, last2.scene, last3.scene]);
-  const scene = pick(scenePool.length ? scenePool : byPrefix('@SET_'));
+  // 1. 场景
+  let scenePool = without(fromPrefix('@SET_'), [last.scene, last2.scene]);
+  const scene = scenePool.length ? pick(scenePool) : pick(fromPrefix('@SET_'));
   const prof = RAND_SCENE[scene] || {};
-  const indoor = !RAND_OUTDOOR.has(scene);
+  const scale = scene ? sceneScaleKey(scene) : 'medium';
 
-  let outfitPool = (sceneOutfitFor(scene) || []).filter(k => outfitsAll.includes(k));
-  if (RAND_PRIVATE_SCENES.has(scene)) outfitPool = outfitPool.concat(['slip', 'pajama', 'loungewear']);
-  outfitPool = outfitPool.filter(k => !(RAND_PRIVATE_OUTFITS.has(k) && !RAND_PRIVATE_SCENES.has(scene)));
-  outfitPool = exclude(outfitPool, [last1.outfit, last2.outfit, last3.outfit]);
-  if (!outfitPool.length) outfitPool = outfitsAll;
+  // 2. 景别与机位：先定 framing，再选具体机位
+  const framingPool = scale === 'large' ? ['mid', 'far'] : scale === 'small' ? ['near', 'mid'] : ['near', 'mid', 'far'];
+  const framing = pick(framingPool);
+  let camPool = RAND_CAM_BY_FRAME[framing].filter(has);
+  camPool = without(camPool, [last.cam]);
+  if (!camPool.length) camPool = RAND_CAM_BY_FRAME[framing].filter(has);
+  const cam = camPool.length ? pick(camPool) : '';
+
+  // 3. 服装
+  const outfitsAll = Object.keys(S.garments || {}).filter(k => !['school_bare', 'yukata_bare'].includes(k));
+  let outfitPool = (RAND_SCENE_ONLY_OUTFITS[scene] || sceneOutfitFor(scene) || []).filter(k => outfitsAll.includes(k));
+  if (RAND_PRIVATE_SCENES.has(scene)) outfitPool = outfitPool.concat(['pajama', 'loungewear'].filter(k => outfitsAll.includes(k)));
+  outfitPool = without(outfitPool, [last.outfit, last2.outfit]);
+  if (!outfitPool.length) outfitPool = outfitsAll.filter(k => !['swimsuit'].includes(k));
   const outfit = pick(outfitPool);
 
-  const camPool = exclude(['@CAM_THREEQ', '@CAM_BUST', '@CAM_CLOSEUP'], [last1.cam]);
-  const cam = pick(camPool);
-  const needsPose = cam === '@CAM_FULL' || cam === '@CAM_THREEQ' || cam === '@CAM_MEDIUM';
-  const posePoolBase = (prof.pose && prof.pose.length ? prof.pose : byPrefix('@POSE_'))
-    .filter(t => t !== '@POSE_LIE' || cam === '@CAM_FULL')
-    .filter(t => t !== last1.pose);
-  const pose = needsPose ? pick(posePoolBase.length ? posePoolBase : byPrefix('@POSE_')) : '';
-
-  const timePool = ((prof.time && prof.time.length) ? prof.time : byPrefix('@TIME_')).filter(has);
-  const time = timePool.length ? pick(exclude(timePool, [last1.time]).length ? exclude(timePool, [last1.time]) : timePool) : '';
-  const paleChar = (S.loras || []).some(l => /sunhimi_(h1|h3|h4|v[2-6])\.safetensors$/i.test(l.name || ''));
-  let lightPool = ((prof.light && prof.light.length) ? prof.light : byPrefix('@LIGHT_')).filter(has);
-  if (paleChar) lightPool = lightPool.filter(t => t !== '@LIGHT_BACK');
-  const light = lightPool.length ? pick(exclude(lightPool, [last1.light]).length ? exclude(lightPool, [last1.light]) : lightPool) : '';
-
-  const gazePool = byPrefix('@GAZE_').filter(t => t !== '@GAZE_CLOSED');
-  const gaze = ((cam === '@CAM_BUST' || cam === '@CAM_CLOSEUP') && Math.random() < 0.6 && has('@GAZE_CAMERA'))
-    ? '@GAZE_CAMERA' : (gazePool.length ? pick(gazePool) : '');
-  const chibiPool = byPrefix('@BODY_').filter(t => CHIBI_BODIES.has(t));
-  const bodyPool = byPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH'].includes(t) && !CHIBI_BODIES.has(t));
-  const useChibi = chibiPool.length > 0 && Math.random() < 0.08;
-  const body = useChibi ? pick(chibiPool) : (bodyPool.length ? pick(bodyPool) : '');
-  const facePool = byPrefix('@FACE_').filter(t => t !== '@FACE_ADULT' && (useChibi || t !== '@FACE_CHIBI'));
-  const face = facePool.length ? pick(facePool) : '';
-
-  const pos = ['@SINGLE', '@ID', body, face, gaze, cam, time, light, scene, '@OUT_' + outfit.toUpperCase()];
-  if (pose) pos.push(pose);
-  const moodPool = ((prof.mood && prof.mood.length) ? prof.mood : byPrefix('@MOOD_')).filter(has);
-  if (moodPool.length && Math.random() < 0.6) pos.push(pick(moodPool));
-  const atmoPool = ((prof.atmo && prof.atmo.length) ? prof.atmo : byPrefix('@ATMO_')).filter(has).filter(t => RAND_OUTDOOR.has(scene) || !/RAIN|PETALS|MOON/.test(t));
-  if (atmoPool.length && Math.random() < 0.3) pos.push(pick(atmoPool));
-  if (Math.random() < 0.3) pos.push(pick(byPrefix('@COMP_')));
-  const bgPool = ['@BG_DEPTH', '@BG_SHADOWFALL', '@BG_FRAME'].filter(has);
-  if (bgPool.length && Math.random() < 0.2) pos.push(pick(bgPool));
-  if (!RAND_SOCKED_OUTFITS.has(outfit) && Math.random() < 0.35) {
-    const hose = RAND_HOSE_POOL.filter(has);
-    if (hose.length) pos.push(pick(hose));
+  // 4. 时间与光：同一套光源表，避免"清晨 + 霓虹"
+  let timePool = ((prof.time && prof.time.length) ? prof.time : fromPrefix('@TIME_')).filter(has);
+  timePool = without(timePool, [last.time]);
+  const time = timePool.length ? pick(timePool) : '';
+  let lightPool = ((prof.light && prof.light.length) ? prof.light : (RAND_TIME_LIGHT[time] || [])).filter(has);
+  if (!lightPool.length) lightPool = fromPrefix('@LIGHT_').filter(has);
+  if ((S.loras || []).some(l => /sunhimi_(h1|h3|h4|v[2-6])\.safetensors$/i.test(l.name || ''))) {
+    lightPool = lightPool.filter(t => t !== '@LIGHT_BACK');
   }
+  lightPool = without(lightPool, [last.light]);
+  const light = lightPool.length ? pick(lightPool) : '';
 
-  // 画师：20% 概率随机一位，按角色权重 + 风格提示
+  // 5. 姿势 / 视线 / 情绪 / 氛围
+  const needPose = framing !== 'near';
+  let posePool = ((prof.pose && prof.pose.length) ? prof.pose : fromPrefix('@POSE_')).filter(has);
+  posePool = posePool.filter(t => t !== '@POSE_LIE' || framing === 'far').filter(t => t !== last.pose);
+  const pose = needPose && posePool.length ? pick(posePool) : '';
+  const gazePool = fromPrefix('@GAZE_').filter(t => t !== '@GAZE_CLOSED');
+  const gaze = (framing === 'near' && has('@GAZE_CAMERA') && Math.random() < 0.65)
+    ? '@GAZE_CAMERA' : (gazePool.length ? pick(gazePool) : '');
+  const moodPool = ((prof.mood && prof.mood.length) ? prof.mood : fromPrefix('@MOOD_')).filter(has);
+  const mood = moodPool.length && Math.random() < 0.55 ? pick(moodPool) : '';
+  const atmoPool = ((prof.atmo && prof.atmo.length) ? prof.atmo : fromPrefix('@ATMO_')).filter(has)
+    .filter(t => RAND_OUTDOOR.has(scene) || !/RAIN|PETALS|MOON/.test(t));
+  const atmo = atmoPool.length && Math.random() < 0.3 ? pick(atmoPool) : '';
+
+  // 6. 构图：与景别匹配
+  const compPool = RAND_COMP_BY_FRAME[framing].filter(has);
+  const comp = compPool.length && Math.random() < 0.35 ? pick(compPool) : '';
+
+  // 7. 身份：三种模式，按景别降级
+  const roll = Math.random();
+  let identityMode;
+  if (framing === 'near') identityMode = roll < 0.15 ? 'none' : roll < 0.55 ? 'text' : 'block';
+  else identityMode = roll < 0.2 ? 'none' : 'text';
+
+  // 8. 画师
   let artistName = '';
-  if (Math.random() < 0.2) {
-    const pool = (S.loraFiles || []).filter(f => loraCat(f) === '画师' && !/animaNai/i.test(f));
+  if (Math.random() < 0.25) {
+    const pool = (S.loraFiles || []).filter(f => loraCat(f) === '画师' && !(typeof isFlatProneArtist === 'function' && isFlatProneArtist(f)));
     if (pool.length) {
-      artistName = pool[Math.floor(Math.random() * pool.length)];
-      S.loras = (S.loras || []).filter(l => !/animaNai/i.test(l.name || '') && loraCat(l.name) !== '画师');
-      const cw = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(artistName, currentCharLora()) : null) || 0.7;
+      artistName = pick(pool);
+      S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
+      const cw = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(artistName, currentCharLora()) : null) || 1.0;
       S.loras.push({ name: artistName, weight: cw });
-      const st = typeof artistStyleText === 'function' ? artistStyleText(artistName) : '';
-      if (st) pos.push({ id: uid(), token: '', text: st, weight: 1, enabled: true, artist: true });
     }
   }
-  const lockOn = !!($('#p-lock') && $('#p-lock').checked);
-  const styleAnchor = lockOn && has('@STYLE_ANIME') ? '@STYLE_ANIME' : '@STYLE_SOFT';
-  // @STYLE_* 会压掉场景背景，随机不再添加（2026-11-07）
 
-  const neg = ['@NEG_BASE', '@NEG_HANDS', '@NEG_REAL', '@NEG_' + outfit.toUpperCase()];
-  if (['@LIGHT_NEON', '@LIGHT_CANDLE'].includes(light) || time === '@TIME_NIGHT') neg.push('@NEG_SKIN');
-  if (pose) neg.push('@NEG_ANATOMY');
+  // 9. 组装
+  const blocks = [];
+  const add = t => { if (t && has(t)) blocks.push({ id: uid(), token: t, text: '', weight: 1, enabled: true }); };
+  if (identityMode === 'block') { add('@SINGLE'); add('@ID'); }
+  else {
+    blocks.push({ id: uid(), token: '', text: identityMode === 'text' ? TEXT_ID : '1girl, solo, upper body', weight: 1, enabled: true });
+  }
+  add(pick(fromPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH', '@BODY_CHIBI'].includes(t))) || '');
+  add(pick(fromPrefix('@FACE_').filter(t => t !== '@FACE_CHIBI')) || '');
+  add(gaze); add(cam); add(time); add(light); add(scene);
+  add('@OUT_' + String(outfit).toUpperCase());
+  add(pose); add(mood); add(atmo); add(comp);
+  if (!RAND_SOCKED_OUTFITS.has(outfit) && Math.random() < 0.3) {
+    const hose = RAND_HOSE_POOL.filter(has);
+    if (hose.length) add(pick(hose));
+  }
+  // 近景 + 场景：景深锚
+  if (scene && framing === 'near') {
+    blocks.push({ id: uid(), token: '', text: '(shallow depth of field:1.15), (the room softly behind her:1.1), (she stays close to the camera:1.15)', weight: 1, enabled: true });
+  }
 
-  const mk = t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true });
-  S.pos = pos.filter(t => (t && t.text) || has(t)).map(t => (t && t.text) ? { id: uid(), token: '', text: t.text, weight: 1, enabled: true, artist: true } : mk(t));
-  S.neg = neg.filter(t => has(t)).map(mk);
-  const seed = 100000 + Math.floor(Math.random() * 899999);
-  S.loras = (S.loras || []).map((l) => {
-    const cat = loraCat(l.name);
-    let w = 0.66;
-    if (cat === '角色') w = 0.5;
-    else if (cat === '画师') w = (typeof artistDefaultWeight === 'function' && artistDefaultWeight(l.name, l.name)) || 0.7;
-    else if (cat === '加速') w = 0.75;
-    return Object.assign({}, l, { weight: w });
+  // 10. 负向
+  const negToks = ['@NEG_BASE', '@NEG_HANDS'];
+  const outfitNeg = '@NEG_' + String(outfit).toUpperCase();
+  if (has(outfitNeg)) negToks.push(outfitNeg);
+  if (pose) negToks.push('@NEG_ANATOMY');
+  if (artistName && /animaNai|Skin_Enhancer/i.test(artistName)) negToks.push('@NEG_COLORBLEED');
+
+  S.pos = blocks;
+  S.neg = negToks.filter(has).map(t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true }));
+
+  // 11. LoRA：只修非法值，不再覆盖用户权重
+  S.loras = (S.loras || []).map(l => {
+    const w = Number(l.weight);
+    if (!Number.isFinite(w) || w <= 0) {
+      const cat = loraCat(l.name);
+      const dflt = cat === '角色' ? loraDefaultWeight(l.name) : (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(l.name, currentCharLora()) : null) || loraDefaultWeight(l.name);
+      return Object.assign({}, l, { weight: dflt });
+    }
+    return l;
   });
+
+  const seed = 100000 + Math.floor(Math.random() * 899999);
   const sizeSel = document.querySelector('#p-size');
   if (sizeSel && [...sizeSel.options].some(o => o.value === '1024x1536')) sizeSel.value = '1024x1536';
   const customSize = document.querySelector('#custom-size');
@@ -1793,13 +2317,17 @@ function randomCompose() {
   if (document.querySelector('#p-seed')) document.querySelector('#p-seed').value = seed;
   if (document.querySelector('#p-steps')) document.querySelector('#p-steps').value = 30;
   if (document.querySelector('#p-cfg')) document.querySelector('#p-cfg').value = 5.5;
-  S._randHist = hist.concat([{ scene, outfit, cam, pose, time, light }]).slice(-8);
+
+  S._randHist = hist.concat([{ scene, outfit, cam, pose, time, light, framing, identityMode }]).slice(-8);
   renderLanes();
   expandPreview();
   if (typeof updateEta === 'function') updateEta();
   const label = (S.garments[outfit] && S.garments[outfit].label) || outfit;
-  toast('随机：' + String(scene || '').replace('@SET_', '') + ' · ' + label + ' · ' + String(light || '无光').replace('@LIGHT_', '') + ' · ' + (lockOn ? '硬边' : '柔和') + ' · seed ' + seed);
+  toast('随机：' + String(scene || '').replace('@SET_', '') + ' · ' + label + ' · ' +
+        ({ near: '近景', mid: '中景', far: '远景' }[framing] || '') + ' · ' +
+        String(light || '无光').replace('@LIGHT_', '') + ' · 身份 ' + identityMode + ' · seed ' + seed);
 }
+
 
 function randomComposePlaceholder() {}
 
@@ -2011,12 +2539,14 @@ function bindZoom(path) {
 
 /* ---------- 词库：组合推荐 ---------- */
 const COMBOS = [
-  { name: '电影感封面', tokens: ['@CUSTOM_FRAMEINFRAME', '@BG_DARKFALL', '@LIGHT_RIM'] },
-  { name: '梦境', tokens: ['@CUSTOM_SURREAL', '@CUSTOM_FLOAT', '@ATMO_FOG'] },
-  { name: '海报', tokens: ['@CUSTOM_SPOTCOLOR', '@CUSTOM_GRAPHIC', '@COMP_MINIMAL'] },
-  { name: '冲击力', tokens: ['@CUSTOM_FORESHORTEN', '@CUSTOM_ZOOMBLUR', '@CAM_LOW'] },
-  { name: '叙事', tokens: ['@CUSTOM_MULTIEXPO', '@CUSTOM_REFLECTION', '@SET_STATION'] },
-  { name: '微缩世界', tokens: ['@CUSTOM_TILTSHIFT', '@CAM_HIGH', '@SET_MARKET'] },
+  { name: '弱 3D 人像', preset: 'soft3d', tokens: [] },
+  { name: '弱 3D · 场景版', preset: 'soft3d_scene', tokens: [] },
+  { name: '电影感封面', tokens: ['@COMP_FRAMEINFRAME', '@BG_DARKFALL', '@LIGHT_RIM'] },
+  { name: '梦境', tokens: ['@STYLE_SURREAL', '@POSE_FLOAT', '@ATMO_FOG'] },
+  { name: '海报', tokens: ['@FX_SPOTCOLOR', '@COMP_GRAPHIC', '@COMP_MINIMAL'] },
+  { name: '冲击力', tokens: ['@CUSTOM_FORESHORTEN', '@CAM_ZOOMBLUR', '@CAM_LOW'] },
+  { name: '叙事', tokens: ['@FX_MULTIEXPO', '@FX_REFLECTION', '@SET_STATION'] },
+  { name: '微缩世界', tokens: ['@COMP_TILTSHIFT', '@CAM_HIGH', '@SET_MARKET'] },
   { name: '夜景大片', tokens: ['@SET_ROOFTOP', '@BG_BOKEH', '@LIGHT_NEON', '@NEG_SKIN'] },
   { name: '干净棚拍', tokens: ['@SET_STUDIO', '@BG_CLEAN', '@LIGHT_STUDIO', '@COMP_MINIMAL'] },
   { name: '温泉夜', tokens: ['@SET_ONSEN', '@TIME_NIGHT', '@BG_DARKFALL', '@LIGHT_CANDLE'] },
@@ -2035,13 +2565,60 @@ function allCombos() {
   return COMBOS.concat(userCombos().map(c => Object.assign({ user: true }, c)));
 }
 
+
+function applySoft3DPreset() {
+  const file = (S.loraFiles || []).find(f => /silver palace/i.test(f)) || '';
+  S.loras = file ? [{ name: file, weight: 1.0 }] : [];
+  S.pos = [{
+    id: uid(), token: '', weight: 1, enabled: true,
+    text: '1girl, solo, upper body, ivory white hair, straight fringe, bob cut, heterochromia one red and one grey eye, grey background, (plain grey top:1.2), (soft studio light:1.05)'
+  }];
+  S.neg = [];
+  const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v; };
+  setVal('#artist-strength', '1');
+  setVal('#identity-strength', '0.5');
+  setVal('#p-size', '1024x1536');
+  setVal('#p-steps', '28');
+  setVal('#p-cfg', '5.5');
+  setVal('#p-seed', '515151');
+  const cs = $('#custom-size'); if (cs) cs.hidden = true;
+  renderLoras(); renderLanes(); expandPreview();
+  if (typeof updateEta === 'function') updateEta();
+  toast('已套用「弱 3D 人像」：@silver palace 1.0 · 灰底柔光 · 1024×1536 · 28 步 · CFG 5.5 · seed 515151');
+}
+
+
+function applySoft3DScenePreset() {
+  const file = (S.loraFiles || []).find(f => /silver palace/i.test(f)) || '';
+  S.loras = file ? [{ name: file, weight: 1.3 }] : [];
+  const mk = (t) => ({ id: uid(), token: t, text: '', weight: 1, enabled: true });
+  S.pos = [
+    { id: uid(), token: '', weight: 1, enabled: true,
+      text: '1girl, solo, upper body, ivory white hair, straight fringe, bob cut, heterochromia one red and one grey eye' },
+    mk('@SET_CAFE'), mk('@OUT_CASUAL_KNIT'), mk('@LIGHT_WIN'), mk('@FX_BG3D')
+  ];
+  S.neg = [];
+  const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v; };
+  setVal('#artist-strength', '1.3');
+  setVal('#identity-strength', '0.5');
+  setVal('#p-size', '1024x1536');
+  setVal('#p-steps', '28');
+  setVal('#p-cfg', '5.5');
+  setVal('#p-seed', '515151');
+  const cs = $('#custom-size'); if (cs) cs.hidden = true;
+  renderLoras(); renderLanes(); expandPreview();
+  if (typeof updateEta === 'function') updateEta();
+  toast('已套用「弱 3D · 场景版」：@silver palace 1.3 + 咖啡馆/开衫/窗光；想换场景直接替换 @SET_*');
+}
+
 function renderCombos() {
   const box = document.querySelector('#combo-list');
   if (!box) return;
   const list = allCombos();
   box.innerHTML = list.map((c, i) => {
     const toks = c.tokens.filter(t => S.tokens[t]);
-    const desc = toks.map(t => t.replace('@', '')).join(' · ');
+    const desc = c.preset === 'soft3d' ? '@silver palace · 灰底柔光 · 28 步 / CFG 5.5'
+      : c.preset === 'soft3d_scene' ? '@silver palace 1.3 · 咖啡馆 + 开衫 + 窗光' : toks.map(t => t.replace('@', '')).join(' · ');
     return '<div class="combo-item' + (c.user ? ' user' : '') + '" data-combo="' + i + '">' +
       '<b>' + esc(c.name) + '</b><span>' + desc + '</span>' +
       (c.user ? '<span class="combo-del" data-del-combo="' + i + '" title="删除">×</span>' : '') + '</div>';
@@ -2061,6 +2638,8 @@ function renderCombos() {
   box.querySelectorAll('.combo-item').forEach(el => {
     el.onclick = () => {
       const c = allCombos()[+el.dataset.combo];
+      if (c && c.preset === 'soft3d') { applySoft3DPreset(); return; }
+      if (c && c.preset === 'soft3d_scene') { applySoft3DScenePreset(); return; }
       const toks = c.tokens.filter(t => S.tokens[t]);
       let added = 0;
       toks.forEach(t => {
@@ -2111,17 +2690,60 @@ async function loadLibrary(filter) {
   });
 
   let out = '';
+  const rowHtml = (n, tx, key) => {
+    const scCls = key === 'set' ? ' sc-' + (setScaleOf(n) === '小' ? 'small' : setScaleOf(n) === '中' ? 'medium' : 'large') : '';
+    return '<div class="trow' + scCls + '" data-token="' + n + '" data-cat="' + key + '"' + tintAttrs(n) + '>' +
+      '<span class="k">' + n + '</span>' +
+      '<span class="v">' + esc((tx || '').slice(0, 120)) + '</span></div>';
+  };
   for (const key of order) {
-    const items = (groups[key] || []).sort((a, b) => a[0].localeCompare(b[0]));
+    let items = (groups[key] || []).slice();
     if (!items.length) continue;
     out += '<div class="tgroup" data-cat="' + key + '">' + (CAT_LABEL[key] || key) +
       '<span class="n">' + items.length + '</span></div>';
-    for (const [n, tx] of items) {
-      out += '<div class="trow" data-token="' + n + '" data-cat="' + key + '">' +
-        '<span class="k">' + n + '</span>' +
-        '<span class="v">' + esc((tx || '').slice(0, 120)) + '</span></div>';
+
+    if (key === 'set') {
+      // 场景：小 / 中 / 大
+      const order2 = ['小', '中', '大'];
+      items.sort((a, b) => order2.indexOf(setScaleOf(a[0])) - order2.indexOf(setScaleOf(b[0])) || a[0].localeCompare(b[0]));
+      let cur = '';
+      for (const [n, tx] of items) {
+        const sc = setScaleOf(n);
+        if (sc !== cur) {
+          cur = sc;
+          const cnt = items.filter(([x]) => setScaleOf(x) === sc).length;
+          out += '<div class="tsub" data-sub="' + sc + '">' + sc + '场景<span class="n">' + cnt + '</span></div>';
+        }
+        out += rowHtml(n, tx, key);
+      }
+      continue;
     }
+
+    const defs = SUBGROUP_DEFS[key];
+    if (defs) {
+      const rank = t => { const g = subgroupOf(t); return g ? g.idx : 99; };
+      items.sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]));
+      let curIdx = -2, curLabel = '';
+      for (const [n, tx] of items) {
+        const g = subgroupOf(n);
+        const gi = g ? g.idx : 99;
+        const lab0 = g ? g.label : '其他';
+        if (lab0 !== curLabel) {
+          curIdx = gi; curLabel = lab0;
+          const lab = g ? g.label : '其他';
+          const cnt = items.filter(([x]) => { const gg = subgroupOf(x); return (gg ? gg.idx : 99) === gi; }).length;
+          out += '<div class="tsub" data-sub="' + esc(lab) + '" style="border-color:' + (g ? g.color : '#7d8798') + '">' +
+            esc(lab) + '<span class="n">' + cnt + '</span></div>';
+        }
+        out += rowHtml(n, tx, key);
+      }
+      continue;
+    }
+
+    items.sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [n, tx] of items) out += rowHtml(n, tx, key);
   }
+  renderSubgroupManager();
   $('#token-table').innerHTML = out || '<div class="hint" style="padding:12px">没有匹配的积木</div>';
   bindTips($('#token-table'));
   $$('#token-table .trow').forEach(el => el.onclick = () => {
@@ -2129,6 +2751,87 @@ async function loadLibrary(filter) {
     $('#tk-name').value = n; $('#tk-text').value = S.tokens[n] || '';
     $('#tk-note').value = (S.notes || {})[n] || '';
     $('#tk-cat').value = tokenCat(n);
+    const sgNow = subgroupOf(n);
+    buildSubOptions(tokenCat(n), sgNow ? sgNow.label : '__auto__');
+    const sg = subgroupOf(n);
+    if ($('#tk-sub')) $('#tk-sub').value = sg ? sg.label : '';
+    if ($('#tk-sub-color') && sg) $('#tk-sub-color').value = sg.color || '#7aa2d6';
+  });
+}
+
+
+
+function subLabelsFor(cat) {
+  const defs = SUBGROUP_DEFS[cat] || [];
+  const builtin = defs.map(d => d.label);
+  const custom = [];
+  const subs = (S.tokenMeta && S.tokenMeta.subgroups) || {};
+  for (const v of Object.values(subs)) {
+    if (!v || !v.label) continue;
+    if (!builtin.includes(v.label) && !custom.some(c => c.label === v.label)) custom.push({ label: v.label, color: v.color });
+  }
+  return { builtin, custom };
+}
+
+function buildSubOptions(cat, selected) {
+  const sel = $('#tk-sub-sel');
+  if (!sel) return;
+  const { builtin, custom } = subLabelsFor(cat);
+  const opts = ['<option value="__auto__">按内置规则分组</option>'];
+  for (const l of builtin) opts.push('<option value="' + esc(l) + '">' + esc(l) + '（内置）</option>');
+  for (const c of custom) opts.push('<option value="' + esc(c.label) + '">' + esc(c.label) + '（自定义）</option>');
+  opts.push('<option value="__custom__">＋ 新建子分类…</option>');
+  sel.innerHTML = opts.join('');
+  sel.value = selected && [...sel.options].some(o => o.value === selected) ? selected : '__auto__';
+  toggleSubNew();
+}
+
+function toggleSubNew() {
+  const sel = $('#tk-sub-sel');
+  const box = $('#tk-sub-new');
+  if (!sel || !box) return;
+  box.hidden = sel.value !== '__custom__';
+}
+
+function subColorFor(cat, label) {
+  const subs = (S.tokenMeta && S.tokenMeta.subgroups) || {};
+  for (const v of Object.values(subs)) if (v && v.label === label && v.color) return v.color;
+  const defs = SUBGROUP_DEFS[cat] || [];
+  const hit = defs.find(d => d.label === label);
+  return hit ? hit.color : '#7aa2d6';
+}
+
+function renderSubgroupManager() {
+  const box = $('#tk-sub-list-box');
+  const dl = $('#tk-sub-list');
+  const subs = (S.tokenMeta && S.tokenMeta.subgroups) || {};
+  const labels = {};
+  for (const [tok, v] of Object.entries(subs)) {
+    const l = v && v.label ? v.label : '';
+    if (!l) continue;
+    (labels[l] = labels[l] || { color: v.color, tokens: [] }).tokens.push(tok);
+  }
+  if (dl) dl.innerHTML = Object.keys(labels).map(l => '<option value="' + esc(l) + '">').join('');
+  if (!box) return;
+  const entries = Object.entries(labels);
+  box.innerHTML = entries.length
+    ? entries.map(([l, v]) => '<span class="chip on" data-sub-label="' + esc(l) + '" style="border-left-color:' + (v.color || '#7aa2d6') + '">' +
+        esc(l) + ' · ' + v.tokens.length + '<b class="x" data-sub-del="' + esc(l) + '">×</b></span>').join('')
+    : '<span class="hint">还没有自定义子分类</span>';
+  $$('[data-sub-del]').forEach(el => el.onclick = async () => {
+    const l = el.dataset.subDel;
+    const toks = (labels[l] || {}).tokens || [];
+    if (!toks.length) return;
+    if (!confirm('清除子分类「' + l + '」？' + toks.length + ' 个积木将回到内置规则')) return;
+    for (const tok of toks) {
+      try {
+        await api('/api/token/save', { method: 'POST', body: JSON.stringify({ name: tok, text: S.tokens[tok] || '', category: tokenCat(tok), subgroup: '', color: '' }) });
+      } catch (e) {}
+    }
+    const b = await api('/api/bootstrap');
+    S.tokens = b.tokens; S.notes = b.notes; S.tokenMeta = b.token_meta || {};
+    renderSubgroupManager(); loadLibrary(); renderPalette();
+    toast('已清除子分类「' + l + '」');
   });
 }
 
@@ -2136,7 +2839,24 @@ async function saveToken() {
   const name = $('#tk-name').value.trim();
   const text = $('#tk-text').value.trim();
   if (!name) { toast('需要名称', true); return; }
-  await api('/api/token/save', { method:'POST', body: JSON.stringify({ name, text, category:$('#tk-cat').value }) });
+  let sub = '';
+  let subColor = '#7aa2d6';
+  const selSub = $('#tk-sub-sel');
+  if (selSub) {
+    if (selSub.value === '__custom__') {
+      sub = (($('#tk-sub') || {}).value || '').trim();
+      subColor = ($('#tk-sub-color') || {}).value || '#7aa2d6';
+    } else if (selSub.value !== '__auto__') {
+      sub = selSub.value;
+      subColor = subColorFor($('#tk-cat').value, sub);
+    }
+  }
+  const saved = await api('/api/token/save', { method:'POST', body: JSON.stringify({ name, text, category:$('#tk-cat').value, subgroup: sub, color: subColor }) });
+  if (saved && saved.subgroups) {
+    S.tokenMeta = S.tokenMeta || {};
+    S.tokenMeta.subgroups = saved.subgroups;
+    renderSubgroupManager();
+  }
   // 保存时把备注一起写掉（不再单独一个「保存备注」按钮）
   try {
     const r = await api('/api/token/note', { method: 'POST', body: JSON.stringify({ name, text: $('#tk-note').value, category: 'note' }) });
@@ -2438,7 +3158,7 @@ function bindTips(root) {
 function insertDesc(lane) {
   const txt = ($('#desc-text').value || '').trim();
   if (!txt) { alert('先写一段描述'); return; }
-  const w = parseFloat($('#desc-weight').value) || 1.1;
+  const w = parseFloat($('#desc-weight').value) || 1.0;
   addBlock(lane, { text: txt, weight: w });
   toast('已插入' + (lane === 'positive' ? '正向' : '负向') + ' · 权重 ' + w);
 }
@@ -3246,13 +3966,16 @@ async function loadRecipes() {
     return;
   }
   box.innerHTML = r.items.map(it =>
-    '<div class="rc-item" data-path="' + esc(it.path) + '">' +
+    '<div class="rc-item" data-path="' + esc(it.path) + '" title="单击看配方 · 双击看大图">' +
     '<img loading="lazy" src="/api/img?path=' + encodeURIComponent(it.path) + '">' +
     '<div class="m"><b>' + esc(it.name.slice(0, 22)) + '</b>' +
     '<span>' + (it.mode || '') + ' · ' + (it.lora_n || 0) + ' LoRA</span></div>' +
     '<input type="checkbox" class="rc-check" data-cmp-path="' + esc(it.path) + '" title="加入对比">' +
     '</div>').join('');
-  $$('#rc-list .rc-item').forEach(el => el.onclick = () => openRecipe(el.dataset.path, true));
+  $$('#rc-list .rc-item').forEach(el => {
+    el.onclick = () => openRecipe(el.dataset.path, true);
+    el.ondblclick = (e) => { e.preventDefault(); if (typeof openImage === 'function') openImage(el.dataset.path); };
+  });
   $$('#rc-list .rc-check').forEach(cb => {
     cb.onclick = e => { e.stopPropagation(); toggleCompare(cb.dataset.cmpPath); };
     cb.checked = S.compareSel.indexOf(cb.dataset.cmpPath) >= 0;
@@ -3325,6 +4048,7 @@ async function openRecipe(path, stay) {
   if (!stay && tabBtn) tabBtn.click();
   const body = $('#rc-body');
   if (!body) return;
+  S.rcPath = path;
   body.innerHTML = '<p class="hint">读取配方…</p>';
   let r;
   try { r = await api('/api/recipe?path=' + encodeURIComponent(path)); }
@@ -3382,7 +4106,7 @@ async function openRecipe(path, stay) {
     '<div class="row2" style="margin-top:10px">' +
       '<button class="primary" id="rc-import">一键导入该配方</button>' +
       '<button class="ghost" id="rc-copy">复制正向</button>' +
-      '<button class="ghost" id="rc-img">看图</button></div>';
+      '</div>';
   const imp = $('#rc-import');
   if (imp) imp.onclick = () => importRecipe(r);
   const cp = $('#rc-copy');
@@ -3390,8 +4114,7 @@ async function openRecipe(path, stay) {
     try { await navigator.clipboard.writeText(r.positive || ''); toast('正向已复制'); }
     catch (e) { toast('复制失败：' + e.message, true); }
   };
-  const im = $('#rc-img');
-  if (im) im.onclick = () => openImage(path);
+  if (body) body.ondblclick = () => { if (S.rcPath && typeof openImage === 'function') openImage(S.rcPath); };
   $$('#rc-list .rc-item').forEach(el => el.classList.toggle('on', el.dataset.path === path));
 }
 
@@ -3541,19 +4264,21 @@ function guideSteps() {
                       '@MOOD_SLEEPY','@MOOD_SURPRISED']);
   const gazes = pick(['@GAZE_CAMERA','@GAZE_ASIDE','@GAZE_DOWN','@GAZE_UP','@GAZE_FAR']);
   return [
-    { cats:['id'], key:'subject', title:'主体与身份', sub:'先定是谁、几个人；@ID 越强脸越稳', multi:2,
+    { cats:['id'], key:'subject', title:'主体与身份', sub:'先定是谁；出图用 1024×1536 / 30 步 / CFG 5.5', multi:2,
       items: pick(['@SINGLE','@ID_SOFT','@ID','@ID_TIGHT']) },
     { cats:['cam'], key:'cam', title:'机位', sub:'构图的第一刀，先选一个', multi:1,
       items: pick(['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_THREEQ','@CAM_PROFILE','@CAM_HIGH','@CAM_TOP','@CAM_WORM']) },
     { cats:['set'], key:'set', title:'场景', sub:'可选；没有场景也能出图', multi:1, skip:true, items: sets },
-    { cats:['light'], key:'light', title:'打光', sub:'影响最大的一项，建议必选', multi:1,
+    { cats:['light'], key:'light', title:'打光', sub:'影响最大；场景图别配 @STYLE_*（会压白底）', multi:1,
       items: pick(['@LIGHT_WIN','@LIGHT_GOLDEN','@LIGHT_NIGHT','@LIGHT_NEON','@LIGHT_RIM','@LIGHT_STUDIO']) },
     { cats:['time'], key:'time', title:'时间', sub:'可选；夜景记得配光', multi:1, skip:true,
       items: pick(['@TIME_MORNING','@TIME_AFTERNOON','@TIME_DUSK','@TIME_NIGHT','@TIME_DAWN']) },
     { cats:['outfit'], key:'outfit', title:'服装', sub:'一套就够，换衣服会自动补负向', multi:1, items: outfits },
     { cats:['mood','gaze','hand'], key:'mood', title:'表情与视线', sub:'可选，最多两块', multi:2, skip:true, items: moods.concat(gazes) },
-    { cats:['comp','style'], key:'comp', title:'构图与风格', sub:'可选', multi:2, skip:true,
-      items: pick(['@COMP_CENTER','@COMP_THIRDS','@COMP_FRAME','@COMP_NEGATIVE','@COMP_DIAGONAL','@STYLE_ANIME','@STYLE_CEL']) },
+    { cats:['comp'], key:'comp', title:'构图', sub:'可选；@STYLE_* 会压掉场景，这里不再提供', multi:2, skip:true,
+      items: pick(['@COMP_CENTER','@COMP_THIRDS','@COMP_FRAME','@COMP_NEGATIVE','@COMP_DIAGONAL']) },
+    { cats:['artist'], key:'artist', title:'画师 LoRA', sub:'可选；按角色自动取权重（1.0 / v2 0.9）', multi:1, skip:true,
+      items: ['__none__'].concat((S.loraFiles || []).filter(f => typeof loraCat === 'function' && loraCat(f) === '画师')) },
     { cats:['neg'], key:'neg', title:'负向底线', sub:'建议保持默认两块', multi:2, fixed:true,
       items: pick(['@NEG_BASE','@NEG_HANDS']) },
   ];
@@ -3577,7 +4302,7 @@ function renderGuide() {
         '<span class="idx">' + (i + 1) + '</span><span class="tt">' + s.title + '</span>' +
         (n ? '<span class="n">' + n + '</span>' : '') + '</li>';
     }).join('');
-    stepsEl.querySelectorAll('li').forEach(li => li.onclick = () => { g.step = +li.dataset.step; g._scrolledStep = -1; renderGuide(); });
+    stepsEl.querySelectorAll('li').forEach(li => li.onclick = () => { g.step = +li.dataset.step; g._scrolledStep = -1; renderGuide(); guidePreview(); });
   }
 
   const title = document.querySelector('#guide-title');
@@ -3589,10 +4314,11 @@ function renderGuide() {
   if (opts) {
     opts.innerHTML = st.items.map(t => {
       const on = chosen.includes(t);
-      const note = (S.notes || {})[t] || '';
+      const label = st.key === 'artist' ? (t === '__none__' ? '不指定' : (typeof shortLoraName === 'function' ? shortLoraName(t) : t)) : t;
+      const note = st.key === 'artist' ? (t === '__none__' ? '' : '画师 LoRA') : ((S.notes || {})[t] || '');
       const nt = note ? note.replace(/\s+/g, ' ').slice(0, 26) : '';
       return '<button class="guide-chip' + (on ? ' on' : '') + '" data-token="' + t + '" title="' + esc(note) + '">' +
-        '<span>' + t + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
+        '<span>' + label + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
     }).join('') || '<span class="hint">这一步没有可选项</span>';
     opts.querySelectorAll('.guide-chip').forEach(b => b.onclick = () => {
       const t = b.dataset.token;
@@ -3794,10 +4520,47 @@ function renderGuidePalette() {
   });
 }
 
+function guidePreview() {
+  const steps = guideSteps();
+  const g = S.guide || { picks: {} };
+  const pos = [], neg = [];
+  const pushTok = (lane, t) => {
+    if (!t || t === '__none__' || /\.safetensors$/i.test(t)) return;
+    const arr = lane === 'negative' ? neg : pos;
+    if (arr.some(b => b.token === t)) return;
+    arr.push({ id: uid(), token: t, text: '', weight: 1, enabled: true });
+    if (typeof companionsOf === 'function') {
+      companionsOf(t).forEach(c => {
+        const target = c.lane === 'negative' ? neg : pos;
+        if (!target.some(b => b.token === c.token)) target.push({ id: uid(), token: c.token, text: '', weight: 1, enabled: true, auto: true });
+      });
+    }
+  };
+  steps.forEach(s => (g.picks[s.key] || (s.key === 'neg' ? s.items : [])).forEach(t => pushTok(s.key === 'neg' ? 'negative' : 'positive', t)));
+  const chip = b => '<span class="chip on">' + esc(b.token || b.text.slice(0, 18)) + '</span>';
+  const gp = document.querySelector('#gc-pos'), gn = document.querySelector('#gc-neg');
+  if (gp) gp.innerHTML = pos.length ? pos.map(chip).join('') : '<span class="hint">空</span>';
+  if (gn) gn.innerHTML = neg.length ? neg.map(chip).join('') : '<span class="hint">空</span>';
+  const gpn = document.querySelector('#gc-pos-n'), gnn = document.querySelector('#gc-neg-n');
+  if (gpn) gpn.textContent = pos.length + ' 块';
+  if (gnn) gnn.textContent = neg.length + ' 块';
+  clearTimeout(guidePreview._t);
+  guidePreview._t = setTimeout(async () => {
+    try {
+      const r = await api('/api/expand', { method: 'POST', body: JSON.stringify({ positive: pos, negative: neg }) });
+      const box = document.querySelector('#guide-preview');
+      if (box) box.textContent = (r.positive || '') + '\n---\n' + (r.negative || '');
+    } catch (e) {}
+  }, 240);
+}
+
 function guideApply() {
   const steps = guideSteps();
   const g = S.guide || { picks: {} };
   let added = 0;
+  // 先清空画布，避免旧积木残留（2026-11-08）
+  S.pos = [];
+  S.neg = [];
   const posTokens = [];
   steps.forEach(s => {
     Array.from(new Set(g.picks[s.key] || (s.key === 'neg' ? s.items : []))).forEach(t => {
@@ -3806,6 +4569,7 @@ function guideApply() {
     });
   });
   posTokens.forEach(t => {
+    if (t === '__none__' || ((S.loraFiles || []).includes(t) && typeof loraCat === 'function' && loraCat(t) === '画师')) return;
     if (S.pos.some(b => b.token === t)) return;
     addBlock('positive', t); added++;
   });
@@ -3824,6 +4588,14 @@ function guideApply() {
   }
   const b = document.querySelector('#tabs button[data-tab="build"]');
   if (b) b.click();
+  const artistPick = (g.picks['artist'] || [])[0];
+  if (artistPick && artistPick !== '__none__') {
+    S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师' && !/animaNai/i.test(l.name || ''));
+    const aw = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(artistPick, currentCharLora()) : null) || 1.0;
+    S.loras.push({ name: artistPick, weight: aw });
+    if (typeof renderLoras === 'function') renderLoras();
+    added++;
+  }
   toast('向导已把 ' + added + ' 块积木放进画布');
 }
 
@@ -3837,6 +4609,7 @@ function bindUI() {
     if (b.dataset.tab === 'guide') renderGuide();
     if (b.dataset.tab === 'library') renderCombos();
     if (b.dataset.tab === 'gallery') renderGallery();
+    if (b.dataset.tab === 'recipe') loadRecipes();
     if (b.dataset.tab === 'train') trainInfo();
     if (b.dataset.tab === 'maint') refreshMaint();
     if (b.dataset.tab === 'engine') loadEngine();

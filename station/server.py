@@ -67,6 +67,13 @@ FEATURES = [
         "快速模板：一键摆好一组积木（胸像窗光/夜灯/楼梯/门厅）",
         "参数：尺寸预设、步数、CFG、种子、前缀、任意多个 LoRA 与权重",
         "出图：进度条 + 预计耗时 + 完成后可直接登记 A/B/C" ]},
+    {"group": "画师 LoRA · 弱 3D", "items": [
+        "弱 3D 风格怎么写：@silver palace 权重 1.3（1.0 偏弱），只挂它一个 LoRA",
+        "不要再叠 h2 / modare / Lucent —— 风格会互相抢，3D 感消失",
+        "身份用文本（ivory white hair, heterochromia…），别用 @ID 积木",
+        "场景/服装/光各留 1 块，块越多 LoRA 越被稀释",
+        "参数 1024×1536 / 28 步 / CFG 5.5；灰底或浅景深都行",
+        "词库→组合推荐里有现成模板：弱 3D 人像、弱 3D · 场景版" ]},
     {"group": "词库", "items": [
         "查看/搜索全部宏（@ID @BODY @FACE @CAM_* @OUT_* @DRAPE_* @LIGHT_* @NEG_*）",
         "新建、编辑、删除任意宏，保存即写入 prompt_lib.json",
@@ -677,6 +684,8 @@ class TokenReq(BaseModel):
     name: str
     text: str
     category: str = "custom"
+    subgroup: str = ""
+    color: str = ""
 
 
 class GarmentReq(BaseModel):
@@ -897,10 +906,49 @@ def api_artist_recipe(req: ArtistRecipeReq):
     return {"ok": True, "items": items}
 
 
+
+
+FREE_INDEX = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ref", "artist_free_index.json")
+REF_INDEX = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "产出作品", "画师参考", "_index.json")
+
+
+@app.get("/api/artist_preview")
+def api_artist_preview(name: str = ""):
+    """画师悬停预览：自由发挥样张 + 权重建议。"""
+    idx = {}
+    try:
+        with open(FREE_INDEX, encoding="utf-8") as f:
+            idx = json.load(f)
+    except Exception:
+        idx = {}
+    entry = idx.get(name) or {}
+    items = []
+    for k in sorted(entry, key=lambda x: float(x)):
+        path = entry[k]
+        if path and os.path.isfile(path):
+            items.append({"weight": float(k), "path": path})
+    advice = [
+        {"weight": 0.6, "text": "轻：只借笔触，构图/角色更自由，适合日常与场景"},
+        {"weight": 1.0, "text": "标准：风格与角色平衡，最稳"},
+        {"weight": 1.3, "text": "重：风格压过一切，可能吞细节/偏色"},
+    ]
+    ref = ""
+    try:
+        with open(REF_INDEX, encoding="utf-8") as f:
+            ridx = json.load(f)
+        ref = ridx.get(name) or ""
+    except Exception:
+        ref = ""
+    return {"name": name, "ref": ref, "items": items, "advice": advice}
+
+
 @app.get("/api/status")
 def api_status():
     """轻量状态，给前端轮询用（bootstrap 约 180KB）。"""
     st = cf.system_stats()
+    if not st.get("up"):
+        time.sleep(0.4)
+        st = cf.system_stats()
     q = cf.queue_state() if st.get("up") else {"running": 0, "pending": 0}
     return {"comfy": {"up": bool(st.get("up")), "version": st.get("version"), "url": cf.COMFY},
             "queue": {"running": q.get("running", 0), "pending": q.get("pending", 0)}}
@@ -919,6 +967,12 @@ def bootstrap():
         neg_txt = ("：" + neg[:60] + ("…" if len(neg) > 60 else "")) if neg else "。"
         notes.setdefault("@NEG_" + key.upper(),
                          meta + " 的配套负向" + neg_txt + "（服装页可改）")
+    notes.setdefault("@OUTFIT_A", "默认套装上半段（拆分版，便于单独调权重）")
+    notes.setdefault("@OUTFIT_B", "默认套装下半段（拆分版）")
+    notes.setdefault("@NEG_BASE_A", "基础负向上半段：画质与结构")
+    notes.setdefault("@NEG_BASE_B", "基础负向下半段：伪影与文字")
+    notes.setdefault("@OUTFIT", "当前默认套装的正向（由服装页 garment_default 决定）")
+    notes.setdefault("@NEG_GARMENT", "当前默认套装的配套负向")
     return {
         "tokens": tokens,
         "notes": notes,
@@ -2093,6 +2147,7 @@ def api_glitch(req: GlitchReq):
 
 
 IMG_ROOTS = [os.path.join(ROOT, "SD-Picture"),
+             os.path.join(ROOT, "产出作品", "画师参考"),
              os.path.join(ROOT, "comfy", "ComfyUI", "output"),
              os.path.join(ROOT, "comfy", "ComfyUI", "input"),
              os.path.join(ROOT, "comfy", "ComfyUI", "temp")]
@@ -2157,8 +2212,14 @@ def api_token_save(req: TokenReq):
     toks = lib.setdefault("tokens", {})
     name = req.name if req.name.startswith("@") else "@" + req.name.upper()
     toks[name] = req.text
+    meta = lib.setdefault("meta", {})
+    subs = meta.setdefault("subgroups", {})
+    if req.subgroup.strip():
+        subs[name] = {"label": req.subgroup.strip(), "color": req.color.strip() or "#7aa2d6"}
+    else:
+        subs.pop(name, None)
     write_json(LIB, lib)
-    return {"ok": True, "name": name, "tokens": toks}
+    return {"ok": True, "name": name, "tokens": toks, "subgroups": subs}
 
 
 @app.post("/api/token/delete")

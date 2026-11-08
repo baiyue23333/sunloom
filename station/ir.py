@@ -26,6 +26,12 @@ ROLE_BY_PREFIX = [
 
 STRONG_SCENE_ROLES = {"scene"}
 
+SMALL_SCENES = {
+    "@SET_BOOKSTORE", "@SET_PIANO", "@SET_LAUNDRY", "@SET_KITCHEN", "@SET_BATHROOM",
+    "@SET_BEDROOM", "@SET_LIBRARY", "@SET_CAFE", "@SET_ARTROOM", "@SET_ELEVATOR",
+    "@SET_BALCONY", "@SET_FLOWER_SHOP", "@SET_PARKING", "@SET_ALLEY",
+}
+
 _WORN = {"@DRAPE_WORN", "@DRAPE_REF"}
 DRAPE_GARMENT = {
     "slip": {"@DRAPE_OFF", "@DRAPE_CAPE", "@DRAPE_ELBOW", "@DRAPE_HALF", "@DRAPE_HOLD", "@DRAPE_SHRUG"},
@@ -114,6 +120,60 @@ def validate(pos_blocks, neg_blocks):
     if any(t in ("@NEG_CUP", "@NEG_HANDS") for t, _, _ in neg) and not any(t in ("@NEG_CUP", "@NEG_HANDS") for t in head):
         warnings.append({"code": "NEG_ORDER", "msg": "杯子/手的负向没在最前，容易被稀释",
                          "fix": "把 @NEG_CUP 或 @NEG_HANDS 拖到负向第一位"})
+
+
+    # ⑥ 构图声明冲突：@SINGLE 自带“填满画面”，再叠广角会把镜头推远
+    WIDE_CAMS = {"@CAM_FULL", "@CAM_MEDIUM"}
+    if "@SINGLE" in pos_tokens and any(t in WIDE_CAMS for t in pos_tokens):
+        warnings.append({"code": "FRAMING_CONFLICT",
+                         "msg": "@SINGLE 与 @CAM_FULL/@CAM_MEDIUM 打架，容易出“空房间 + 小人”",
+                         "fix": "去掉广角机位，或改用 @CAM_BUST / @CAM_CLOSEUP"})
+    if "@SINGLE" in pos_tokens and any(t.startswith("@SET_") for t in pos_tokens) and "@CAM_THREEQ" in pos_tokens:
+        warnings.append({"code": "FRAMING_SCENE_CONFLICT",
+                         "msg": "有场景时 @SINGLE + @CAM_THREEQ 会拉远，场景压过人物",
+                         "fix": "去掉 @CAM_THREEQ，或用 @CAM_BUST"})
+
+    # ⑦ 场景过长：稀释角色细节
+    scene_len = 0
+    try:
+        from prompts import load_tokens as _lt
+        _tokens, _lib, _ = _lt()
+        for t, _, _ in pos:
+            if t.startswith("@SET_"):
+                scene_len = max(scene_len, len(_tokens.get(t, "")))
+    except Exception:
+        scene_len = 0
+    if scene_len > 260 or (scene_len > 200 and len(pos) > 12):
+        hints.append({"code": "SCENE_HEAVY",
+                      "msg": "场景描述 %d 字，角色细节会被稀释" % scene_len,
+                      "fix": "搭配 @CAM_BUST/@CAM_CLOSEUP，或删掉场景里最远的元素"})
+
+    # ⑦b 场景 × 机位
+    NEAR = {"@CAM_CLOSEUP", "@CAM_BUST", "@CAM_PROFILE", "@CAM_HIP"}
+    WIDE = {"@CAM_FULL", "@CAM_MEDIUM", "@CAM_REAR", "@CAM_BACKSIDE"}
+    cams = [t for t in pos_tokens if t.startswith("@CAM_")]
+    if scene_len > 260 and any(c in NEAR for c in cams):
+        hints.append({"code": "SCENE_CAM_MISMATCH",
+                      "msg": "大场景（%d 字）配近景，背景会被挤掉" % scene_len,
+                      "fix": "换成 @CAM_MEDIUM / @CAM_FULL，或改用小场景"})
+    small_scene = any(t in SMALL_SCENES for t in pos_tokens)
+    if small_scene and any(c in WIDE for c in cams):
+        hints.append({"code": "SCENE_CAM_MISMATCH",
+                      "msg": "小场景配远景，空间会撑不住",
+                      "fix": "换成 @CAM_BUST / @CAM_CLOSEUP"})
+
+    # ⑧ 洗白光型
+    for t, _, _ in pos:
+        if t.startswith("@LIGHT_"):
+            pass
+    flat_words = ("gentle contrast", "soft grey daylight", "gradual shadow falloff", "flat lighting")
+    for t, _, x in pos:
+        low = (x or "").lower()
+        if any(w in low for w in flat_words):
+            warnings.append({"code": "FLAT_LIGHT",
+                             "msg": "自定义光描述里有降对比词（%s），画面会发灰" % (t or "文本块"),
+                             "fix": "改成 directional light / crisp shadow edge / clear contrast"})
+            break
 
     # ⑤ 手部动作提示
     if "hand" in roles and not any(t == "@NEG_HAND_ART" for t, _, _ in neg):

@@ -54,6 +54,37 @@ def load_lib():
         return json.load(f)
 
 
+
+# 旧积木名 → 新名（2026-11-08 重命名，兼容老配方）
+ALIASES = {
+    '@CUSTOM_DUTCH': '@CAM_DUTCH',
+    '@CUSTOM_FRAMEINFRAME': '@COMP_FRAMEINFRAME',
+    '@CUSTOM_MULTIEXPO': '@FX_MULTIEXPO',
+    '@CUSTOM_ZOOMBLUR': '@CAM_ZOOMBLUR',
+    '@CUSTOM_SURREAL': '@STYLE_SURREAL',
+    '@CUSTOM_FLOAT': '@POSE_FLOAT',
+    '@CUSTOM_GRAPHIC': '@COMP_GRAPHIC',
+    '@CUSTOM_ORBIT': '@CAM_ORBIT',
+    '@CUSTOM_LIGHTRAY': '@LIGHT_RAY',
+    '@CUSTOM_TILTSHIFT': '@COMP_TILTSHIFT',
+    '@CUSTOM_SPOTCOLOR': '@FX_SPOTCOLOR',
+    '@CUSTOM_REFLECTION': '@FX_REFLECTION',
+    '@Customize': '@PROP_KEY',
+}
+
+
+
+def split_clauses(text, parts=2):
+    """按逗号把一段提示词拆成若干段，尽量等长。"""
+    segs = [x.strip() for x in str(text or "").split(",") if x.strip()]
+    if len(segs) <= parts:
+        return [", ".join(segs)]
+    out, step = [], max(1, len(segs) // parts)
+    for i in range(0, len(segs), step):
+        out.append(", ".join(segs[i:i + step]))
+    return out[:parts] if len(out) >= parts else out
+
+
 def load_tokens():
     """宏 = prompt_lib.tokens + character.json.garments（含别名）。"""
     lib = load_lib()
@@ -76,11 +107,32 @@ def load_tokens():
         tokens["@OUTFIT"] = tokens["@OUT_" + dflt.upper()]
         if "@NEG_" + dflt.upper() in tokens:
             tokens["@NEG_GARMENT"] = tokens["@NEG_" + dflt.upper()]
+    # 长积木拆分版（保持原文不变，另给两块，便于分权重控制）
+    try:
+        if tokens.get("@OUTFIT"):
+            parts = split_clauses(tokens["@OUTFIT"], 2)
+            if len(parts) == 2:
+                tokens.setdefault("@OUTFIT_A", parts[0])
+                tokens.setdefault("@OUTFIT_B", parts[1])
+        if tokens.get("@NEG_BASE"):
+            parts = split_clauses(tokens["@NEG_BASE"], 2)
+            if len(parts) == 2:
+                tokens.setdefault("@NEG_BASE_A", parts[0])
+                tokens.setdefault("@NEG_BASE_B", parts[1])
+    except Exception:
+        pass
     return tokens, lib, ch
 
 
+def _resolve_alias(t):
+    return ALIASES.get(t, t)
+
+
 def expand(text, tokens):
-    out = text or ""
+    text = text or ''
+    for old, new in ALIASES.items():
+        text = text.replace(old, new)
+    out = text
     used = []
     for k, v in sorted(tokens.items(), key=lambda kv: -len(kv[0])):
         if k in out and v:
@@ -91,6 +143,9 @@ def expand(text, tokens):
 
 def expand_pair(pos, neg):
     tokens, lib, _ = load_tokens()
+    for old, new in ALIASES.items():
+        pos = (pos or '').replace(old, new)
+        neg = (neg or '').replace(old, new)
     p, pu = expand(pos, tokens)
     n, nu = expand(neg, tokens)
     return {"positive": p, "negative": n, "used": sorted(set(pu + nu))}

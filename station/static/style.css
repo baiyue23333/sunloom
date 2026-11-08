@@ -165,7 +165,7 @@ main{padding:20px 22px 52px;max-width:1740px;margin:0 auto}
 .pal-toggle input{appearance:none;-webkit-appearance:none;width:9px;height:9px;min-width:9px;flex:0 0 9px;border:0;padding:0;border-radius:50%;background:#5b6170;margin:0;transition:.15s}
 .pal-toggle input:checked{background:#ffd98a;box-shadow:0 0 8px rgba(255,217,138,.55)}
 .pal-group{font-size:10px;color:#78808f;margin:11px 0 3px;letter-spacing:.2em;text-transform:uppercase}
-.pal-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:14px;color:#e9ecf3;
+.pal-item{position:relative;overflow:hidden;display:flex;align-items:center;gap:9px;padding:9px 12px 9px 14px;border-radius:14px;color:#e9ecf3;
   border:1px solid rgba(255,255,255,.10);
   background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
@@ -304,7 +304,9 @@ main{padding:20px 22px 52px;max-width:1740px;margin:0 auto}
   box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 18px 40px rgba(0,0,0,.6);
   opacity:0;pointer-events:none;transition:.24s;z-index:100}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.bad{border-color:rgba(255,140,120,.4);color:#ffc2b5}
+.toast.bad{color:#ffd8a3;border-color:rgba(255,196,110,.42);font-weight:600;
+  background:#211d17;
+  box-shadow:inset 0 1px 0 rgba(255,214,140,.12), 0 20px 52px rgba(0,0,0,.7)}
 #tip{position:fixed;z-index:120;max-width:312px;color:#eef1f6;border-radius:14px;padding:10px 13px;
   font-size:12px;line-height:1.55;
   background:#14171e;
@@ -1004,3 +1006,209 @@ button.loading::after{content:"";position:absolute;left:50%;top:50%;width:14px;h
 
 .pal-group.flash{background:rgba(255,198,92,.22);border-radius:8px;transition:background .4s}
 .chip.dragging{opacity:.4}
+
+/* 服装编辑：长文本用滚动条，不再撑高页面（2026-11-08） */
+#gm-prompt2{max-height:180px;overflow-y:auto;resize:vertical}
+#gm-neg2{max-height:120px;overflow-y:auto;resize:vertical}
+#gm-note{max-height:110px;overflow-y:auto;resize:vertical}
+.garment-editor textarea{max-height:200px;overflow-y:auto}
+
+textarea{max-height:220px;overflow-y:auto}
+
+/* 配方/服装页：两栏各自纵向滚动，避免内容被裁掉（2026-11-08） */
+#view-recipe .lib-grid > .card,
+#view-garment .garment-grid > .card{max-height:calc(100vh - 130px);overflow-y:auto}
+#view-recipe .rc-list{max-height:none}
+
+/* 可见滚动条（2026-11-08） */
+#view-recipe .lib-grid > .card::-webkit-scrollbar,
+#view-garment .garment-grid > .card::-webkit-scrollbar{width:10px}
+#view-recipe .lib-grid > .card::-webkit-scrollbar-thumb,
+#view-garment .garment-grid > .card::-webkit-scrollbar-thumb{background:#4b4b55;border-radius:6px}
+#view-recipe .lib-grid > .card::-webkit-scrollbar-track,
+#view-garment .garment-grid > .card::-webkit-scrollbar-track{background:transparent}
+
+.rc-item{user-select:none}
+
+/* 服装页：只让右栏（编辑区）滚动，左栏列表随页面走（2026-11-08） */
+#view-garment .garment-grid > .card:first-child{max-height:none;overflow:visible}
+#view-garment .garment-grid > .card:nth-child(2){max-height:calc(100vh - 130px);overflow-y:auto}
+
+/* 服装页两栏都不做内部滚动，交给页面整体滚动（2026-11-08 修正） */
+#view-garment .garment-grid > .card{max-height:none;overflow:visible}
+
+#view-garment .garment-grid > .card:first-child,
+#view-garment .garment-grid > .card:nth-child(2){max-height:none;overflow:visible}
+
+/* 服装页：左栏滚动，右栏随页面（2026-11-08 最终） */
+#view-garment .garment-grid > .card:first-child{max-height:calc(100vh - 130px);overflow-y:auto}
+#view-garment .garment-grid > .card:nth-child(2){max-height:none;overflow:visible}
+
+/* 服装页：左右两栏等高（左栏内部滚动，右栏随内容）2026-11-08 */
+#view-garment .garment-grid{align-items:stretch}
+#view-garment .garment-grid > .card:first-child{height:100%;max-height:none;overflow-y:auto}
+
+/* 服装页最终：左栏固定一屏高（内部滚动），右栏自由高度（2026-11-08） */
+#view-garment .garment-grid{align-items:start}
+#view-garment .garment-grid > .card:first-child{height:auto;max-height:calc(100vh - 130px);overflow-y:auto}
+#view-garment .garment-grid > .card:nth-child(2){max-height:none;overflow:visible}
+
+/* 服装页：左右等高，左栏内部滚动（2026-11-08 rev） */
+#view-garment .garment-grid{align-items:stretch}
+#view-garment .garment-grid > .card:first-child{height:100%;max-height:none;overflow-y:auto}
+
+/* 左栏：与右栏等高 + 始终显示内置滚动条（2026-11-08 最终版） */
+#view-garment .garment-grid{align-items:stretch}
+#view-garment .garment-grid > .card:first-child{height:100%;max-height:none;overflow-y:scroll;scrollbar-gutter:stable}
+#view-garment .garment-grid > .card:first-child::-webkit-scrollbar{width:10px}
+#view-garment .garment-grid > .card:first-child::-webkit-scrollbar-thumb{background:#5a5a66;border-radius:6px}
+#view-garment .garment-grid > .card:first-child::-webkit-scrollbar-track{background:rgba(255,255,255,.05)}
+
+/* 服装页：左右同高=一屏，内容多出来的各自内部滚动（2026-11-08 真·最终） */
+#view-garment .garment-grid{height:calc(100vh - 130px);align-items:stretch}
+#view-garment .garment-grid > .card:first-child{height:100%;max-height:none;overflow-y:scroll;scrollbar-gutter:stable}
+#view-garment .garment-grid > .card:nth-child(2){height:100%;max-height:none;overflow-y:auto}
+
+/* 服装页：照搬拼装页做法——左栏 sticky + 内部滚动，右栏随页面（2026-11-08 真定稿） */
+#view-garment .garment-grid{align-items:start}
+#view-garment .garment-grid > .card:first-child{position:sticky;top:76px;height:auto;max-height:calc(100vh - 100px);overflow:auto}
+#view-garment .garment-grid > .card:nth-child(2){height:auto;max-height:none;overflow:visible}
+
+/* 服装页最终：左栏高度=右栏，超出内部滚动；其他不动（2026-11-08） */
+#view-garment .garment-grid{align-items:stretch}
+#view-garment .garment-grid > .card:first-child{position:static;height:auto;max-height:none;overflow-y:auto}
+
+/* 画师 LoRA 悬停卡（2026-11-08） */
+.artist-hover{position:fixed;z-index:9999;width:560px;max-height:86vh;overflow:auto;padding:12px;border-radius:14px;
+  background:rgba(20,20,26,.97);border:1px solid #3a3a44;box-shadow:0 18px 40px rgba(0,0,0,.55);
+  backdrop-filter:blur(8px);color:#e7e7ee;font-size:12px}
+.artist-hover .ah-title{font-size:13px;font-weight:600;margin-bottom:8px;color:#f4d58a}
+.artist-hover .ah-thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.artist-hover .ah-item{margin:0}
+.artist-hover .ah-item img{width:100%;height:auto;aspect-ratio:5/7;object-fit:cover;border-radius:10px;border:1px solid #33333d;display:block;image-rendering:auto}
+.artist-hover .ah-item figcaption{text-align:center;color:#9aa0ae;font-size:11px;margin-top:3px}
+.artist-hover .ah-advice{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;color:#b9bfcb}
+.artist-hover .ah-advice b{color:#f4d58a;margin-right:6px}
+.artist-hover .ah-empty{color:#8b93a3;padding:10px 0;text-align:center}
+
+  60%{transform:translateX(-50%) translateY(-2px) scale(1.02);opacity:1}
+  100%{transform:translateX(-50%) translateY(0) scale(1);opacity:1}}
+
+/* 场景尺度徽标（2026-11-08） */
+.pal-item .sz-小{background:#7fc79a}
+.pal-item .sz-中{background:#d9b268}
+.pal-item .sz-大{background:#d98c72}
+
+/* 场景子分类（2026-11-08） */
+.pal-sub{margin:6px 2px 3px;padding:2px 6px;font-size:11px;letter-spacing:.08em;
+  color:#9aa0ae;border-left:2px solid rgba(255,255,255,.16)}
+.pal-sub[data-sub="小"]{border-color:#8fd6a8;color:#a9e0bd}
+.pal-sub[data-sub="中"]{border-color:#f0c46a;color:#f2d492}
+.pal-sub[data-sub="大"]{border-color:#f09a7a;color:#f3b39a}
+
+
+
+
+
+  pointer-events:none;border-radius:0 14px 14px 0;opacity:.85;transition:opacity .15s}
+
+/* 场景子分区：右侧发光（2026-11-08） */
+.pal-item.sc-small,.pal-item.sc-medium,.pal-item.sc-large{position:relative;overflow:hidden}
+.pal-item.sc-small::before,.pal-item.sc-medium::before,.pal-item.sc-large::before{content:"";position:absolute;right:0;top:0;bottom:0;width:78px;
+  pointer-events:none;border-radius:0 9px 9px 0;opacity:.5;transition:opacity .15s;
+  background-image:linear-gradient(to left,var(--sc),transparent 82%)}
+.pal-item.sc-small{border-right:1px solid rgba(127,199,154,.30)}
+.pal-item.sc-medium{border-right:1px solid rgba(217,178,104,.30)}
+.pal-item.sc-large{border-right:1px solid rgba(217,140,114,.30)}
+.pal-item.sc-small{--sc:rgba(127,199,154,.38)}
+.pal-item.sc-medium{--sc:rgba(217,178,104,.38)}
+.pal-item.sc-large{--sc:rgba(217,140,114,.38)}
+.pal-item.sc-small:hover::before,.pal-item.sc-medium:hover::before,.pal-item.sc-large:hover::before{opacity:1}
+
+
+/* 词库表格：同步场景右侧渐隐 */
+.trow{position:relative;overflow:hidden}
+.trow.sc-small,.trow.sc-medium,.trow.sc-large{--sc:rgba(255,255,255,.0)}
+.trow.sc-small::after,.trow.sc-medium::after,.trow.sc-large::after{content:"";position:absolute;right:0;top:0;bottom:0;width:78px;
+  pointer-events:none;opacity:.55;transition:opacity .15s}
+.trow.sc-small::after{background:linear-gradient(to left,rgba(127,199,154,.38),transparent 82%)}
+.trow.sc-medium::after{background:linear-gradient(to left,rgba(217,178,104,.38),transparent 82%)}
+.trow.sc-large::after{background:linear-gradient(to left,rgba(217,140,114,.38),transparent 82%)}
+.trow.sc-small{border-right:1px solid rgba(127,199,154,.30)}
+.trow.sc-medium{border-right:1px solid rgba(217,178,104,.30)}
+.trow.sc-large{border-right:1px solid rgba(217,140,114,.30)}
+.trow:hover.sc-small::after,.trow:hover.sc-medium::after,.trow:hover.sc-large::after{opacity:.8}
+
+/* 画布积木：场景右侧渐隐（与词库/左栏一致） */
+.chip.sc-small,.chip.sc-medium,.chip.sc-large{position:relative;overflow:hidden}
+.chip.sc-small::after,.chip.sc-medium::after,.chip.sc-large::after{content:"";position:absolute;right:0;top:0;bottom:0;width:56px;pointer-events:none;opacity:.5}
+.chip.sc-small::after{background:linear-gradient(to left,rgba(127,199,154,.38),transparent 82%)}
+.chip.sc-medium::after{background:linear-gradient(to left,rgba(217,178,104,.38),transparent 82%)}
+.chip.sc-large::after{background:linear-gradient(to left,rgba(217,140,114,.38),transparent 82%)}
+.chip.sc-small{border-right:1px solid rgba(127,199,154,.35)}
+.chip.sc-medium{border-right:1px solid rgba(217,178,104,.35)}
+.chip.sc-large{border-right:1px solid rgba(217,140,114,.35)}
+
+/* 通用子分组着色（2026-11-08） */
+.pal-item[data-tint]{position:relative;overflow:hidden;border-right:1px solid var(--sc)}
+.pal-item[data-tint]::before{content:"";position:absolute;right:0;top:0;bottom:0;width:78px;pointer-events:none;
+  border-radius:0 9px 9px 0;opacity:.5;transition:opacity .15s;
+  background-image:linear-gradient(to left,var(--sc),transparent 82%)}
+.pal-item[data-tint]:hover::before{opacity:.85}
+.trow[data-tint]{position:relative;overflow:hidden;border-right:1px solid var(--sc)}
+.trow[data-tint]::after{content:"";position:absolute;right:0;top:0;bottom:0;width:78px;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(to left,var(--sc),transparent 82%)}
+.chip[data-tint]{position:relative;overflow:hidden;border-right:1px solid var(--sc)}
+.chip[data-tint]::after{content:"";position:absolute;right:0;top:0;bottom:0;width:56px;pointer-events:none;opacity:.45;
+  background-image:linear-gradient(to left,var(--sc),transparent 82%)}
+.pal-sub[data-sub]{font-size:11px;padding-left:6px}
+
+.artist-hover .ah-ref{margin:0 0 8px}
+.artist-hover .ah-ref img{width:100%;height:auto;max-height:260px;object-fit:cover;border-radius:10px;border:1px solid #33333d;display:block}
+.artist-hover .ah-ref figcaption{text-align:center;color:#9aa0ae;font-size:11px;margin-top:3px}
+
+/* 词库子分类标题（2026-11-08） */
+.tsub{display:flex;align-items:center;gap:8px;margin:8px 2px 4px;padding:2px 8px;
+  font-size:11px;letter-spacing:.06em;color:#9aa0ae;border-left:2px solid rgba(255,255,255,.18)}
+.tsub .n{margin-left:auto;font-size:10px;color:#77808f}
+
+/* 编辑面板：子分类颜色行（2026-11-08） */
+.sub-line{display:flex;align-items:center;gap:8px;margin-top:6px}
+.sub-line input[type="color"]{width:34px;height:26px;padding:0;border:1px solid rgba(255,255,255,.18);
+  border-radius:7px;background:transparent;cursor:pointer;flex:none}
+.sub-line input[type="color"]::-webkit-color-swatch-wrapper{padding:2px}
+.sub-line input[type="color"]::-webkit-color-swatch{border:none;border-radius:5px}
+.sub-line .hint{font-size:11px;color:#8b93a3}
+#tk-sub-list-box{margin-top:8px}
+#tk-sub-list-box:empty{display:none}
+
+.sub-new{margin-top:8px}
+.sub-new input[type="color"]{width:34px;height:26px;padding:0;border:1px solid rgba(255,255,255,.18);
+  border-radius:7px;background:transparent;cursor:pointer;flex:none}
+.sub-new input[type="color"]::-webkit-color-swatch-wrapper{padding:2px}
+.sub-new input[type="color"]::-webkit-color-swatch{border:none;border-radius:5px}
+.sub-new .hint{display:block;margin-top:6px;font-size:11px;color:#8b93a3}
+
+/* 导航分组间距（2026-11-08） */
+.tabs [data-sep]{margin-left:10px;position:relative}
+.tabs [data-sep]::before{content:"";position:absolute;left:-6px;top:50%;transform:translateY(-50%);
+  width:1px;height:14px;background:rgba(255,255,255,.14)}
+
+/* 参数列独立滚动，避免出图后中间列下方出现大片空白（2026-11-08） */
+.builder{align-items:start}
+.builder > .params.card{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain}
+.builder > .params.card::-webkit-scrollbar{width:8px}
+.builder > .params.card::-webkit-scrollbar-thumb{background:#4b4b55;border-radius:6px}
+
+
+
+/* 分类光引导（2026-11-08 收敛版） */
+.rail-item.need{color:#ffc9b4;border-color:rgba(255,145,110,.55);background:rgba(255,120,80,.10)}
+.rail-item.need i{background:#ff916e}
+.rail-item.need:hover{color:#ffe0d2;border-color:rgba(255,145,110,.8);background:rgba(255,120,80,.16)}
+.pal-group.need{color:#ffc9b4;border-left:2px solid #ff916e;padding-left:9px;background:none}
+.pal-group.need .num{color:#ff916e}
+.pal-group.need .caret{color:#ff916e}
+.glow-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10.5px;
+  color:#ffc9b4;background:rgba(255,120,80,.10);border:1px solid rgba(255,145,110,.55)}
+#guide-mode{width:88px}

@@ -20,7 +20,7 @@ function loraDefaultWeight(name) {
 }
 function shortLoraName(f) {
   let s = String(f).replace(/\.safetensors$/i, '');
-  s = s.replace(/^sunhimi_/i, '').replace(/^animaNai.*$/i, 'animaNai(风格)').replace(/^Lucent Bloom\s+Anima Style LoRA_Bstyle_v1_anima_sun$/i, 'Lucent Bloom(风格)');
+  s = s.replace(/^sunhimi_/i, '').replace(/^animaNai.*$/i, 'animaNai').replace(/^Lucent Bloom\s+Anima Style LoRA_Bstyle_v1_anima_sun$/i, 'Lucent Bloom');
   return s.length > 22 ? s.slice(0, 21) + '…' : s;
 }
 function loraOptionsHtml(sel) {
@@ -36,18 +36,30 @@ function loraOptionsHtml(sel) {
 
 // 画师 × 角色 的最优权重（实测/经验值；未列的组合走 fallback）
 const ARTIST_CHAR_DEFAULTS = {
-  'Lucent': { 'sunhimi_h2': 0.7, 'sunhimi_h4': 0.7, 'sunhimi_v2': 0.65, fallback: 0.65 },
-  'ashima': { 'sunhimi_h2': 0.7, 'sunhimi_h4': 0.7, 'sunhimi_v2': 0.65, fallback: 0.65 },
-  'koukouya': { 'sunhimi_h2': 0.7, 'sunhimi_h4': 0.7, 'sunhimi_v2': 0.65, fallback: 0.65 },
-  'kanzarin': { 'sunhimi_h2': 0.7, 'sunhimi_h4': 0.7, 'sunhimi_v2': 0.65, fallback: 0.65 },
-  'ka-996beshi': { 'sunhimi_h2': 0.7, 'sunhimi_h4': 0.7, 'sunhimi_v2': 0.65, fallback: 0.65 },
-  'Skin_Enhancer': { 'sunhimi_h2': 0.25, 'sunhimi_h4': 0.25, 'sunhimi_v2': 0.22, fallback: 0.22 },
+  'painterly': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 0.85, 'sunhimi_v2': 0.9, fallback: 1.0 },
+  '@silver palace': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'BlueArchiveStyleB1': { 'sunhimi_h2': 1.1, 'sunhimi_h4': 1.1, 'sunhimi_v2': 1.0, fallback: 1.0 },
+  'kieed': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'Lucent': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'ashima': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'koukouya': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'kanzarin': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'ka-996beshi': { 'sunhimi_h2': 1.0, 'sunhimi_h4': 1.0, 'sunhimi_v2': 0.9, fallback: 0.9 },
+  'Skin_Enhancer': { 'sunhimi_h2': 0.3, 'sunhimi_h4': 0.3, 'sunhimi_v2': 0.28, fallback: 0.28 },
   'animaNai': { 'sunhimi_h2': 0.66, 'sunhimi_h4': 0.66, 'sunhimi_v2': 0.6, fallback: 0.6 },
 };
 function artistCharKey(name) {
   const n = String(name || '');
   return Object.keys(ARTIST_CHAR_DEFAULTS).find(k => n.includes(k)) || '';
 }
+function artistLimit(name) {
+  const n = String(name || '');
+  if (/animaNai/i.test(n)) return 0.66;
+  if (/Skin_Enhancer/i.test(n)) return 0.30;
+  if (/sunhimi_h/i.test(n)) return 1.0;
+  return 1.3;
+}
+
 function artistDefaultWeight(name, charName) {
   const key = artistCharKey(name);
   if (!key) return null;
@@ -57,4 +69,12 @@ function artistDefaultWeight(name, charName) {
     if (k !== 'fallback' && c && c.includes(k)) return row[k];
   }
   return row.fallback;
+}
+
+
+// 天生偏扁平的画师：低权重 + 自动补“反扁平”负向
+const FLAT_PRONE_ARTISTS = ['koukouya', 'kanzarin'];
+const ANTI_FLAT_NEG = 'flat colors, vector art, posterized, plain shading, low detail, flat lighting';
+function isFlatProneArtist(name) {
+  return FLAT_PRONE_ARTISTS.some(k => String(name || '').includes(k));
 }
