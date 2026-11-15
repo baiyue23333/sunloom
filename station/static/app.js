@@ -1,15 +1,46 @@
-
+﻿
 'use strict';
 window.onerror = (m, s, l, c, e) => { document.title = 'ERR: ' + m + ' @' + l; };
 window.addEventListener('unhandledrejection', e => { document.title = 'REJ: ' + (e.reason && e.reason.message || e.reason); });
 const S = {
-  tokens: {}, garments: {}, presets: [],
+  tokens: {}, garments: {}, presets: [], aliases: {},
   pos: [], neg: [],
   loras: [], compfy: {}, datasets: [], loraFiles: [],
   jobTimer: null, last: null, gallery: [], sel: null,
   hist: [], hi: -1, fav: [], rel: {}, selChip: null, gallerySel: {}, compareSel: [],
   tokenFilter: '', paletteFilter: '', libraryFilter: '',
+  gender: 'f',   // 积木性别：f=女（默认）/ m=男
 };
+
+// 身份积木：@ID / @ID_F / @ID_F_SOFT / @ID_MALE… 与 @SINGLE / @SINGLE_M 都算
+const isIdentityToken = t => /^@(ID|SINGLE)(_|$)/.test(String(t || ''));
+function resolveToken(name) {
+  let cur = String(name || '');
+  for (let i = 0; i < 3 && S.aliases && S.aliases[cur]; i++) cur = S.aliases[cur];
+  return cur;
+}
+// 积木归属与性别（数据在 ref/prompt_lib.json 的 meta.gender / meta.owner）
+function tokenGender(name) {
+  const g = ((S.tokenMeta || {}).gender || {})[name];
+  if (g) return g;
+  // 服装派生的 @OUT_<KEY> / @NEG_<KEY> 没有单独条目，性别跟着服装走
+  const m = /^@(?:OUT|NEG)_(.+)$/.exec(String(name || ''));
+  if (m) {
+    const gar = (S.garments || {})[m[1].toLowerCase()];
+    if (gar) return gar.gender || 'f';
+  }
+  return '';
+}
+function tokenOwner(name) { return ((S.tokenMeta || {}).owner || {})[name] || ''; }
+function currentCardName() { return (($('#card-sel') || {}).value) || ''; }
+// 积木库的单一可见性入口：性别不符或属于别的角色卡 → 不可见
+function tokenVisible(name) {
+  const g = tokenGender(name);
+  if (S.gender === 'm' ? g === 'f' : g === 'm') return false;
+  const own = tokenOwner(name);
+  return !own || own === currentCardName();
+}
+
 const CAT_LABEL = {
   set_small:'场景·小', set_medium:'场景·中', set_large:'场景·大', acc:'发饰',
   id:'身份', body:'体型', pose:'姿势', face:'脸型', mood:'情绪', gaze:'视线', hand:'手部',
@@ -39,20 +70,21 @@ const SET_SCALE_MAP = (() => {
   return m;
 })();
 
-const ACC_SET = ['@PIN', '@CLIP', '@HAIRPIN', '@BERET', '@MINI', '@HEADBAND', '@RIBBON', '@FLOWER_CROWN'];
+const ACC_SET = ['@PIN', '@CLIP', '@HAIRPIN', '@BERET', '@MINI', '@HEADBAND', '@RIBBON', '@FLOWER_CROWN', '@ACC'];
 
 function tokenCat(name) {
   const up = name.toUpperCase();
   if (ACC_SET.some(p => up.startsWith(p))) return 'acc';
   const n = name.toUpperCase();
-  if (NSFW_TOKENS.has(n)) return 'nsfw';
-  const map = [
+  const tax = S.taxonomy || {};
+  const nsfwList = Array.isArray(tax.nsfw_tokens) ? tax.nsfw_tokens : null;
+  if (nsfwList ? nsfwList.includes(n) : NSFW_TOKENS.has(n)) return 'nsfw';
+  const map = Array.isArray(tax.prefix_rules) && tax.prefix_rules.length ? tax.prefix_rules : [
     ['@NEG', 'neg'], ['@DRAPE', 'drape'], ['@OUT', 'outfit'], ['@MOOD', 'mood'], ['@POSE', 'pose'],
     ['@HOLD', 'hold'], ['@WEAPON', 'weapon'],
     ['@GAZE', 'gaze'], ['@HAND', 'hand'], ['@HAIR', 'hair'], ['@FAB', 'fabric'],
     ['@ATMO', 'atmo'], ['@TIME', 'time'], ['@SET', 'set'], ['@PROP', 'prop'],
     ['@COMP', 'comp'], ['@STYLE', 'style'], ['@CAM', 'cam'], ['@LIGHT', 'light'],
-    // 之前漏掉的分类：这些全掉进「自定义」里了
     ['@OBJ', 'prop'], ['@INSTR', 'prop'], ['@RIDE', 'prop'], ['@ROLE', 'prop'], ['@STRIP', 'neg'],
     ['@WEATHER', 'atmo'], ['@SEASON', 'time'],
     ['@BODY', 'body'], ['@FACE', 'face'], ['@HAIR', 'hair'], ['@MAKEUP', 'face'],
@@ -61,56 +93,94 @@ function tokenCat(name) {
     ['@BG', 'comp'], ['@HOSE', 'outfit'], ['@ID', 'id'],
   ];
   for (const [pre, cat] of map) if (n.startsWith(pre)) return cat;
-  if (n === '@ID' || n === '@SINGLE') return 'id';
+  if (n === '@ID_F' || n === '@SINGLE' || n === '@SINGLE_M') return 'id';
   return 'custom';
 }
 
 
 /* ---------- 画师 LoRA 悬停预览 ---------- */
-function bindArtistHover() {
-  const sel = $('#style-lora');
+function bindArtistHover(sel, kind) {
+  if (!sel) sel = $('#style-lora');
+  kind = kind || (sel && sel.id === 'coop-slora' ? 'env' : 'char');
   if (!sel || sel.dataset.hoverBound) return;
   sel.dataset.hoverBound = '1';
-  let card = null, timer = null, seq = 0;
+  let card = null, timer = null, seq = 0, hovered = false;
   const hide = () => { clearTimeout(timer); if (card) { card.remove(); card = null; } };
   const show = async (name) => {
+    hide();
     if (!name) return;
     const my = ++seq;
+    let k = kind === 'auto' ? 'char' : kind;
+    if (kind !== 'env') {
+      try { if (typeof isEnvLora === 'function' && isEnvLora(name)) k = 'env'; } catch (e) {}
+    }
     let data;
-    try { data = await api('/api/artist_preview?name=' + encodeURIComponent(name)); } catch (e) { return; }
-    if (my !== seq) return;
+    try { data = await api('/api/artist_preview?kind=' + k + '&name=' + encodeURIComponent(name)); } catch (e) { return; }
+    if (my !== seq || !hovered) return;
     const r = sel.getBoundingClientRect();
     card = document.createElement('div');
-    card.className = 'artist-hover';
-    const title = '<div class="ah-title">' + esc((typeof shortLoraName === 'function' ? shortLoraName(name) : name)) + '</div>';
-    const refImg = data.ref ? '<figure class="ah-ref"><img src="/api/img?path=' + encodeURIComponent(data.ref) + '"><figcaption>弱身份参考图</figcaption></figure>' : '';
-    const thumbs = (data.items || []).map(it =>
-      '<figure class="ah-item"><img src="/api/img?path=' + encodeURIComponent(it.path) + '"><figcaption>' + it.weight.toFixed(1) + '</figcaption></figure>').join('');
+    card.className = 'artist-hover ' + k;
+    const title = '<div class="ah-title">' + esc((typeof shortLoraName === 'function' ? shortLoraName(name) : name)) +
+      '<span class="ah-kind">' + (k === 'env' ? '环境画师' : '人物画师') + '</span></div>';
+    const items = (data.items || []).slice(0, 3);
+    const hasRef = !!(data.ref && !items.some(it => it.path === data.ref));
+    const refCard = hasRef
+      ? ('<figure class="ah-item ah-ref-card"><img src="/api/img?path=' + encodeURIComponent(data.ref) + '&t=' + (data.ref_mtime || '') + '"><figcaption>参考图</figcaption></figure>')
+      : '';
+    const thumbs = items.map(it =>
+      '<figure class="ah-item"><img src="/api/img?path=' + encodeURIComponent(it.path) + '&t=' + (it.mtime || '') + '"><figcaption>' +
+      it.weight.toFixed(2).replace(/0$/, '') + '</figcaption></figure>').join('');
     const adv = (data.advice || []).map(a => '<li><b>' + a.weight.toFixed(1) + '</b> ' + esc(a.text) + '</li>').join('');
-    card.innerHTML = title + refImg +
-      (thumbs ? '<div class="ah-thumbs">' + thumbs + '</div>' : '<div class="ah-empty">样张生成中，稍后悬停再看</div>') +
+    card.innerHTML = title +
+      ((refCard || thumbs) ? '<div class="ah-thumbs' + (hasRef ? ' has-ref' : '') + '">' + refCard + thumbs + '</div>' : '<div class="ah-empty">样张生成中，稍后悬停再看</div>') +
       '<ul class="ah-advice">' + adv + '</ul>';
     document.body.appendChild(card);
-    const w = card.offsetWidth, h = card.offsetHeight;
-    // 优先放在控件左侧；左侧空间不足时退回右侧
-    let left = r.left - w - 12;
-    if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
-    let top = r.top - 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
-    card.style.left = Math.max(8, left) + 'px';
-    card.style.top = top + 'px';
+    const clamp = () => {
+      if (!card) return;
+      const w = card.offsetWidth, h = card.offsetHeight;
+      let left = r.left - w - 12;
+      if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
+      let top = r.top - 8;
+      if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
+      card.style.left = Math.max(8, left) + 'px';
+      card.style.top = top + 'px';
+    };
+    clamp();
+    requestAnimationFrame(clamp);
+    card.querySelectorAll('img').forEach(img => { img.addEventListener('load', clamp); });
   };
-  sel.addEventListener('mouseenter', () => {
-    timer = setTimeout(() => show(sel.value), 650);
-  });
-  sel.addEventListener('mouseleave', hide);
-  sel.addEventListener('change', hide);
+  sel.addEventListener('mouseenter', () => { hovered = true; clearTimeout(timer); timer = setTimeout(() => show(sel.value), 350); });
+  sel.addEventListener('mouseleave', () => { hovered = false; hide(); });
+  sel.addEventListener('change', () => { if (hovered) show(sel.value); else hide(); });
   window.addEventListener('scroll', hide, true);
 }
 
+function bindAllArtistHovers() {
+  try { bindArtistHover($('#style-lora'), 'char'); } catch (e) {}
+  try { bindArtistHover(document.querySelector('#coop-slora-row #coop-slora'), 'env'); } catch (e) {}
+}
+
 /* ---------- 初始化 ---------- */
+// 当前 LoRA 组合里有没有画师 LoRA。
+function isRealArtistLora(name) {
+  try {
+    if (!name) return false;
+    return typeof loraCat === 'function' && loraCat(name) === '画师';
+  } catch (e) { return false; }
+}
+
+function hasArtistLoraIn(list) {
+  try {
+    return (list || []).some(l => l && isRealArtistLora(l.name));
+  } catch (e) { return false; }
+}
+
 function persistParams() {
   try {
+    // 有画师时留一份"上次好用的组合"，供下次加载时兜底恢复
+    if (hasArtistLoraIn(S.loras)) {
+      try { localStorage.setItem('loom.loras.lastGood', JSON.stringify(S.loras)); } catch (e) {}
+    }
     localStorage.setItem('loom.params', JSON.stringify({
       model: ($('#p-model') || {}).value || '',
       refine: ($('#p-refine') || {}).value || '0',
@@ -132,21 +202,17 @@ function persistLanes() {
 
 const TIPS_HTML = [
     '<h4 class="rc-h">出图基本盘</h4>',
-    '<p class="hint">1024×1536 / 26–30 步 / CFG 5.5。低于 22 步会明显发灰。</p>',
-    '<h4 class="rc-h">角色 LoRA</h4>',
-    '<p class="hint">h2 0.5 层次最好；h1 / h4 / v2–v6 偏白，配逆光容易糊，建议 0.4 以下或换 h2。</p>',
+    '<p class="hint">1024×1024，26–30 步，CFG 5.5；重映一次约 2 分 50 秒（出板 + 头发精修 + 超分）。</p>',
+    '<h4 class="rc-h">身份与角色卡</h4>',
+    '<p class="hint">角色卡决定身份 / 体型 / 服装；卡分女 / 男，先切积木库性别再应用。</p>',
     '<h4 class="rc-h">画师 LoRA</h4>',
-    '<p class="hint">选中即自动：权重 1.0（v2 0.9）、移除 animaNai、换成文本身份、同步替换画师风格提示词；「画师强度」可选 0.6 / 1.0 / 1.3。</p>',
-    '<p class="hint">画师 ≥0.5 时别再留 @ID/@SINGLE/@BODY_SOFT/@CAM_*，构图会被压。</p>',
-    '<p class="hint">画师强度只放大文件本身的笔触，不会凭空变厚涂；想要重风格优先 Lucent，1.3 时注意身份漂移。</p>',
-    '<h4 class="rc-h">画风积木</h4>',
-    '<p class="hint">@STYLE_* 会把场景压成白底，场景图不要加；白底立绘才用。</p>',
+    '<p class="hint">只显示当前底模可用的：anima 底模下看不到 MOSS / Krea2 等其他架构。人物画师与角色 LoRA 分开。</p>',
     '<h4 class="rc-h">一键修正</h4>',
-    '<p class="hint">默认关闭（参数面板「出图前自动修正」）。开启后会清空块、去 Q 脸、补过曝负向。</p>',
-    '<h4 class="rc-h">模板</h4>',
-    '<p class="hint">名字带「风格·」或 Shift 点击 = 叠加；普通点击 = 替换整块画布。</p>',
+    '<p class="hint">按规则检查多机位、性别冲突、背影配正面光、正负串道；结果可勾选「移除 / 替换」，只改积木不改画面。</p>',
+    '<h4 class="rc-h">分类光引导</h4>',
+    '<p class="hint">工具栏「引导」选自由 / 人像 / 场景 / 剧情；亮的分类表示还缺，悬停可看建议积木。</p>',
     '<h4 class="rc-h">出问题先查</h4>',
-    '<p class="hint">① 步数是否 <26；② 是否同时挂了 @STYLE_* 和场景；③ 画师是否仍留着 @ID。</p>',
+    '<p class="hint">① 步数 <26 会发灰；② 场景图别同时挂 @STYLE_；③ LoRA 底模是否匹配；④ 背影别留眼睛词。</p>',
     '<p class="hint">完整版见 产出作品/工作站提示卡.md 与 工作站说明.md</p>'
   ].join('');
 
@@ -155,11 +221,24 @@ function fillModelSelect() {
   if (!sel) return;
   let savedModel = '';
   try { savedModel = (JSON.parse(localStorage.getItem('loom.params') || '{}').model) || ''; } catch (e) {}
-  const cur = (S.model || savedModel || 'anima-base-v1.0.safetensors');
-  const list = S.models && S.models.length ? S.models : ['anima-base-v1.0.safetensors'];
+  const all = S.models && S.models.length ? S.models : ['anima-base-v1.0.safetensors'];
+  const animaList = (typeof modelBase === 'function') ? all.filter(f => modelBase(f) === 'anima') : all;
+  const list = animaList.length ? animaList : all;
+  const rawCur = (S.model || savedModel || 'anima-base-v1.0.safetensors');
+  const cur = list.includes(rawCur) ? rawCur : list[0];
+  S.model = cur;
   sel.innerHTML = list.map(f => '<option' + (f === cur ? ' selected' : '') + '>' + f + '</option>').join('');
-  sel.value = list.includes(cur) ? cur : list[0];
-  sel.onchange = () => { S.model = sel.value; persistParams(); };
+  sel.value = cur;
+  sel.onchange = () => {
+    S.model = sel.value;
+    const want = (typeof modelBase === 'function') ? modelBase(sel.value) : 'anima';
+    S.loras = (S.loras || []).filter(l => !loraBase(l.name) || loraBase(l.name) === want);
+    if (typeof renderLoras === 'function') renderLoras();
+    if (typeof renderStyleLoraOptions === 'function') renderStyleLoraOptions();
+    if (typeof coopFillLoras === 'function') { try { coopFillLoras(); } catch (e) {} }
+    const label = { anima: 'anima', other_xl: '其他', moss: 'MOSS', krea2: 'Krea2' }[want] || want;
+    toast('已切到 ' + label + '：LoRA 列表只显示该底模可用的');
+  };
 }
 
 function bindSubgroupEditor() {
@@ -173,8 +252,8 @@ function bindSubgroupEditor() {
 
 async function boot() {
   const b = await api('/api/bootstrap');
-  S.tokens = b.tokens; S.notes = b.notes || {}; S.tokenMeta = b.token_meta || {}; S.garments = b.garments; S.comfy = b.comfy;
-  S.datasets = b.datasets; S.loraFiles = b.loras; S.models = b.models || [];
+  S.tokens = b.tokens; S.notes = b.notes || {}; S.loraMeta = b.lora_meta || {}; S.tokenMeta = b.token_meta || {}; S.aliases = b.aliases || {}; S.taxonomy = b.taxonomy || {}; S.garments = b.garments; S.comfy = b.comfy;
+  S.datasets = b.datasets; S.loraFiles = b.loras; S.models = b.models || []; S.altModels = b.alt_models || []; S.loraRoles = b.lora_roles || {}; S.envExclude = b.env_exclude || [];
   S.defaults = b.defaults; S.paths = b.paths;
   $('#pill-comfy').textContent = b.comfy.up ? ('ComfyUI ' + b.comfy.version) : 'ComfyUI 未启动';
   $('#pill-comfy').className = 'pill ' + (b.comfy.up ? 'ok' : 'bad');
@@ -202,13 +281,35 @@ async function boot() {
       if (sp.mode && $('#p-mode')) $('#p-mode').value = sp.mode;
       if (Array.isArray(sp.loras) && sp.loras.length) S.loras = sp.loras;
     }
+    // 一次性把历史保存的 LoRA 权重归一为 1.0（之后仍可手动改，不会被覆盖）
+    try {
+      if (!localStorage.getItem('loom.loras.allOne.v1') && Array.isArray(S.loras) && S.loras.length) {
+        let changed = 0;
+        S.loras = S.loras.map(l => {
+          if (Number(l.weight) !== 1) { changed++; return { ...l, weight: 1 }; }
+          return l;
+        });
+        localStorage.setItem('loom.loras.allOne.v1', '1');
+        if (changed) setTimeout(() => { try { toast('LoRA 权重已统一为 1.0（' + changed + ' 个）'); } catch (e) {} }, 900);
+      }
+    } catch (e) {}
+    // 一次性迁移：底模画师与合作模式人物画师默认留空（之后可手动选）
+    try {
+      if (!localStorage.getItem('loom.artistDefaultBlank.v1')) {
+        S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
+        localStorage.removeItem('loom.styleLora');
+        localStorage.removeItem('loom.loras.lastGood');
+        const sp = JSON.parse(localStorage.getItem('loom.params') || '{}');
+        if (Array.isArray(sp.loras)) {
+          sp.loras = sp.loras.filter(l => loraCat(l.name) !== '画师');
+          localStorage.setItem('loom.params', JSON.stringify(sp));
+        }
+        localStorage.setItem('loom.artistDefaultBlank.v1', '1');
+      }
+    } catch (e) {}
   } catch (e) {}
-  const gm = $('#guide-mode');
-  if (gm) { gm.value = loadJSON('loom.glowMode', 'free') || 'free'; gm.onchange = () => { saveJSON('loom.glowMode', gm.value); S._glowDone = false; renderGuideGlow(); }; }
   renderPalette();
   bindSubgroupEditor(); renderLanes(); renderLoras(); renderParams(); fillModelSelect();
-  const psel = document.querySelector('#p-polish');
-  if (psel) { try { psel.value = localStorage.getItem('loom.polish') || 'quality'; } catch (e) {} psel.onchange = () => { try { localStorage.setItem('loom.polish', psel.value); } catch (e) {} }; }
   try {
     if (!localStorage.getItem('loom.refineOffMigrated')) {
       localStorage.setItem('loom.refineOffMigrated', '1');
@@ -244,91 +345,34 @@ async function boot() {
   if (tipsBtn) tipsBtn.onclick = tipsOpen;
   const tipsFab = document.querySelector('#tips-fab');
   if (tipsFab) tipsFab.onclick = tipsOpen;
-  const t2t = document.querySelector('#btn-tags2text');
-  if (t2t) t2t.onclick = async () => {
-    t2t.classList.add('loading');
-    try {
-      const blocks = S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false }));
-      const tags = S.pos.map(b => b.token || ('(文本) ' + (b.text || '').slice(0, 24))).join(' ') || '（空）';
-      const r = await api('/api/tags2text', { method: 'POST', body: JSON.stringify({ blocks }) });
-      if (!r.text) { toast('没有可转换的内容', true); return; }
-      let outText = r.text;
-      const hadId = S.pos.some(b => /^@(ID|SINGLE)$/.test(b.token || ''));
-      const missing = hadId ? IDENT_TRAITS.filter(t => !t.test.test(outText)) : [];
-      if (missing.length) outText = outText.replace(/[.\s]*$/, '') + ', ' + missing.map(x => x.add).join(', ') + '.';
-      openModal('转自然语言 · 确认',
-        '<h4 class="rc-h">原画布</h4><pre class="prompt-preview">' + esc(tags) + '</pre>' +
-        (missing.length ? '<p class="hint" style="color:#ffb6a0">已自动补回身份词：' + missing.map(x => x.key).join(' / ') + '</p>' : '') +
-        '<h4 class="rc-h">转换结果（' + outText.length + ' 字符）</h4><pre class="prompt-preview">' + esc(outText) + '</pre>' +
-        '<div class="row2" style="margin-top:12px">' +
-        '<button class="primary" id="t2t-apply">应用到画布</button>' +
-        '<button class="ghost" id="t2t-copy">复制</button>' +
-        '<button class="ghost" id="t2t-close">关闭</button></div>');
-      $('#t2t-close').onclick = closeModal;
-      $('#t2t-copy').onclick = async () => { try { await navigator.clipboard.writeText(outText); toast('已复制'); } catch (e) { toast('复制失败', true); } };
-      $('#t2t-apply').onclick = () => {
-        S.pos = [{ id: uid(), token: '', text: outText, weight: 1, enabled: true }];
-        renderLanes(); expandPreview(); closeModal(); toast('已转成自然语言');
-      };
-    } catch (e) { toast('转换失败：' + e.message, true); }
-    finally { t2t.classList.remove('loading'); }
-  };
-    const pol = document.querySelector('#btn-polish');
-  if (pol) pol.onclick = async () => {
-    pol.disabled = true;
-    pol.classList.add('loading');
-    try {
-      let text = (S.pos.length === 1 && !S.pos[0].token) ? (S.pos[0].text || '') : '';
-      if (!text) {
-        const blocks = S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false }));
-        const c = await api('/api/tags2text', { method: 'POST', body: JSON.stringify({ blocks }) });
-        text = c.text || '';
-      }
-      if (!text) { toast('没有可润色的内容', true); return; }
-      toast('润色中…（1.5B 约 26 秒 / 0.5B 约 12 秒）');
-      const pm = (($('#p-polish') || {}).value) || 'quality';
-      const t0 = Date.now();
-      const r = await api('/api/polish', { method: 'POST', body: JSON.stringify({ text, model: pm }) });
-      if (!r.ok) { toast(r.note || '润色模型未就绪', true); return; }
-      const useSec = ((Date.now() - t0) / 1000).toFixed(1);
-      const tag = r.model === 'fast' ? '0.5B' : '1.5B';
-      const lost = lostTraits(text, r.text);
-      const warnHtml = lost.length ? ('<p class="hint" style="color:#ffb3a6">⚠ 润色丢了身份词：' + lost.map(x => x.key).join(' / ') + '</p>') : '';
-      openModal('润色结果 · ' + tag + ' · ' + useSec + 's',
-        '<h4 class="rc-h">原文</h4>' +
-        '<pre class="prompt-preview">' + esc(text) + '</pre>' +
-        '<h4 class="rc-h">润色后（' + r.text.length + ' 字符）</h4>' +
-        '<pre class="prompt-preview">' + esc(r.text) + '</pre>' +
-        warnHtml +
-        '<div class="row2" style="margin-top:12px">' +
-        '<button class="primary" id="pol-apply">应用到画布</button>' +
-        (lost.length ? '<button class="ghost" id="pol-patch">补回身份词并应用</button>' : '') +
-        '<button class="ghost" id="pol-copy">复制润色结果</button>' +
-        '<button class="ghost" id="pol-close">关闭</button></div>');
-      $('#pol-close').onclick = closeModal;
-      $('#pol-copy').onclick = async () => { try { await navigator.clipboard.writeText(r.text); toast('已复制'); } catch (e) { toast('复制失败', true); } };
-      const patchBtn = $('#pol-patch');
-      if (patchBtn) patchBtn.onclick = () => {
-        const fixed = r.text.replace(/[.\s]*$/, '') + ', ' + lost.map(x => x.add).join(', ') + '.';
-        S.pos = [{ id: uid(), token: '', text: fixed, weight: 1, enabled: true }];
-        renderLanes(); expandPreview(); closeModal(); toast('已补回身份词并应用');
-      };
-      $('#pol-apply').onclick = () => {
-        S.pos = [{ id: uid(), token: '', text: r.text, weight: 1, enabled: true }];
-        renderLanes(); expandPreview(); closeModal(); toast('已应用润色结果');
-      };
-    } catch (e) { toast('润色失败：' + e.message, true); }
-    finally { pol.disabled = false; pol.classList.remove('loading'); }
-  };
-
+  const gm = document.querySelector('#guide-mode');
+  if (gm) {
+    gm.value = loadJSON('loom.glowMode', 'free') || 'free';
+    gm.onchange = () => { saveJSON('loom.glowMode', gm.value); S._glowDone = false; renderGuideGlow(); };
+  }
   const sfix = document.querySelector('#btn-smartfix');
-  if (sfix) sfix.onclick = async () => { sfix.classList.add('loading'); try { const n = await smartFix(); if (!n) toast('没有需要修正的冲突'); } finally { sfix.classList.remove('loading'); } };
+  if (sfix) sfix.onclick = fixFlow;
   const randBtn = document.querySelector('#btn-random');
-  if (randBtn) randBtn.onclick = randomCompose;
+  if (randBtn) randBtn.onclick = () => {
+    S._coopRouting = false;
+    try { randomCompose(); } finally { S._coopRouting = true; }
+    setTimeout(coopAfterGlobalEdit, 0);
+  };
   const rsBtn = document.querySelector('#btn-rand-scene');
-  if (rsBtn) rsBtn.onclick = randomSceneOnly;
+  if (rsBtn) rsBtn.onclick = () => {
+    if (S.coopOn && typeof coopToGlobal === 'function') coopToGlobal();
+    S._coopRouting = false;
+    try { randomSceneOnly(); } finally { S._coopRouting = true; }
+    setTimeout(coopAfterGlobalEdit, 0);
+  };
   const roBtn = document.querySelector('#btn-rand-outfit');
-  if (roBtn) roBtn.onclick = randomOutfitOnly;
+  if (roBtn) roBtn.onclick = () => {
+    if (S.coopOn && typeof coopToGlobal === 'function') coopToGlobal();
+    S._coopRouting = false;
+    try { randomOutfitOnly(); } finally { S._coopRouting = true; }
+    setTimeout(coopAfterGlobalEdit, 0);
+  };
+  try { reprojInit(); } catch (e) {}
   await loadPresets();
   await loadTemplates();
   renderGallery();
@@ -350,7 +394,7 @@ function fillSelects() {
 
 
 /* ---------- 撤销 / 重做 ---------- */
-function snapState() { return JSON.stringify({ pos: S.pos, neg: S.neg }); }
+function snapState() { return JSON.stringify({ pos: S.pos, neg: S.neg, coop: S.coop || null, coopOn: !!S.coopOn }); }
 function pushHistory() {
   const s = snapState();
   if (S.hist[S.hi] === s) return;
@@ -362,6 +406,8 @@ function pushHistory() {
 function applyHistory() {
   const d = JSON.parse(S.hist[S.hi]);
   S.pos = d.pos; S.neg = d.neg;
+  if (d.coop !== undefined && d.coop) S.coop = d.coop;
+  if (S.coopOn && S.coop) { renderCoopLanes(); coopBind(); }
   renderLanes(); expandPreview();
 }
 function undo() {
@@ -438,10 +484,32 @@ const SUBGROUP_DEFS = {
     { label: '用法', color: '#d9b268', tokens: ['@WEAPON_GRIP','@WEAPON_SHIELD'] },
   ],
   "cam": [
-    { label: "近景", color: "#e08a7a", tokens: ["@CAM_CLOSEUP","@CAM_BUST","@CAM_PROFILE","@CAM_HIP"] },
-    { label: "全身/中景", color: "#7aa2d6", tokens: ["@CAM_FULL","@CAM_MEDIUM","@CAM_THREEQ","@CAM_BACKSIDE","@CAM_REAR"] },
-    { label: "角度", color: "#a78bd6", tokens: ["@CAM_LOW","@CAM_HIGH","@CAM_TOP","@CAM_WORM","@CAM_POV"] },
-    { label: "镜头效果", color: "#6fc2c9", tokens: ["@CAM_FISHEYE","@CAM_DUTCH","@CAM_ZOOMBLUR","@CAM_ORBIT"] },
+    { label: "近景", color: "#e08a7a", tokens: ["@CAM_BUST","@CAM_CLOSEUP","@CAM_HIP","@CAM_PROFILE"] },
+    { label: "全身/中景", color: "#7aa2d6", tokens: ["@CAM_BACKSIDE","@CAM_FULL","@CAM_MEDIUM","@CAM_REAR","@CAM_THREEQ"] },
+    { label: "角度", color: "#a78bd6", tokens: ["@CAM_EYE","@CAM_GROUND","@CAM_HIGH","@CAM_KNEE","@CAM_OVERHEAD","@CAM_POV","@CAM_TOP","@CAM_WORM"] },
+    { label: "镜头效果", color: "#6fc2c9", tokens: ["@CAM_DUTCH","@CAM_FISHEYE","@CAM_ORBIT","@CAM_SHOULDER","@CAM_TELE","@CAM_WIDE","@CAM_ZOOMBLUR"] },
+    { label: "远景/框景", color: "#d9b268", tokens: ["@CAM_BACK_FAR","@CAM_CORNER","@CAM_DOORWAY","@CAM_ESTABLISH","@CAM_FULL_WIDE","@CAM_HIGH_WIDE","@CAM_LOW_WIDE","@CAM_SIDE_FAR","@CAM_WINDOW"] },
+  ],
+  "mood": [
+    { label: "轻快/正向", color: "#7fc79a", tokens: ["@MOOD_AMUSED","@MOOD_CALM","@MOOD_EXCITED","@MOOD_RELIEVED","@MOOD_SHY","@MOOD_SMUG","@MOOD_TEASING","@MOOD_TENDER"] },
+    { label: "低沉/负向", color: "#7aa2d6", tokens: ["@MOOD_ANGRY","@MOOD_COLD","@MOOD_DETACHED","@MOOD_EMBARRASSED","@MOOD_SAD","@MOOD_SLEEPY","@MOOD_TIRED","@MOOD_WISTFUL"] },
+    { label: "状态/其它", color: "#d9b268", tokens: ["@MOOD_ALCOHOL","@MOOD_FOCUSED","@MOOD_SMOKE","@MOOD_SURPRISED","@MOOD_THINKING"] },
+  ],
+  "gaze": [
+    { label: "朝向", color: "#a78bd6", tokens: ["@GAZE_ASIDE","@GAZE_CAMERA","@GAZE_DOWN","@GAZE_FAR","@GAZE_UP","@GAZE_WINDOW"] },
+    { label: "眼态", color: "#6fc2c9", tokens: ["@GAZE_BLINK","@GAZE_CLOSED"] },
+  ],
+  "time": [
+    { label: "日间", color: "#d9b268", tokens: ["@TIME_AFTERNOON","@TIME_DAWN","@TIME_MORNING","@TIME_NOON"] },
+    { label: "黄昏/夜", color: "#7aa2d6", tokens: ["@TIME_BLUE","@TIME_DUSK","@TIME_NIGHT"] },
+  ],
+  "atmo": [
+    { label: "光与尘", color: "#d9b268", tokens: ["@ATMO_BOKEH","@ATMO_DUST","@ATMO_KOMOREKI","@ATMO_PETALS"] },
+    { label: "气候/天象", color: "#7aa2d6", tokens: ["@ATMO_FOG","@ATMO_MOON","@ATMO_RAIN"] },
+    { label: "人造氛围", color: "#a78bd6", tokens: ["@ATMO_CANDLE","@ATMO_GRID","@ATMO_LAMP","@ATMO_NEON"] },
+  ],
+  "hand": [
+    { label: "手部动作", color: "#d98c72", tokens: ["@HAND_BEHIND","@HAND_BOOK","@HAND_CHIN","@HAND_COLLAR","@HAND_CUFF","@HAND_FOLD","@HAND_HAIR","@HAND_KNEES","@HAND_PEACE","@HAND_POCKET","@HAND_WARM","@HAND_WAVE"] },
   ],
   "light": [
     { label: "自然光", color: "#d9b268", tokens: ["@LIGHT_WIN","@LIGHT_GOLDEN","@LIGHT_SIDE","@LIGHT_SOFT","@LIGHT_SOFT_WARM","@LIGHT_SHEEN"] },
@@ -449,10 +517,12 @@ const SUBGROUP_DEFS = {
     { label: "氛围光", color: "#6fc2c9", tokens: ["@LIGHT_BACK","@LIGHT_RIM","@LIGHT_RAY"] },
   ],
   "pose": [
-    { label: "站/靠", color: "#7fc79a", tokens: ["@POSE_STAND","@POSE_LEAN"] },
-    { label: "坐/卧", color: "#7aa2d6", tokens: ["@POSE_SIT","@POSE_KNEEL","@POSE_LIE","@POSE_CROUCH","@POSE_CURL","@POSE_CROSS_LEGS"] },
-    { label: "动作", color: "#d98c72", tokens: ["@POSE_WALK","@POSE_FLOAT","@POSE_STRETCH","@POSE_BACK","@POSE_LOOK_BACK"] },
-    { label: "手部小动作", color: "#d9b268", tokens: ["@POSE_CHIN_REST","@POSE_TUCK_HAIR"] },
+    { label: "站/靠", color: "#7fc79a", tokens: ["@POSE_ARMS_CROSSED","@POSE_HANDS_POCKETS","@POSE_LEAN","@POSE_LEAN_RAIL","@POSE_STAND"] },
+    { label: "坐/卧", color: "#7aa2d6", tokens: ["@POSE_CROSS_LEGS","@POSE_CROUCH","@POSE_CURL","@POSE_KNEEL","@POSE_KNEEL_ONE","@POSE_LIE","@POSE_LIE_BACK","@POSE_LIE_SIDE","@POSE_SIT","@POSE_SIT_FLOOR","@POSE_SIT_SIDE","@POSE_SLEEP_SIT","@POSE_SQUAT"] },
+    { label: "文静", color: "#8fa8c8", tokens: ["@POSE_HANDS_FOLDED","@POSE_LAP_HANDS","@POSE_LOOK_DOWN","@POSE_PRAY","@POSE_QUIET_TURN","@POSE_READ_BOOK","@POSE_SCARF_WRAP","@POSE_TEA_CUP","@POSE_WINDOW_GAZE"] },
+    { label: "活泼", color: "#f0a05a", tokens: ["@POSE_BALANCE","@POSE_DANCE_STEP","@POSE_HANDS_UP_CHEER","@POSE_HOP","@POSE_JUMP_TWIST","@POSE_KICK","@POSE_PEEK","@POSE_PIGGYBACK_WAVE","@POSE_RUN","@POSE_RUN_TURN","@POSE_SKIP","@POSE_SPIN_SKIRT","@POSE_STRETCH_YAWN","@POSE_TILT_HEAD"] },
+    { label: "手部小动作", color: "#d9b268", tokens: ["@POSE_ADJUST_COLLAR","@POSE_BLOW_KISS","@POSE_CHEEK_PEACE","@POSE_CHIN_REST","@POSE_CLAP","@POSE_FINGER_GUN","@POSE_FIST_PUMP","@POSE_HANDS_CLASP","@POSE_HAND_ON_HAIR","@POSE_HEART_HANDS","@POSE_HOLD_HEM","@POSE_PEACE","@POSE_POINT","@POSE_POUT","@POSE_SALUTE","@POSE_THUMBS_UP","@POSE_TOUCH_FACE","@POSE_TUCK_HAIR","@POSE_WAVE","@POSE_WINK_PEACE"] },
+    { label: "动作", color: "#d98c72", tokens: ["@POSE_ARCH_BACK","@POSE_BACK","@POSE_BENT_OVER","@POSE_FLOAT","@POSE_JUMP","@POSE_LOOK_BACK","@POSE_LOOK_UP","@POSE_SPIN","@POSE_STRETCH","@POSE_STRETCH_UP","@POSE_TIPTOE","@POSE_WALK"] },
   ],
   "comp": [
     { label: "取景", color: "#7aa2d6", tokens: ["@COMP_FOREGROUND","@COMP_CENTER","@COMP_THIRDS","@COMP_FILL","@COMP_CROP","@COMP_MACRO","@COMP_FRAME"] },
@@ -461,19 +531,19 @@ const SUBGROUP_DEFS = {
     { label: "特技", color: "#6fc2c9", tokens: ["@COMP_MIRROR","@COMP_DOF","@COMP_NEGATIVE","@COMP_GOLDEN","@COMP_MINIMAL","@COMP_LOOKROOM","@COMP_LAYERS","@COMP_REFLECTION","@COMP_SILHOUETTE","@COMP_FRAMEINFRAME","@COMP_GRAPHIC","@COMP_TILTSHIFT","@COMP_VAST","@COMP_STD"] },
   ],
   "prop": [
-    { label: "植物/光", color: "#d9b268", tokens: ["@PROP_SUNFLOWER","@PROP_LANTERN","@PROP_BALLOON"] },
+    { label: "植物/光", color: "#d9b268", tokens: ["@PROP_LANTERN","@PROP_BALLOON"] },
     { label: "文具/艺术", color: "#7fc79a", tokens: ["@PROP_BOOK","@PROP_BRUSH","@PROP_PALETTE","@PROP_CANVAS","@PROP_LETTER"] },
     { label: "生活", color: "#7aa2d6", tokens: ["@PROP_CAMERA","@PROP_VINYL","@PROP_HEADPHONES","@PROP_BLANKET","@PROP_UMBRELLA","@PROP_KEY"] },
     { label: "乐器", color: "#d98c72", tokens: ["@PROP_VIOLIN"] },
   ],
   "style": [
-    { label: "绘画", color: "#7fc79a", tokens: ["@STYLE_PAINTERLY","@STYLE_WATERCOLOR","@STYLE_SOFT","@STYLE_FLAT","@STYLE_CEL","@STYLE_LINE"] },
+    { label: "绘画", color: "#7fc79a", tokens: ["@STYLE_PAINTERLY","@STYLE_WATERCOLOR","@STYLE_SOFT","@STYLE_FLAT","@STYLE_CEL","@STYLE_LINE","@STYLE_ANIME","@STYLE_PASTEL"] },
     { label: "影像", color: "#7aa2d6", tokens: ["@STYLE_FILM","@STYLE_PHOTO","@STYLE_NOIR","@STYLE_GRAIN"] },
     { label: "特效", color: "#a78bd6", tokens: ["@STYLE_GLITCH","@STYLE_DATAMOSH","@STYLE_SURREAL","@STYLE_CHROMA","@STYLE_WATER"] },
   ],
   "neg": [
-    { label: "基础", color: "#d98c72", tokens: ["@NEG_BASE","@NEG_EXPO","@NEG_ANATOMY","@NEG_AI","@NEG_PERSPECTIVE","@NEG_BLUR","@NEG_OVEREXP","@NEG_SKIN","@NEG_CHILD","@NEG_NSFW"] },
-    { label: "服装/细节", color: "#d9b268", tokens: ["@NEG_FABRIC","@NEG_DRAPE_ON","@NEG_DRAPE_OFF","@NEG_HEM","@NEG_SHOES","@NEG_SOCKS","@NEG_THICKHOSE","@NEG_GARMENT","@NEG_COLORBLEED","@NEG_ACC_FACE","@NEG_FLOWER","@NEG_LONGHAIR","@NEG_CEL","@NEG_REAL","@NEG_HARDCEL"] },
+    { label: "基础", color: "#d98c72", tokens: ["@NEG_BASE","@NEG_BASE_A","@NEG_BASE_B","@NEG_EXPO","@NEG_ANATOMY","@NEG_AI","@NEG_PERSPECTIVE","@NEG_BLUR","@NEG_OVEREXP","@NEG_SKIN","@NEG_CHILD","@NEG_NSFW"] },
+    { label: "服装/细节", color: "#d9b268", tokens: ["@NEG_FABRIC","@NEG_DRAPE_ON","@NEG_DRAPE_OFF","@NEG_HEM","@NEG_SHOES","@NEG_SOCKS","@NEG_THICKHOSE","@NEG_GARMENT","@NEG_COLORBLEED","@NEG_ACC_FACE","@NEG_LONGHAIR","@NEG_CEL","@NEG_REAL","@NEG_HARDCEL"] },
     { label: "布局", color: "#7aa2d6", tokens: ["@NEG_TEXT","@NEG_DOUBLE","@NEG_BGCLUTTER","@NEG_DIORAMA","@NEG_LETTERBOX","@NEG_GLITCHBAND","@NEG_OUTLINE","@NEG_CHIBI"] },
     { label: "手/道具", color: "#7fc79a", tokens: ["@NEG_HANDS","@NEG_CUP","@NEG_BEDSIDE","@NEG_DESK","@NEG_TABLE","@NEG_HAND_ART","@NEG_PROPS"] },
   ],
@@ -502,7 +572,7 @@ const OUTFIT_FAMILY_COLOR = {
 function outfitFamilyOf(name) {
   const k = String(name || '').toUpperCase();
   if (/^@HOSE_/.test(k) || /^@OUT_(TIGHTS|SOCKS)/.test(k)) return '散件';
-  if (/^@OUTFIT/.test(k) || k === '@OUT_INITIAL') return '默认套装';
+  if (/^@OUTFIT/.test(k) || k === '@OUT_CASUAL_KNIT') return '默认套装';
   const key = k.replace(/^@OUT_/, '').toLowerCase();
   for (const [fam, keys] of Object.entries(OUTFIT_FAMILY)) if (keys.includes(key)) return fam;
   return '散件';
@@ -518,9 +588,13 @@ const SUBGROUP_PREFIX_RULES = {
 
 function subgroupOf(name) {
   const key = String(name || '').toUpperCase();
+  // 只有编辑器写入的 {label,color} 才算自定义子分组；
+  // classify_blocks.py 写的是分类字符串（"hair"/"body"），不能当 label 用，否则标题渲染成 undefined
   const custom = (S.tokenMeta && S.tokenMeta.subgroups) ? S.tokenMeta.subgroups[key] : null;
-  if (custom) return { cat: tokenCat(key), idx: 90, label: custom.label, color: custom.color || '#7aa2d6', custom: true };
-  const hit = SUBGROUP_MAP[key];
+  if (custom && typeof custom === 'object' && custom.label) {
+    return { cat: tokenCat(key), idx: 90, label: custom.label, color: custom.color || '#7aa2d6', custom: true };
+  }
+  const hit = SUBGROUP_MAP[key] || SUBGROUP_MAP[key.replace(/_(F|M)(?=_|$)/, '')];
   if (hit) return hit;
   const cat = tokenCat(key);
   if (cat === 'outfit') {
@@ -581,6 +655,7 @@ function setScaleOf(name) {
 function paletteGroups() {
   const groups = {};
   for (const [name, text] of Object.entries(S.tokens)) {
+    if (!tokenVisible(name)) continue;   // 性别不符 / 属于别人的角色卡
     const c = tokenCat(name);
     (groups[c] = groups[c] || []).push([name, text]);
   }
@@ -589,24 +664,32 @@ function paletteGroups() {
 
 
 /* ---------- 分类光引导（2026-11-08） ---------- */
-const GLOW_MODES = {
-  free:     ['id', 'cam', 'light', 'set', 'outfit', 'neg'],
-  portrait: ['id', 'cam', 'light', 'outfit', 'neg'],
-  scene:    ['id', 'cam', 'light', 'time', 'set', 'outfit', 'neg'],
-  story:    ['id', 'cam', 'set', 'pose', 'mood', 'neg']
+const GUIDE_CATS = ['id', 'body', 'face', 'cam', 'light', 'time', 'set', 'outfit', 'pose', 'mood', 'gaze', 'comp', 'neg'];
+const GUIDE_PRIORITY = {
+  free: GUIDE_CATS,
+  portrait: ['face', 'gaze', 'cam', 'light', 'mood', 'body', 'comp', 'outfit', 'id', 'set', 'time', 'pose', 'neg'],
+  scene: ['set', 'time', 'light', 'comp', 'cam', 'mood', 'pose', 'outfit', 'id', 'body', 'face', 'gaze', 'neg'],
+  story: ['pose', 'mood', 'gaze', 'comp', 'cam', 'set', 'light', 'outfit', 'face', 'body', 'id', 'time', 'neg']
 };
+function localGuideRoles(mode, cov) {
+  const order = GUIDE_PRIORITY[mode] || GUIDE_CATS;
+  const missing = GUIDE_CATS.filter(k => !cov[k]);
+  return order.filter(k => missing.includes(k)).slice(0, 4);
+}
 function glowMode() {
   const el = $('#guide-mode');
   const v = el ? el.value : (loadJSON('loom.glowMode', 'free') || 'free');
   return v || 'free';
 }
 function categoryCoverage() {
-  const pos = S.pos || [], neg = S.neg || [];
+  let pos = S.pos || [];
+  const neg = S.neg || [];
+  if (S.coopOn && S.coop) pos = pos.concat(S.coop.envPos || [], S.coop.chrPos || [], S.coop.commonPos || []);
   const hasTok = re => pos.some(b => re.test(b.token || ''));
   const hasText = re => pos.some(b => !b.token && re.test(b.text || ''));
   const hasNeg = re => neg.some(b => re.test(b.token || ''));
   return {
-    id: hasTok(/^@ID/) || (hasText(/ivory white hair/i) && hasText(/heterochromia|red and one grey/i)),
+    id: hasTok(/^@ID/) || (hasText(/shoulder-length hair/i) && hasText(/warm brown eyes|expressive eyes/i)),
     body: hasTok(/^@BODY_/),
     face: hasTok(/^@FACE_/),
     cam: hasTok(/^@CAM_/),
@@ -624,21 +707,16 @@ function categoryCoverage() {
 function artistCovered() {
   return (S.loras || []).some(l => { try { return loraCat(l.name) === '画师'; } catch (e) { return false; } });
 }
-function renderGuideGlow() {
-  const mode = glowMode();
-  const on = mode !== 'off';
-  const cov = categoryCoverage();
-  const need = on ? (GLOW_MODES[mode] || GLOW_MODES.free) : [];
-  const missing = need.filter(k => !cov[k]);
+let _guideSeq = 0, _guideTimer = null, _guideSig = '', _guideBusy = false;
+function applyGuideRoles(roles, on) {
+  const set = new Set(on ? (roles || []) : []);
   $$('.rail-item').forEach(b => {
     const cat = b.dataset.cat || '';
-    const isNeed = on && need.includes(cat) && !cov[cat];
-    b.classList.toggle('need', isNeed);
+    b.classList.toggle('need', set.has(cat));
   });
   $$('.pal-group').forEach(g => {
     const cat = g.dataset.cat || '';
-    const isNeed = on && need.includes(cat) && !cov[cat];
-    g.classList.toggle('need', isNeed);
+    g.classList.toggle('need', set.has(cat));
   });
   const badge = $('#pal-artist-need');
   if (badge) {
@@ -646,11 +724,56 @@ function renderGuideGlow() {
     badge.hidden = !miss;
     badge.textContent = miss ? '画师' : '';
   }
-  if (on && missing.length === 0 && !S._glowDone) {
-    S._glowDone = true;
-    toast('主分类齐了，可以出图');
+}
+function guideSignature() {
+  const blocks = (S.pos || []).map(b => b.token || b.text || '').concat(
+    S.coopOn && S.coop ? [].concat(S.coop.envPos || [], S.coop.chrPos || [], S.coop.commonPos || []).map(b => b.token || b.text || '') : []);
+  return JSON.stringify({ m: glowMode(), b: blocks });
+}
+let _lightSeq = 0, _lightTimer = null;
+
+// 光引导（规则脚本 /api/guide/light，无模型）：补全建议写进分类的悬停提示
+async function fetchLightGuide() {
+  const mode = glowMode();
+  if (mode === 'off') return;
+  const seq = ++_lightSeq;
+  const pos = (S.pos || []).map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1 }));
+  const neg = (S.neg || []).map(b => ({ token: b.token || '', text: b.text || '', weight: 1 }));
+  if (S.coopOn && S.coop) {
+    (S.coop.envPos || []).concat(S.coop.chrPos || [], S.coop.commonPos || []).forEach(b =>
+      pos.push({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1 }));
+    (S.coop.chrNeg || []).concat(S.coop.commonNeg || []).forEach(b =>
+      neg.push({ token: b.token || '', text: b.text || '', weight: 1 }));
   }
-  if (!on || missing.length) S._glowDone = false;
+  try {
+    const res = await fetch('/api/guide/light', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blocks: pos, negatives: neg, mode: mode }) });
+    const r = await res.json();
+    if (seq !== _lightSeq || !r || !Array.isArray(r.roles)) return;
+    applyGuideRoles(r.roles, true);
+    S.lightTips = r.tips || {};
+    S.lightReady = !!r.ready;
+    $$('.rail-item').forEach(b => {
+      const tips = (S.lightTips || {})[b.dataset.cat];
+      const base = b.title.split('｜')[0];
+      b.title = (tips && tips.length) ? (base + '｜缺：试 ' + tips.join(' / ')) : base;
+    });
+  } catch (e) { /* 失败就保留本地规则的结果 */ }
+}
+
+function renderGuideGlow() {
+  const mode = glowMode();
+  const on = mode !== 'off';
+  const cov = categoryCoverage();
+  const local = on ? localGuideRoles(mode, cov) : [];
+  applyGuideRoles(local, on);
+  const prio = GUIDE_PRIORITY[mode] || [];
+  const ready = on && prio.every(k => cov[k]);
+  if (ready && !S._glowDone) { S._glowDone = true; toast('主分类齐了，可以出图'); }
+  if (!ready) S._glowDone = false;
+
+  if (_lightTimer) clearTimeout(_lightTimer);
+  _lightTimer = setTimeout(fetchLightGuide, 500);
 }
 
 function renderPalette() {
@@ -799,9 +922,10 @@ function renderPalette() {
   });
 
   const spy = () => {
+    if (box._jumpingUntil && Date.now() < box._jumpingUntil) return;
     let active = null;
     for (const g of $$('.pal-group', box)) {
-      if (g.getBoundingClientRect().top - box.getBoundingClientRect().top <= 10) active = g.dataset.cat;
+      if (g.getBoundingClientRect().top - box.getBoundingClientRect().top <= 12) active = g.dataset.cat;
     }
     $$('.rail-item', rail).forEach(b => b.classList.toggle('active', b.dataset.jump === active));
   };
@@ -812,14 +936,14 @@ function renderPalette() {
 function scrollPalTo(key) {
   const box = $('#palette'), target = document.getElementById('cat-' + key);
   if (!box || !target) return;
-  const jump = () => {
-    const delta = target.getBoundingClientRect().top - box.getBoundingClientRect().top;
-    const top = box.scrollTop + delta - 8;
-    box.scrollTop = Math.max(0, top);
-  };
-  jump();
-  requestAnimationFrame(() => requestAnimationFrame(jump));
+  box._jumpingUntil = Date.now() + 260;
+  const delta = target.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  const top = Math.max(0, box.scrollTop + delta - 4);
+  try { box.scrollTo({ top, behavior: 'instant' }); } catch (e) { box.scrollTop = top; }
+  target.classList.add('flash');
+  setTimeout(() => target.classList.remove('flash'), 800);
 }
+
 
 
 
@@ -879,9 +1003,10 @@ function cmdAdd(i) {
 /* ---------- 组合建议（只提示，不自动加） ---------- */
 const SUGGEST = {
   '@SET_ONSEN': [{ t: '@TIME_NIGHT', why: '温泉夜景' }, { t: '@LIGHT_CANDLE', why: '水汽暖光' }, { t: '@BG_DARKFALL', why: '蒸汽暗调' }],
-  '@ID_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
-  '@FACE_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
-  '@BODY_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@ID_F_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@FACE_FADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@BODY_F_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
+  '@ID_M_ADULT': [{ t: '@NEG_CHILD', why: '防幼态' }],
   '@SET_BEDROOM': [{ t: '@TIME_MORNING', why: '晨光透窗' }, { t: '@OUT_PAJAMA', why: '居家睡衣' }, { t: '@NEG_DIORAMA', why: '防微缩房' }],
   '@SET_CLASSROOM': [{ t: '@TIME_AFTERNOON', why: '午后斜光' }, { t: '@BG_CLEAN', why: '教室整洁' }],
   '@SET_MARKET': [{ t: '@TIME_NIGHT', why: '夜市灯串' }, { t: '@LIGHT_NEON', why: '霓虹补色' }],
@@ -905,7 +1030,8 @@ const SUGGEST = {
 };
 
 function suggestFor(token) {
-  const list = SUGGEST[token] || [];
+  const c = resolveToken(token);
+  const list = SUGGEST[token] || SUGGEST[c] || SUGGEST[c.replace(/_(F|M)(?=_|$)/, '')] || [];
   return list.filter(h => !S.pos.some(b => b.token === h.t) && !S.neg.some(b => b.token === h.t));
 }
 
@@ -931,35 +1057,32 @@ function companionNegSet() {
 // 场景 → 背景处理（自动补一块，可手动删）
 const BG_LINK = {
   '@SET_MARKET': '@BG_BOKEH', '@SET_ARCADE': '@BG_BOKEH', '@SET_ROOFTOP': '@BG_BOKEH',
-  '@SET_BALCONY': '@BG_BOKEH', '@SET_STATION': '@BG_BOKEH', '@SET_STREET': '@BG_BOKEH',
-  '@SET_STUDIO': '@BG_CLEAN', '@SET_ARTROOM': '@BG_CLEAN', '@SET_LIBRARY': '@BG_CLEAN',
-  '@SET_MUSEUM': '@BG_CLEAN',
+  '@SET_BALCONY': '@BG_BOKEH', '@SET_STATION': '@BG_BOKEH', '@SET_CITY_STREET': '@BG_BOKEH',
+  '@SET_ARTROOM': '@BG_CLEAN', '@SET_LIBRARY': '@BG_CLEAN', '@SET_MUSEUM': '@BG_CLEAN',
 };
 
 const HAIR_ACCESSORIES = new Set(['@HAIRPIN_ROSE', '@HAIRPIN_STAR', '@CLIP_BUTTERFLY', '@PIN_MOON', '@MINI_TOPHAT', '@BERET', '@HEADBAND_PEARL', '@RIBBON_BOW', '@PIN_FEATHER', '@PIN_HEART', '@PIN_CROSS', '@FLOWER_CROWN', '@CLIP_CAT_EAR']);
 
-const CHIBI_BODIES = new Set(['@BODY_CHIBI', '@BODY_CHIBI_SD']);
+const CHIBI_BODIES = new Set(['@BODY_F_CHIBI', '@BODY_F_CHIBI_SD', '@BODY_CHIBI', '@BODY_CHIBI_SD']);
 const OUTLINE_SOURCES = new Set(['@STYLE_GLITCH', '@FX_BLACK_BLOCKS', '@FX_BAND_GLITCH', '@STYLE_SOFT']);
 function companionsOf(token) {
   const out = [];
   const has = t => !!(t && S.tokens && S.tokens[t]);
   if (!token) return out;
   if (token === '@OUTFIT') {
-    if (has('@NEG_OUTFIT')) out.push({ lane: 'negative', token: '@NEG_OUTFIT' });
     if (has('@NEG_GARMENT')) out.push({ lane: 'negative', token: '@NEG_GARMENT' });
   } else if (token.startsWith('@OUT_')) {
     const neg = token.replace('@OUT_', '@NEG_');
     if (has(neg)) out.push({ lane: 'negative', token: neg });
   }
   if (CHIBI_BODIES.has(token)) {
-    if (has('@FACE_CHIBI')) out.push({ lane: 'positive', token: '@FACE_CHIBI' });
+    const fc = has('@FACE_FCHIBI') ? '@FACE_FCHIBI' : '@FACE_CHIBI';
+    if (has(fc)) out.push({ lane: 'positive', token: fc });
     if (has('@NEG_CHIBI')) out.push({ lane: 'negative', token: '@NEG_CHIBI' });
   }
   if (OUTLINE_SOURCES.has(token) && has('@NEG_OUTLINE')) out.push({ lane: 'negative', token: '@NEG_OUTLINE' });
   if (HAIR_ACCESSORIES.has(token)) {
-    if (has('@NEG_FLOWER')) out.push({ lane: 'negative', token: '@NEG_FLOWER' });
     if (has('@NEG_ACC_FACE')) out.push({ lane: 'negative', token: '@NEG_ACC_FACE' });
-    if (has('@STRIP_SUNFLOWER')) out.push({ lane: 'negative', token: '@STRIP_SUNFLOWER' });
   }
   if (token.startsWith('@DRAPE_')) {
     const worn = ['@DRAPE_WORN', '@DRAPE_ARMS', '@DRAPE_WAIST'].includes(token);
@@ -987,6 +1110,26 @@ function companionsOf(token) {
 }
 
 function addBlock(lane, tokenOrObj) {
+  if (S.coopOn && S.coop && S._coopRouting !== false) {
+    const tok = typeof tokenOrObj === 'string' ? tokenOrObj : ((tokenOrObj && tokenOrObj.token) || '');
+    const txt = (typeof tokenOrObj === 'object' && tokenOrObj) ? (tokenOrObj.text || '') : '';
+    if (tok && /^@SET_/.test(tok) && typeof reprojAddScene === 'function') {
+      reprojAddScene(tok);
+      return;
+    }
+    if (tok && typeof reprojIsMainGarmentToken === 'function' && reprojIsMainGarmentToken(tok) && typeof reprojSetGarment === 'function') {
+      reprojSetGarment(tok);
+      return;
+    }
+    const isNeg = lane === 'negative' || (tok && tokenCat(tok) === 'neg');
+    const target = coopBucketFor({ token: tok }, isNeg);
+    const SINGLE = /^@(ID|SINGLE|BODY_|FACE_|STYLE_|LIGHT_|CAM_|SET_|OUT_|TIME_|COMP_|POSE_|MOOD_|GAZE_)/;
+    const arr = S.coop[target] = S.coop[target] || [];
+    if (tok && SINGLE.test(tok) && arr.some(b => b.token === tok)) { toast('已有 ' + tok + '，不重复添加', true); return; }
+    arr.push({ id: uid(), token: tok, text: txt, weight: 1, enabled: true });
+    renderCoopLanes(); coopBind(); expandPreview();
+    return;
+  }
   const _t0 = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
   if (/\.safetensors$/i.test(_t0)) { toast('LoRA 文件名不能当积木', true); return; }
   const _x0 = typeof tokenOrObj === 'object' && tokenOrObj ? String(tokenOrObj.text || '').trim() : '';
@@ -1055,6 +1198,7 @@ function renderLanes() {
         '<button class="x" data-del="' + b.id + '" data-lane="' + lane + '">×</button>' +
         '</div>';
     }).join('') || '<span class="hint">把左边积木拖到这里，或点击添加</span>';
+    try { if (typeof bindTips === 'function') bindTips(box); } catch (e) {}
     if (!box.dataset.dropBound) {
       box.dataset.dropBound = '1';
     box.addEventListener('dragover', e => { e.preventDefault(); });
@@ -1179,7 +1323,28 @@ function bindLaneEvents() {
 }
 
 function editFreeText(chipEl) {
-  const id = chipEl.dataset.id, lane = chipEl.dataset.lane;
+  const id = chipEl.dataset.id, coopLane = chipEl.dataset.coopLane;
+  if (coopLane) {
+    const c = coopEnsure(), arr = c[coopLane] || [];
+    const b = arr.find(x => x.id === id);
+    if (!b || b.token) return;
+    const lane = coopLane.endsWith('Neg') ? 'negative' : 'positive';
+    openTextBlockDialog({
+      lane, text: b.text, weight: b.weight, title: '编辑文本块',
+      onSave: (text, weight, lane2) => {
+        if (lane2 === lane) { b.text = text; b.weight = weight; }
+        else {
+          const i = arr.indexOf(b);
+          if (i >= 0) arr.splice(i, 1);
+          const target = coopBucketFor({ token: '', text }, lane2 === 'negative');
+          (c[target] = c[target] || []).push(Object.assign({}, b, { text, weight }));
+        }
+        renderCoopLanes(); coopBind(); expandPreview();
+      }
+    });
+    return;
+  }
+  const lane = chipEl.dataset.lane;
   const arr = lane === 'positive' ? S.pos : S.neg;
   const b = arr.find(x => x.id === id);
   if (!b || b.token) return;
@@ -1200,6 +1365,8 @@ function editFreeText(chipEl) {
 
 
 async function expandPreview() {
+  // 随机/换场景/换服装期间（_coopRouting=false）不要把还没分流的 S.pos 冲掉
+  if (S.coopOn && S._coopRouting !== false && typeof coopToGlobal === 'function') coopToGlobal();
   persistLanes();
   persistParams();
   try {
@@ -1208,6 +1375,39 @@ async function expandPreview() {
     $('#preview-neg').textContent = r.negative || '（空）';
     $('#expand-used').textContent = '正向 ' + r.pos_len + ' 字符 / 负向 ' + r.neg_len + ' 字符 · 用了 ' + r.used.length + ' 个宏';
     S.lastExpanded = r;
+    const box = $('#preview-coop');
+    if (box) {
+      box.hidden = !S.coopOn;
+      if (S.coopOn) {
+        const c = coopEnsure();
+        const call = (pos, neg) => api('/api/expand', { method: 'POST', body: JSON.stringify({ positive: pos, negative: neg }) });
+        const merge = (a, b) => {
+          const seen = new Set(), out = [];
+          (a || []).concat(b || []).forEach(x => {
+            const k = x.token || ('txt:' + (x.text || ''));
+            if (seen.has(k)) return;
+            seen.add(k); out.push(x);
+          });
+          return out;
+        };
+        const cpos = c.commonPos || [], cneg = c.commonNeg || [];
+        Promise.all([
+          call(merge(merge(cpos, c.envPos), reprojExtraEnv()), cneg),
+          call(merge(cpos, c.chrPos), merge(cneg, c.chrNeg))
+        ]).then(([e, ch]) => {
+          if ($('#preview-env-pos')) $('#preview-env-pos').textContent = e.positive || '（空）';
+          if ($('#preview-env-neg')) $('#preview-env-neg').textContent = cneg.length ? '（公共负向见下方）' : '（空）';
+          if ($('#preview-chr-pos')) $('#preview-chr-pos').textContent = ch.positive || '（空）';
+          if ($('#preview-chr-neg')) $('#preview-chr-neg').textContent = ch.negative || '（空）';
+          const sum = $('#coop-split-summary');
+          if (sum) {
+            const cnt = k => (c[k] || []).length;
+            sum.textContent = '分流：公共 ' + cnt('commonPos') + ' · 环境 ' + cnt('envPos') + ' · 人物 ' +
+              cnt('chrPos') + ' · 公共负 ' + cnt('commonNeg') + ' · 人物负 ' + cnt('chrNeg');
+          }
+        }).catch(() => {});
+      }
+    }
   if (r.notes && r.notes.length) {
     const used = $('#expand-used');
     if (used) used.textContent = '· ' + r.notes.join(' · ');
@@ -1282,8 +1482,9 @@ function updateEta() {
   updateSizeHint();
 }
 
-const LORA_CAT_ORDER = ['角色', '动作', '画师', '风格', '加速'];
+const LORA_CAT_ORDER = ['角色', '画师', '背景', '厚涂', '动作', '风格', '加速'];
 function renderLoras() {
+  if (S.loras) S.loras = S.loras.filter(l => !l.name || typeof loraCompatible !== 'function' || loraCompatible(l.name));
   if (typeof renderStyleLoraOptions === 'function') setTimeout(renderStyleLoraOptions, 0);
   const box = $('#lora-list');
   box.innerHTML = S.loras.map((l, i) =>
@@ -1329,21 +1530,85 @@ function renderLoras() {
     };
   });
   $$('[data-lora-del]').forEach(el => el.onclick = () => { S.loras.splice(Number(el.dataset.loraDel), 1); renderLoras(); });
+  if (typeof bindArtistHover === 'function') $$('#lora-list [data-lora-name]').forEach(el => bindArtistHover(el, 'auto'));
+  // 原做法：加一行，行内下拉自己挑（选项按底模过滤，带分组和悬浮备注）
   $('#lora-add').onclick = () => {
-    const first = S.loraFiles[0] || '';
-    S.loras.push({ name: first, weight: loraCat(first) === '画师'
-      ? ((typeof artistDefaultWeight === 'function' && artistDefaultWeight(first, currentCharLora())) || loraDefaultWeight(first))
-      : loraDefaultWeight(first) });
-    renderLoras();
+    const lastEmpty = (S.loras || []).some(l => !l.name);
+    if (!lastEmpty) { S.loras.push({ name: '', weight: 1 }); renderLoras(); }
+    const rows = $$('#lora-list select');
+    const last = rows[rows.length - 1];
+    if (last) { try { last.focus(); } catch (e) {} }
   };
 }
 
 /* ---------- 出图 ---------- */
 
+function applyArtistStrength() {
+  const el = $('#artist-strength');
+  const mult = el ? Number(el.value) : 1;
+  const art = (S.loras || []).find(l => { try { return loraCat(l.name) === '画师'; } catch (e) { return false; } });
+  if (!art) { toast('还没有选画师 LoRA，强度会在下次选择时生效'); return; }
+  const base = (typeof styleLoraWeight === 'function' ? styleLoraWeight(art.name) : 1);
+  const w = Math.round(base * mult * 100) / 100;
+  art.weight = w;
+  if (typeof artistLimit === 'function' && w > artistLimit(art.name) + 1e-6) {
+    toast('⚠ ' + w + ' 超过建议上限 ' + artistLimit(art.name), true);
+  }
+  renderLoras();
+  toast(shortLoraName(art.name) + ' → ' + w + '（' + mult + '×）');
+}
+
+const STYLE_TEXT_RE = /soft focus|muted colors|clean anime illustration|soft cel shading|gentle gradient/;
+
+function identityChangeGuard(prev) {
+  // 身份档位任何时候都立刻作用到画布，不再要求"必须有权重 ≥0.8 的画师"
+  applyIdentityLevel(false);
+}
+
 function identityLevel() {
   const el = $('#identity-strength');
   const v = el ? Number(el.value) : 0.5;
   return Number.isFinite(v) ? v : 0.5;
+}
+
+// 身份档位落地：0=最小身份词（一个人/女人）、0.5=弱身份文本、1=专有身份积木
+function applyIdentityLevel(silent) {
+  if (!S.pos) S.pos = [];
+  const lvl = identityLevel();
+  const card = (S.cards || []).find(x => x.name === ((($('#card-sel') || {}).value) || ''));
+  const weakText = (card && card.identity_weak) || (S.gender === 'm' ? TEXT_ID_MALE : TEXT_ID);
+  const before = S.pos.length;
+  const IDENT_RE = /short dark hair|shoulder-length hair|warm brown eyes/i;
+
+  // 先把所有"身份痕迹"摘掉：身份积木、身份文本、角色卡特征块、上一次的最小身份词
+  S.pos = S.pos.filter(b => {
+    if (!b) return false;
+    if (b.identityMin || b.cardIdentity) return false;
+    if (isIdentityToken(b.token)) return false;
+    if (!b.token && IDENT_RE.test(String(b.text || ''))) return false;
+    return true;
+  });
+
+  if (lvl >= 1) {
+    const toks = (card && (card.tokens || []).length) ? card.tokens.map(resolveToken)
+      : (S.gender === 'm' ? ['@SINGLE_M', '@ID_M'] : ['@SINGLE_F', '@ID_F']);
+    toks.forEach(t => {
+      if (t && !S.pos.some(b => b.token === t)) {
+        S.pos.unshift({ id: uid(), token: t, text: '', weight: 1, enabled: true, cardIdentity: true });
+      }
+    });
+  } else if (lvl > 0) {
+    S.pos.unshift({ id: uid(), token: '', text: weakText, weight: lvl, enabled: true, cardIdentity: true });
+  } else {
+    S.pos.unshift({ id: uid(), token: '', text: S.gender === 'm' ? TEXT_ID_MIN_MALE : TEXT_ID_MIN, weight: 1, enabled: true, identityMin: true });
+  }
+
+  const changed = before !== S.pos.length ? 1 : 0;
+  if (!silent) {
+    try { renderLanes(); expandPreview(); } catch (e) {}
+    toast('身份档位：' + (lvl >= 1 ? '强身份（专有积木）' : lvl > 0 ? '弱身份（文本描述）' : '不锁（最小身份词）'));
+  }
+  return changed;
 }
 
 function artistDilutionGuard() {
@@ -1366,26 +1631,17 @@ function artistDilutionGuard() {
   S.pos = S.pos.filter(b => {
     const t = b.token || '';
     if (t.startsWith('@STYLE_')) { changed++; return false; }
-    if (lvl < 1 && (t === '@ID' || t === '@SINGLE')) { changed++; return false; }
+    if (lvl < 1 && isIdentityToken(t)) { changed++; return false; }
     return true;
   });
 
-  if (lvl <= 0) {
-    // 完全不锁身份：清掉所有身份描述
-    S.pos = S.pos.filter(b => {
-      if (b.token) return true;
-      return !/ivory white hair|heterochromia|white hair/i.test(b.text || '');
-    });
-    changed++;
-  } else {
-    // 弱身份：用紧凑、无权重的描述；强身份：保留 @ID
-    S.pos = S.pos.filter(b => !(!b.token && /ivory white hair/i.test(b.text || '') && lvl >= 1));
-    if (lvl < 1 && !S.pos.some(b => !b.token && /ivory white hair/i.test(b.text || ''))) {
-      S.pos.unshift({ id: uid(), token: '', text: TEXT_ID, weight: lvl < 1 ? lvl : 1, enabled: true });
-      changed++;
-    }
+  changed += applyIdentityLevel(true);
+  if (changed) {
+    // 身份块是"就地替换"：改完必须立刻重绘画布，否则看起来像多了一块隐藏积木
+    try { renderLanes(); expandPreview(); } catch (e) {}
+    toast('画师模式（身份 ' + lvl + '）：身份块已' + (lvl >= 1 ? '换成身份积木' : (lvl < 1 ? '换成弱身份文本' : '清空')) +
+      '（' + before + '→' + S.pos.length + ' 块）');
   }
-  if (changed) toast('画师模式（身份 ' + lvl + '）：已清画风文本' + (lvl < 1 ? '，身份改为紧凑描述' : '') + '（' + before + '→' + S.pos.length + ' 块）');
   return changed;
 }
 
@@ -1401,72 +1657,44 @@ const STYLE_LOCK_APPLY = () => {
     return l;
   });
   let loraChanged = false;
-  const hLoRas = S.loras.filter(l => /^sunhimi_h/i.test(l.name || ''));
+  const hLoRas = S.loras.filter(l => isCharLora(l.name));
   if (hLoRas.length > 1) {
     const keep = hLoRas[hLoRas.length - 1];
-    S.loras = S.loras.filter(l => !/^sunhimi_h/i.test(l.name || '') || l === keep);
+    S.loras = S.loras.filter(l => !isCharLora(l.name) || l === keep);
     loraChanged = true;
     toast('只保留一个角色 LoRA：' + keep.name);
   }
-  // 串色保护：白发角色 + 偏重画师/皮肤 LoRA 时补 @NEG_COLORBLEED
-  const whiteHair = (S.pos || []).some(b => b.token === '@ID' || /white hair/i.test(b.text || ''));
-  const heavy = (S.loras || []).some(l => {
-    const n = String(l.name || '');
-    const w = Number(l.weight) || 0;
-    if (/animaNai/i.test(n)) return w > 0.75;
-    if (/Skin_Enhancer/i.test(n)) return w > 0.45;
-    return w > 1.05;
-  });
-  if (whiteHair && heavy) {
-    if (!S.neg.some(b => b.token === '@NEG_COLORBLEED')) {
-      S.neg.push({ id: uid(), token: '@NEG_COLORBLEED', text: '', weight: 1, enabled: true });
-      toast('白发 + 偏重画师：已补 @NEG_COLORBLEED 防串色');
-    }
-  }
+
   if (typeof renderLanes === 'function') renderLanes();
   if (loraChanged && typeof renderLoras === 'function') renderLoras();
 };
 
 const IDENT_TRAITS = [
-  { key: 'white hair', test: /white hair/i, add: 'white hair' },
-  { key: 'heterochromia', test: /heterochromia|one red|red and gr[ae]y/i, add: 'heterochromia eyes, one red and one grey' },
-  { key: 'sunflower', test: /sunflower/i, add: 'a sunflower hair ornament' }
+  { key: 'hair', test: /shoulder-length hair|bob cut/i, add: 'shoulder-length hair' }
 ];
 function lostTraits(src, out) {
   return IDENT_TRAITS.filter(t => t.test.test(src || '') && !t.test.test(out || ''));
 }
 
-const ID_LORA_GUARD = () => {
-  const hasId = S.pos.some(b => b.token === '@ID' || (!b.token && /white hair/i.test(b.text || '')));
-  const charLoras = (S.loras || []).filter(l => /^sunhimi_/i.test(l.name || ''));
-  if (!hasId || !charLoras.length) return 0;
-  const heavy = charLoras.filter(l => (Number(l.weight) || 0) > 0.7);
-  if (heavy.length) {
-    toast('提醒：@ID + 角色 LoRA ' + heavy.map(l => l.weight).join('/') + ' 可能过曝，建议降到 0.5–0.6（未自动修改）', true);
-  }
-  return 0;
-};
+const ID_LORA_GUARD = () => 0;
 
 
-const STYLE_LORA_GUARD = () => {
-  let changed = 0;
-  const anima = (S.loras || []).find(l => /animaNai/i.test(l.name || ''));
-  if (anima && Number(anima.weight) > 0.75) { toast('提醒：animaNai ' + anima.weight + ' 偏高，建议 ≤0.7（未自动修改）', true); }
-  return changed;
-};
+const STYLE_LORA_GUARD = () => 0;
 
 const FACE_CHIBI_GUARD = () => {
   const hasChibiBody = S.pos.some(b => CHIBI_BODIES.has(b.token));
-  const faceChibi = S.pos.find(b => b.token === '@FACE_CHIBI');
+  const isFaceChibi = b => b.token === '@FACE_FCHIBI' || b.token === '@FACE_CHIBI';
+  const faceChibi = S.pos.find(isFaceChibi);
   let changed = 0;
   if (faceChibi && !hasChibiBody) {
     S.pos.splice(S.pos.indexOf(faceChibi), 1);
-    if (!S.pos.some(b => b.token === '@FACE_SOFT')) S.pos.push({ id: uid(), token: '@FACE_SOFT', text: '', weight: 1, enabled: true });
-    toast('单独的 Q 版脸会造成 Q 化，已换回 @FACE_SOFT');
+    const soft = S.tokens['@FACE_FSOFT'] ? '@FACE_FSOFT' : '@FACE_SOFT';
+    if (!S.pos.some(b => b.token === '@FACE_FSOFT' || b.token === '@FACE_SOFT')) S.pos.push({ id: uid(), token: soft, text: '', weight: 1, enabled: true });
+    toast('单独的 Q 版脸会造成 Q 化，已换回 ' + soft);
     changed++;
   }
-  if (hasChibiBody && !S.pos.some(b => b.token === '@FACE_CHIBI')) {
-    S.pos.push({ id: uid(), token: '@FACE_CHIBI', text: '', weight: 1, enabled: true });
+  if (hasChibiBody && !S.pos.some(isFaceChibi)) {
+    S.pos.push({ id: uid(), token: S.tokens['@FACE_FCHIBI'] ? '@FACE_FCHIBI' : '@FACE_CHIBI', text: '', weight: 1, enabled: true });
     changed++;
   }
   return changed;
@@ -1483,7 +1711,7 @@ const SCENE_CAM_WARN = () => {
 };
 
 const CAM_CONFLICT_GUARD = () => {
-  const hasSingle = S.pos.some(b => b.token === '@SINGLE');
+  const hasSingle = S.pos.some(b => ['@SINGLE', '@SINGLE_F', '@SINGLE_M'].includes(b.token));
   const hasScene = S.pos.some(b => (b.token || '').startsWith('@SET_'));
   const wide = new Set(['@CAM_FULL', '@CAM_MEDIUM']);
   if (hasScene) wide.add('@CAM_THREEQ');
@@ -1494,12 +1722,7 @@ const CAM_CONFLICT_GUARD = () => {
   return bad.length;
 };
 
-const PALE_LORA_WARN = () => {
-  const pale = (S.loras || []).find(l => /sunhimi_(h1|h3|h4|v[2-6])\.safetensors$/i.test(l.name || ''));
-  const soft = S.pos.some(b => b.token === '@LIGHT_BACK' || b.token === '@STYLE_SOFT' || b.token === '@LIGHT_SOFT');
-  if (pale && soft) toast('提醒：' + pale.name.replace('.safetensors','') + ' 配逆光/柔光会发白，建议换 h2 或把权重降到 0.3', true);
-  return 0;
-};
+const PALE_LORA_WARN = () => 0;
 
 const STYLE_SCENE_WARN = () => {
   const style = S.pos.find(b => /^@STYLE_/.test(b.token || ''));
@@ -1509,9 +1732,9 @@ const STYLE_SCENE_WARN = () => {
 };
 
 const ARTIST_LAYOUT_WARN = () => {
-  const artist = (S.loras || []).find(l => loraCat(l.name) === '画师' && !/animaNai/i.test(l.name));
+  const artist = (S.loras || []).find(l => loraCat(l.name) === '画师');
   if (!artist || Number(artist.weight) < 0.5) return 0;
-  const blockers = S.pos.filter(b => ['@SINGLE', '@ID', '@BODY_SOFT', '@CAM_CLOSEUP', '@CAM_BUST'].includes(b.token));
+  const blockers = S.pos.filter(b => isIdentityToken(b.token) || ['@BODY_SOFT', '@BODY_F_SOFT', '@BODY_F', '@BODY_F', '@CAM_CLOSEUP', '@CAM_BUST'].includes(b.token));
   if (blockers.length) toast('画师 ' + shortLoraName(artist.name) + ' 权重 ' + artist.weight + ' 时建议用文本身份，' + blockers.map(b => b.token).join('/') + ' 会压构图', true);
   return 0;
 };
@@ -1537,47 +1760,94 @@ async function smartFix() {
   return changed;
 }
 
-const STYLE_TEXT = {
-  cel: '(cel shading:0.6), (flat colors:0.5)',
-  anime: '(anime cel shading:0.65), (clean lineart:0.55)',
-  flat: '(flat colors:0.6), (minimal shading:0.5)',
-  water: '(watercolor style:0.6), (soft pigment bleed:0.5)',
-  line: '(clean lineart:0.7), (crisp outlines:0.6)',
-};
-
-const TEXT_ID = '1girl, solo, upper body, ivory white hair, straight fringe, heterochromia one red and one grey eye';
-const ARTIST_STYLE_TEXT = {
-  'animaNai': 'clean anime illustration, soft cel shading, gentle gradients',
-  'Lucent': 'heavy ink lineart, bold black areas, textured brush shading, painterly finish',
-  'ashima': 'crisp manga lineart, flat colors, sharp specular highlights',
-  'koukouya': 'high contrast shading, deep shadows, cool desaturated palette',
-  'kanzarin': 'delicate lineart, fine hatching, cool muted palette',
-  'ka-996beshi': 'warm skin tones, sharp eyeliner, glossy highlights',
-  'Skin_Enhancer': 'detailed skin texture, soft pores, subtle subsurface glow',
-};
-function artistStyleText(name) {
-  const n = String(name || '');
-  const key = Object.keys(ARTIST_STYLE_TEXT).find(k => n.includes(k));
-  return key ? ARTIST_STYLE_TEXT[key] : '';
+// 一键修正：规则引擎（/api/fix/blocks），无本地模型
+async function fixFlow() {
+  const btn = document.querySelector('#btn-smartfix');
+  if (btn) btn.classList.add('loading');
+  try {
+    const blocks = (S.pos || []).map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false }));
+    const negatives = (S.neg || []).map(b => ({ token: b.token || '', text: b.text || '', weight: 1, enabled: b.enabled !== false }));
+    const r = await api('/api/fix/blocks', { method: 'POST', body: JSON.stringify({ blocks, negatives }) });
+    const issues = (r && r.issues) || [];
+    if (!issues.length) { toast('没有发现需要修正的地方'); return; }
+    const laneCN = { positive: '正向', negative: '负向' };
+    const rows = issues.map((it, i) =>
+      '<label class="fix-row" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0">' +
+      '<input type="checkbox" class="fix-pick" data-i="' + i + '" checked style="width:auto;margin-top:3px">' +
+      '<span><b>' + esc(it.token || '（文本块）') + '</b><em style="color:#9aa3b2;font-style:normal"> · ' +
+      (laneCN[it.lane] || it.lane) + ' · ' + (it.action === 'replace' ? '替换' : '移除') + '</em>' +
+      '<br><span class="hint">' + esc(it.reason) + (it.replace ? ' → ' + esc(it.replace) : '') + '</span></span></label>').join('');
+    openModal('一键修正 · ' + issues.length + ' 条（规则判断）',
+      '<p class="hint">规则引擎逐条判定；勾选后按“移除/替换”执行，取消勾选就保留。</p>' +
+      '<div style="max-height:46vh;overflow:auto;margin:8px 0">' + rows + '</div>' +
+      '<div class="row2" style="margin-top:10px">' +
+      '<button class="primary" id="fix-apply">执行（' + issues.length + '）</button>' +
+      '<button class="ghost" id="fix-cancel">取消</button></div>');
+    $('#fix-cancel').onclick = closeModal;
+    const applyBtn = $('#fix-apply');
+    document.querySelectorAll('.fix-pick').forEach(cb => {
+      cb.onchange = () => {
+        const n = document.querySelectorAll('.fix-pick:checked').length;
+        applyBtn.textContent = '执行（' + n + '）';
+        applyBtn.disabled = n === 0;
+      };
+    });
+    applyBtn.onclick = () => {
+      const chosen = [].slice.call(document.querySelectorAll('.fix-pick'))
+        .filter(cb => cb.checked).map(cb => issues[Number(cb.dataset.i)]);
+      if (!chosen.length) { closeModal(); return; }
+      pushHistory();
+      chosen.forEach(it => {
+        const tok = it.token || '';
+        if (!tok) return;
+        const arr = it.lane === 'negative' ? S.neg : S.pos;
+        if (it.action === 'replace' && it.replace) {
+          (arr || []).forEach(b => { if (b.token === tok) b.token = it.replace; });
+        } else {
+          if (it.lane === 'negative') S.neg = (S.neg || []).filter(b => b.token !== tok);
+          else S.pos = (S.pos || []).filter(b => b.token !== tok);
+        }
+      });
+      try { if (S.coopOn && typeof renderCoopLanes === 'function') renderCoopLanes(); else renderLanes(); } catch (e) {}
+      try { expandPreview(); } catch (e) {}
+      closeModal();
+      toast('已按规则修正 ' + chosen.length + ' 条');
+    };
+  } catch (e) {
+    toast('规则检查失败：' + e.message, true);
+  } finally {
+    if (btn) btn.classList.remove('loading');
+  }
 }
 
-const ARTIST_NOTES = {
-  'silver palace': '弱 3D 风格：权重 1.3、只挂它一个 LoRA、身份用文本别用 @ID；场景/服装/光各留 1 块。',
-  'koukouya': '扁平矢量风（低对比、硬边），想要厚涂请换 Lucent / ashima',
-  'kanzarin': '线条细、冷调，适合清爽插画',
-  'ka-996beshi': '暖肤色、锐眼线，适合特写',
+
+const STYLE_TEXT = {
+  cel: 'cel shading, flat colors',
+  anime: 'anime cel shading, clean lineart',
+  flat: 'flat colors, minimal shading',
+  water: 'watercolor style, soft pigment bleed',
+  line: 'clean lineart, crisp outlines',
 };
 
-const GENERIC_ARTIST = { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true };
-const ARTIST_RECIPES = {
-  'Lucent': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
-  'Skin_Enhancer': { weight: 0.2, drop: [], add: [] },
-  'ashima': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
-  'koukouya': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
-  'kanzarin': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
-  'ka-996beshi': { weight: 0.7, drop: ['@SINGLE', '@ID', '@BODY_SOFT', '@STYLE_SOFT'], add: [], textId: true },
-  'animaNai': { weight: 0.66, drop: [], add: [] },
-};
+const TEXT_ID = '1girl, solo, upper body, short dark hair, straight fringe, warm brown eyes, calm expression';
+// 不锁身份时用的最小身份词：保证还是"一个人"，但不锁 OC 特征
+const TEXT_ID_MIN = '1girl, solo, woman';
+// 男性版文本身份（通用男性，不含澪的特征）
+const TEXT_ID_MALE = '1boy, solo, upper body, short black hair, dark brown eyes';
+const TEXT_ID_MIN_MALE = '1boy, solo, man';
+// 只补画师模型训练 metadata 里的真实触发词，不额外注入互相打架的形容词
+const ARTIST_TRIGGERS = {};
+function artistTrigger(name) {
+  const n = String(name || '');
+  const key = Object.keys(ARTIST_TRIGGERS).find(k => n.includes(k));
+  return key ? ARTIST_TRIGGERS[key] : '';
+}
+
+const ARTIST_NOTES = {};
+
+const ARTIST_DROP_DEFAULT = [];
+const GENERIC_ARTIST = { weight: 0.7, drop: ARTIST_DROP_DEFAULT, add: [], textId: true };
+const ARTIST_RECIPES = {};
 function artistRecipe(name) {
   const n = String(name || '');
   const key = Object.keys(ARTIST_RECIPES).find(k => n.includes(k));
@@ -1605,11 +1875,18 @@ function styleLoraWeight(name) {
 function renderStyleLoraOptions() {
   const sel = document.querySelector('#style-lora');
   if (!sel) return;
-  const list = (S.loraFiles || []).filter(f => loraCat(f) === '画师');
   const cur = (S.loras || []).find(l => loraCat(l.name) === '画师');
-  sel.innerHTML = '<option value="">无</option>' + list.map(f =>
-    '<option value="' + f + '"' + (cur && cur.name === f ? ' selected' : '') + '>' +
-    shortLoraName(f) + '</option>').join('');
+  // 画师下拉永远按当前底模过滤（以前合作模式下 _anyBase 会放行所有底模，
+  // 结果非 Anima 底模混入，选中无法加载）；
+  // 同时只要画师类，别把 加速/动作/角色/场景厚涂 混进来
+  S._anyBase = false;
+  S._artistOnly = true;
+  try {
+    sel.innerHTML = '<option value="">无</option>' + loraOptionsHtml(cur ? cur.name : '');
+  } finally {
+    S._anyBase = false;
+    S._artistOnly = false;
+  }
 }
 
 function currentCharLora() {
@@ -1622,9 +1899,11 @@ function applyArtistFree() {
   const name = sel ? sel.value : '';
   if (!name) { toast('先选一位画师 LoRA', true); return; }
   pushHistory();
-  S.pos = [{ id: uid(), token: '', text: '1girl, solo, upper body, looking at viewer, grey background', weight: 1, enabled: true }];
+  const baseText = S.gender === 'm' ? '1boy, solo' : '1girl, solo';
+  const trig = artistTrigger(name);
+  S.pos = [{ id: uid(), token: '', text: trig ? (baseText + ', ' + trig) : baseText, weight: 1, enabled: true }];
   S.neg = ['@NEG_BASE'].map(t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true }));
-  S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师' && !/animaNai/i.test(l.name || ''));
+  S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
   const w = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(name, currentCharLora()) : null) || 1.0;
   S.loras.push({ name, weight: w });
   renderLoras(); renderLanes(); expandPreview();
@@ -1636,8 +1915,7 @@ function applyStyleLora(name) {
   const prevForced = (S.loras || []).find(l => l.name === name && l.force);
   S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
   S.pos = S.pos.filter(b => !b.artist);
-  if (name && !/animaNai/i.test(name)) S.loras = S.loras.filter(l => !/animaNai/i.test(l.name || ''));
-  if (name) {
+    if (name) {
     const charName = currentCharLora();
     const learned = (S.artistRecipes || {})[name];
     const w = (learned && learned.byChar && learned.byChar[charName])
@@ -1655,18 +1933,22 @@ function applyStyleLora(name) {
     const rec = artistRecipe(name);
     if (rec) {
       const removed = [];
-      const dropList = identityLevel() >= 1 ? rec.drop.filter(t => t !== '@ID') : rec.drop;
-      S.pos = S.pos.filter(b => { if (dropList.includes(b.token)) { removed.push(b.token); return false; } return true; });
+      const dropList = identityLevel() >= 1 ? rec.drop.filter(t => !isIdentityToken(t)) : rec.drop;
+      const dropIdent = identityLevel() < 1 && rec.drop.some(t => isIdentityToken(t));
+      S.pos = S.pos.filter(b => {
+        if (dropList.includes(b.token) || (dropIdent && isIdentityToken(b.token))) { removed.push(b.token); return false; }
+        return true;
+      });
       for (const t of rec.add) if (!S.pos.some(b => b.token === t)) S.pos.push({ id: uid(), token: t, text: '', weight: 1, enabled: true });
-      if (rec.textId && !S.pos.some(b => !b.token && /ivory white hair/i.test(b.text || ''))) {
+      if (rec.textId && identityLevel() > 0 && !S.pos.some(b => !b.token && /shoulder-length hair/i.test(b.text || ''))) {
         S.pos.unshift({ id: uid(), token: '', text: TEXT_ID, weight: 1, enabled: true });
       }
       if (removed.length || rec.add.length) toast('画师适配：' + (removed.length ? '移除 ' + removed.join('/') + ' ' : '') + (rec.add.length ? '补 ' + rec.add.join('/') : ''));
     }
   }
-  const styleText = name ? artistStyleText(name) : '';
-  if (styleText) {
-    S.pos.push({ id: uid(), token: '', text: styleText, weight: 1, enabled: true, artist: true });
+  const trig = name ? artistTrigger(name) : '';
+  if (trig && !S.pos.some(b => String(b.text || '').toLowerCase().includes(trig.toLowerCase()))) {
+    S.pos.push({ id: uid(), token: '', text: trig, weight: 1, enabled: true, artist: true });
   }
   const note = Object.keys(ARTIST_NOTES).find(k => String(name || '').includes(k));
   saveJSON('loom.styleLora', name || '');
@@ -1677,18 +1959,582 @@ function applyStyleLora(name) {
     : '画师 LoRA：无', !!note);
 }
 
+
+/* ---------- 合作模式（coop） ---------- */
+function coopFillLoras() {
+  const env = document.querySelector('#coop-slora-row #coop-slora');
+  if (env) {
+    const cur = env.value;
+    S._envOnly = true;
+    S._anyBase = false;  // 环境画师同样按当前底模过滤
+    try { env.innerHTML = loraOptionsHtml(cur); } finally { S._anyBase = false; S._envOnly = false; }
+    const list = [].map.call(env.options, o => o.value).filter(Boolean);
+    if (!list.includes(cur)) {
+      const hit = list.find(f => /painterly|bg_detailer|impasto/i.test(f)) || list[0] || '';
+      env.value = hit;
+    }
+  }
+  if (typeof renderStyleLoraOptions === 'function') renderStyleLoraOptions();
+}
+
+let coopTimer = null;
+function coopPoll() {
+  api('/api/coop/status').then(r => {
+    const st = $('#run-status');
+    const STATUS_CN = { idle: '就绪', running: '运行中', done: '完成', error: '失败' };
+    if (st) st.textContent = (r.status === 'running'
+      ? (r.phase || '运行中') + ' · ' + Math.round((r.progress || 0) * 100) + '% · ' + r.elapsed + 's'
+      : (STATUS_CN[r.status] || r.status));
+    const pct = Math.round((r.progress || 0) * 100) + '%';
+    const rb = $('#run-bar'); if (rb) rb.style.width = pct;
+    const fl = $('#coop-float'), fbar = $('#coop-float-bar'), fph = $('#coop-float-phase'), fpc = $('#coop-float-pct');
+    if (fl) {
+      if (r.status === 'running') {
+        fl.hidden = false;
+        if (fph) fph.textContent = '合作模式 · ' + (r.phase || '运行中');
+        if (fpc) fpc.textContent = pct;
+        if (fbar) fbar.style.width = pct;
+      } else if (r.status === 'done') {
+        if (fph) fph.textContent = '合作模式 · 完成';
+        if (fpc) fpc.textContent = '100%';
+        if (fbar) fbar.style.width = '100%';
+        setTimeout(() => { const x = $('#coop-float'); if (x) x.hidden = true; }, 4000);
+      } else if (r.status === 'error') {
+        if (fph) fph.textContent = '合作模式 · 失败';
+        setTimeout(() => { const x = $('#coop-float'); if (x) x.hidden = true; }, 6000);
+      }
+    }
+    if (st && r.status === 'running') st.textContent = '合作模式 · ' + (r.phase || '') + ' · ' + pct;
+    if (r.status === 'done' && r.image) {
+      if (rb) rb.style.width = '100%';
+      if (st) st.textContent = '合作模式 · 完成 · ' + (r.elapsed || 0) + 's';
+      if (coopTimer) { clearInterval(coopTimer); coopTimer = null; }
+      if (S._coopShownPath !== r.image) {
+        S._coopShownPath = r.image;
+        const bt = document.querySelector('#tabs button[data-tab=build]');
+        if (bt && !bt.classList.contains('active')) bt.click();
+        try { showResult([r.image], S._coopSeed || 0, r.elapsed || 0); } catch (e) {}
+        const el = $('#result');
+        if (el) { const d = el.closest('details'); if (d) d.open = true; try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }
+      }
+    }
+    if (r.status === 'error') {
+      if (st) st.textContent = '合作模式 · 失败';
+
+      if (coopTimer) { clearInterval(coopTimer); coopTimer = null; }
+    }
+  }).catch(() => {});
+}
+
+
+/* 拼装页合作模式：四排积木工作台 */
+const COOP_LANES = {
+  commonPos: { box: '#coop-common-pos-lane', cnt: '#coop-common-pos-count' },
+  commonNeg: { box: '#coop-common-neg-lane', cnt: '#coop-common-neg-count' },
+  envPos: { box: '#coop-env-pos-lane', cnt: '#coop-env-pos-count' },
+  chrPos: { box: '#coop-chr-pos-lane', cnt: '#coop-chr-pos-count' },
+  chrNeg: { box: '#coop-chr-neg-lane', cnt: '#coop-chr-neg-count' }
+};
+
+// 分流规则（A 方案）：公共 = 契约层，环境/人物 = 主体层
+const SHARED_CATS = ['light', 'cam', 'comp', 'style'];
+const ENV_CATS = ['set', 'prop', 'atmo', 'time'];
+
+const CHAR_TEXT = /1girl|1boy|solo|character|she\b|he\b|hair|eyes|dress|skirt|shirt|coat|uniform|breasts|body/i;
+const ENV_TEXT = /scenery|background|room|street|forest|sky|wall|window|desk|chair|city|village|indoor|outdoor|rain|snow|fog|storm|night|neon|sunset|sunrise|golden hour|beach|garden|mountain|field|alley|classroom|cafe|bedroom/i;
+
+function negGarmentSet() {
+  if (S._negGarmentSet) return S._negGarmentSet;
+  const set = new Set();
+  Object.keys(S.garments || {}).forEach(k => set.add('@NEG_' + k.toUpperCase()));
+  S._negGarmentSet = set;
+  return set;
+}
+
+function coopBucketFor(b, isNeg) {
+  const tok = String((b && b.token) || '');
+  const txt = String((b && b.text) || '');
+  let cat = 'custom';
+  try { cat = tokenCat(tok); } catch (e) {}
+  if (isNeg) {
+    // 服装配套负向（@NEG_<服装key>）按词库实际服装键判断，别漏 sundress / casual_knit 这类
+    if (negGarmentSet().has(tok)) return 'chrNeg';
+    if (/^@NEG_(ANATOMY|HANDS|HAND_|SKIN|FACE|MALE|BODY|DRAPE|STRIP|HETEROC|HAIR|HEM|FABRIC|GARMENT|LONGHAIR|ACC_FACE|CHILD|CHIBI|SHOES|SOCKS|THICKHOSE|HOSE)/.test(tok)) return 'chrNeg';
+    return 'commonNeg';
+  }
+  if (tok && SHARED_CATS.includes(cat)) return 'commonPos';
+  if (tok && ENV_CATS.includes(cat)) return 'envPos';
+  if (tok) return 'chrPos';
+  if (ENV_TEXT.test(txt) && !CHAR_TEXT.test(txt)) return 'envPos';
+  return 'chrPos';
+}
+
+function coopCharCommon(blocks) {
+  return (blocks || []).filter(b => {
+    const tok = String((b && b.token) || '').toUpperCase();
+    const cat = tokenCat(tok);
+    if (tok === '@CAM_FULL') return true;
+    if (cat === 'comp' || cat === 'cam') return false;
+    if (cat === 'atmo' && /bokeh|fog|blur|haze|depth of field/i.test(String((b && b.text) || ''))) return false;
+    return true;
+  });
+}
+
+function coopEnsure() {
+  if (!S.coop) S.coop = { commonPos: [], commonNeg: [], envPos: [], chrPos: [], chrNeg: [] };
+  return S.coop;
+}
+
+function coopSplit() {
+  const c = coopEnsure();
+  const buckets = { commonPos: [], envPos: [], chrPos: [], commonNeg: [], chrNeg: [] };
+  (S.pos || []).forEach(b => buckets[coopBucketFor(b, false)].push(Object.assign({}, b, { id: uid() })));
+  (S.neg || []).forEach(b => buckets[coopBucketFor(b, true)].push(Object.assign({}, b, { id: uid() })));
+  c.commonPos = buckets.commonPos;
+  c.envPos = buckets.envPos;
+  c.chrPos = buckets.chrPos;
+  c.commonNeg = buckets.commonNeg;
+  c.chrNeg = buckets.chrNeg;
+  S.coopLastSplit = { commonPos: c.commonPos.length, envPos: c.envPos.length, chrPos: c.chrPos.length,
+                      commonNeg: c.commonNeg.length, chrNeg: c.chrNeg.length };
+}
+
+function coopChip(b, lane) {
+  const label = b.token || '文本';
+  const body = b.token ? '<span class="tk">' + b.token + '</span>'
+    : '<span class="txt">' + esc(b.text || '（空）') + '</span>';
+  const cat = b.token ? tokenCat(b.token) : 'custom';
+  return '<div class="chip ' + (lane.endsWith('Pos') ? 'pos' : 'neg') + (b.enabled ? '' : ' off') + '"' +
+    ' data-coop-lane="' + lane + '" data-id="' + b.id + '" data-cat="' + cat + '"' +
+    (b.token ? ' data-token="' + b.token + '"' : '') + '>' +
+    '<span class="grab">⠿</span>' +
+    '<button class="on" data-coop-toggle="' + b.id + '" data-coop-lane="' + lane + '">' + (b.enabled ? '●' : '○') + '</button>' +
+    body +
+    '<input type="number" step="0.05" min="0" max="3" value="' + b.weight + '" data-coop-weight="' + b.id + '" data-coop-lane="' + lane + '">' +
+    '<button class="x" data-coop-del="' + b.id + '" data-coop-lane="' + lane + '">×</button>' +
+    '</div>';
+}
+
+function renderCoopLanes() {
+  const c = coopEnsure();
+  Object.entries(COOP_LANES).forEach(([lane, cfg]) => {
+    const box = $(cfg.box); if (!box) return;
+    const arr = c[lane] || [];
+    const slotBlk = lane === 'envPos'
+      ? arr.find(b => b && /^@SET_/.test(String(b.token || '')))
+      : (lane === 'chrPos' && typeof reprojMainGarmentBlock === 'function' ? reprojMainGarmentBlock(arr) : null);
+    const visArr = slotBlk ? arr.filter(b => b !== slotBlk) : arr;
+    const slotHint = lane === 'envPos'
+      ? '主场景已在上方以单独积木显示，此处可继续添加氛围/时段/自定义文本'
+      : '主服装已在上方以单独积木显示，此处可继续添加身份/体型/表情/动作等积木';
+    box.innerHTML = visArr.map(b => coopChip(b, lane)).join('') || (slotBlk
+      ? '<span class="hint">' + slotHint + '</span>'
+      : '<span class="hint">点上方 + 文本，或从左侧积木拖进来</span>');
+    const cnt = $(cfg.cnt); if (cnt) cnt.textContent = arr.length + ' 块';
+    try { if (typeof bindTips === 'function') bindTips(box); } catch (e) {}
+    box.querySelectorAll('.chip').forEach(el => {
+      el.addEventListener('dblclick', ev => {
+        if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'BUTTON')) return;
+        const id = el.dataset.id, ln = el.dataset.coopLane;
+        const b = (coopEnsure()[ln] || []).find(x => x.id === id);
+        if (!b) return;
+        if (b.token && typeof openBlockDetail === 'function') openBlockDetail(b, ln.endsWith('Neg') ? 'negative' : 'positive');
+        else if (typeof editFreeText === 'function') editFreeText(el);
+      });
+    });
+    if (!box.dataset.dropBound) {
+      box.dataset.dropBound = '1';
+      box.addEventListener('dragover', e => e.preventDefault());
+      box.addEventListener('drop', e => {
+        e.preventDefault();
+        const raw = e.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        let d = null; try { d = JSON.parse(raw); } catch (err) { d = null; }
+        if (d && d.move) return;
+        if (d && d.token && lane === 'envPos' && /^@SET_/.test(d.token) && typeof reprojAddScene === 'function') {
+          reprojAddScene(d.token);
+          return;
+        }
+        if (d && d.token && lane === 'chrPos' && typeof reprojIsMainGarmentToken === 'function' && reprojIsMainGarmentToken(d.token)) {
+          if (typeof reprojSetGarment === 'function') { reprojSetGarment(d.token); return; }
+        }
+        const arr2 = coopEnsure()[lane] || (coopEnsure()[lane] = []);
+        if (d && d.token) arr2.push({ id: uid(), token: d.token, text: '', weight: 1, enabled: true });
+        else if (raw.trim().length > 1) arr2.push({ id: uid(), token: '', text: raw.trim(), weight: 1, enabled: true });
+        else return;
+        renderCoopLanes(); coopBind(); expandPreview();
+      });
+    }
+  });
+  try { if (typeof reprojSyncFromLanes === 'function') reprojSyncFromLanes(); } catch (e) {}
+  coopBindChips(document);
+}
+
+function coopBindChips(root) {
+  const scope = root || document;
+  scope.querySelectorAll('[data-coop-del]').forEach(el => {
+    el.onclick = ev => {
+      ev.stopPropagation();
+      const c = coopEnsure(); const lane = el.dataset.coopLane;
+      const victim = (c[lane] || []).find(b => b.id === el.dataset.coopDel);
+      c[lane] = (c[lane] || []).filter(b => b.id !== el.dataset.coopDel);
+      if (lane === 'chrPos' && victim && typeof reprojIsMainGarmentToken === 'function' && reprojIsMainGarmentToken(victim.token)) {
+        const negTok = String(victim.token || '').replace(/^@OUT_/, '@NEG_');
+        c.chrNeg = (c.chrNeg || []).filter(b => b.token !== negTok);
+        if (typeof reprojState === 'function') reprojState().garment = '';
+      }
+      renderCoopLanes(); coopBind(); expandPreview();
+    };
+  });
+  scope.querySelectorAll('[data-coop-toggle]').forEach(el => {
+    el.onclick = ev => {
+      ev.stopPropagation();
+      const c = coopEnsure(); const lane = el.dataset.coopLane;
+      const b = (c[lane] || []).find(x => x.id === el.dataset.coopToggle);
+      if (b) { b.enabled = !b.enabled; renderCoopLanes(); coopBind(); expandPreview(); }
+    };
+  });
+  scope.querySelectorAll('[data-coop-weight]').forEach(el => {
+    el.onchange = () => {
+      const c = coopEnsure(); const lane = el.dataset.coopLane;
+      const b = (c[lane] || []).find(x => x.id === el.dataset.coopWeight);
+      if (b) { b.weight = Math.max(0, Math.min(3, Number(el.value) || 1)); expandPreview(); }
+    };
+  });
+}
+
+function coopBind() {
+  coopBindChips(document);
+  document.querySelectorAll('[data-coop-add]').forEach(el => {
+    el.onclick = () => {
+      const c = coopEnsure(); const lane = el.dataset.coopAdd;
+      (c[lane] = c[lane] || []).push({ id: uid(), token: '', text: '', weight: 1, enabled: true });
+      renderCoopLanes(); coopBind();
+    };
+  });
+  document.querySelectorAll('[data-coop-clear]').forEach(el => {
+    el.onclick = () => {
+      const c = coopEnsure(); c[el.dataset.coopClear] = [];
+      renderCoopLanes(); coopBind(); expandPreview();
+    };
+  });
+}
+
+function coopToGlobal() {
+  const c = coopEnsure();
+  const dedupe = arrs => {
+    const seen = new Set(), out = [];
+    arrs.forEach(arr => (arr || []).forEach(b => {
+      if (!b) return;
+      const k = b.token ? ('tok:' + b.token) : ('txt:' + (b.text || '').trim() + ':' + b.id);
+      if (b.token && seen.has(k)) return;
+      if (b.token) seen.add(k);
+      out.push(Object.assign({}, b));
+    }));
+    return out;
+  };
+  S.pos = dedupe([c.commonPos, c.envPos, c.chrPos]);
+  S.neg = dedupe([c.commonNeg, c.chrNeg]);
+}
+
+function coopSyncLoras(on) {
+  const envSel = document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora');
+  const envName = envSel ? envSel.value : '';
+  if (on) {
+    S._coopLoraBackup = JSON.parse(JSON.stringify(S.loras || []));
+    if (envName && !(S.loras || []).some(l => l.coop === 'env')) {
+      (S.loras = S.loras || []).push({ name: envName, weight: 1.0, coop: 'env' });
+    }
+  } else {
+    S.loras = (S.loras || []).filter(l => l.coop !== 'env');
+    if (S._coopLoraBackup) { S.loras = S._coopLoraBackup; S._coopLoraBackup = null; }
+  }
+  if (typeof renderLoras === 'function') renderLoras();
+}
+
+function coopAfterGlobalEdit() {
+  if (!S.coopOn) return;
+  coopSplit();
+  renderCoopLanes();
+  coopBind();
+  expandPreview();
+}
+
+function coopToggle() {
+  const wb = $('#coop-workbench');
+  const on = wb.hasAttribute('hidden');
+  if (on) wb.removeAttribute('hidden'); else wb.setAttribute('hidden', '');
+  S.coopOn = on;
+  $$('.lane.card[data-lane]').forEach(c => { c.style.display = on ? 'none' : ''; });
+  const panel = $('#coop-panel'); if (panel) panel.open = false;
+  const envSel = $('#coop-slora-row'); if (envSel) envSel.hidden = !on;
+  const mf = $('#p-model-field'); if (mf) mf.hidden = on;
+  const af = $('#p-artist-field'); if (af) af.hidden = on;
+  if (on) { coopSplit(); renderCoopLanes(); coopBind(); coopFillLoras(); }
+  coopSyncLoras(on);
+  expandPreview();
+  const btn = $('#coop-toggle');
+  if (btn) btn.classList.toggle('on', on);
+  if (typeof coopAdvApply === 'function') coopAdvApply();
+  saveJSON('loom.coopOn', on);
+  toast(on ? '合作模式：四排工作台已切换' : '已回到常规拼装');
+}
+
+function coopPromptOf(lane) {
+  const c = coopEnsure();
+  const arr = (c[lane] || []).filter(b => b.enabled !== false);
+  return { positive: lane.endsWith('Pos') ? arr : [], negative: [] };
+}
+
+function coopLightFromBlocks() {
+  const c = coopEnsure();
+  const toks = (c.commonPos || []).concat(c.envPos || []).map(b => String(b.token || '')).join(' ');
+  if (/@LIGHT_BACK/.test(toks)) return 'back';
+  if (/@LIGHT_TOP/.test(toks)) return 'top';
+  return 'left';
+}
+
+// 重映工作台只用到少量通用参数
+function coopAdvApply() {
+  const sel = $('#coop-mode');
+  if (!sel) return;
+  const m = sel.value;
+  const coop = !!S.coopOn;
+  const panel = $('#coop-panel');
+  if (panel) panel.style.display = coop ? '' : 'none';
+  const show = (id, on) => { const el = $('#' + id); if (el) el.style.display = on ? '' : 'none'; };
+  show('coop-regional-fields', coop && m === 'regional');
+  show('coop-paper-fields', coop && m === 'paper');
+  show('coop-painter-fields', coop && m === 'b2');
+  show('coop-sketch-field', coop && (m === 'b2' || m === 'gen' || m === 'sketch' || m === 'classic'));
+}
+
+// 细化环境：勾选就往画布补一条环境细节积木，取消就摘掉（带 envdetail 标记便于定位）
+const ENV_DETAIL_TEXT = 'detailed background, rich surface textures and environment details, clear atmospheric depth';
+function bindEnvDetail() {
+  const chk = $('#p-envdetail');
+  if (!chk) return;
+  let migrated = false;
+  [S.pos || [], (S.coop && S.coop.envPos) || []].forEach(arr => arr.forEach(b => {
+    if (b && b.envdetail && b.text !== ENV_DETAIL_TEXT) { b.text = ENV_DETAIL_TEXT; migrated = true; }
+  }));
+  if (migrated) {
+    try { if (S.coopOn && typeof renderCoopLanes === 'function') renderCoopLanes(); else renderLanes(); expandPreview(); } catch (e) {}
+  }
+  const lane = () => (S.coopOn ? (coopEnsure().envPos = coopEnsure().envPos || []) : (S.pos = S.pos || []));
+  const has = () => {
+    if (S.coopOn) return (coopEnsure().envPos || []).some(b => b && b.envdetail);
+    return (S.pos || []).some(b => b && b.envdetail);
+  };
+  const apply = () => {
+    const on = !!chk.checked;
+    if (on && !has()) {
+      lane().push({ id: uid(), token: '', text: ENV_DETAIL_TEXT, weight: 1, enabled: true, envdetail: true });
+    } else if (!on && has()) {
+      if (S.coopOn) coopEnsure().envPos = (coopEnsure().envPos || []).filter(b => !(b && b.envdetail));
+      else S.pos = (S.pos || []).filter(b => !(b && b.envdetail));
+    } else return;
+    try { if (S.coopOn && typeof renderCoopLanes === 'function') renderCoopLanes(); else renderLanes(); expandPreview(); } catch (e) {}
+    saveJSON('loom.envDetail', on);
+  };
+  chk.onchange = apply;
+  try { if (loadJSON('loom.envDetail', false) && !has()) { chk.checked = true; apply(); } } catch (e) {}
+}
+
+function coopRegionalBind() {
+  const sel = $('#coop-mode');
+  if (!sel) return;
+  if (!sel._advBound) { sel._advBound = true; sel.addEventListener('change', coopAdvApply); }
+  // 工作台参数按需展开
+  const panel = $('#coop-panel');
+  if (panel && !panel._advBound) {
+    panel._advBound = true;
+    panel.removeAttribute('open');
+    panel.addEventListener('toggle', () => { if (panel.open) coopAdvApply(); });
+  }
+  coopAdvApply();
+}
+
+function coopAutoBind() {
+  const chk = $('#coop-auto');
+  if (!chk) return;
+  const apply = () => {
+    const on = !!chk.checked;
+    ['#coop-ratio'].forEach(sel => {
+      const el = $(sel); if (el) { el.disabled = on; el.style.opacity = on ? 0.5 : 1; }
+    });
+  };
+  chk.onchange = apply;
+  apply();
+}
+
+const COMP_FIGURE_RATIO = {
+  '@COMP_FIGURE_1_3': 0.33, '@COMP_FIGURE_1_4': 0.25, '@COMP_FIGURE_1_5': 0.20,
+  '@COMP_FIGURE_1_7': 0.14, '@COMP_FIGURE_1_10': 0.10,
+  '@COMP_FIGURE_SMALL': 0.20, '@COMP_FIGURE_BOTTOM': 0.24, '@COMP_FIGURE_EDGE': 0.26
+};
+
+function coopComposeFromBlocks(fallbackRatio) {
+  const c = coopEnsure();
+  const toks = (c.commonPos || []).concat(c.envPos || [], c.chrPos || []).map(b => String(b.token || ''));
+  const has = t => toks.includes(t);
+  let ratio = fallbackRatio;
+  for (const [t, v] of Object.entries(COMP_FIGURE_RATIO)) { if (has(t)) { ratio = v; break; } }
+  let ground = 0.88, x = 0.34;
+  if (has('@COMP_FIGURE_BOTTOM')) ground = 0.94;
+  else if (has('@COMP_LOW')) ground = 0.86;
+  else if (has('@COMP_OVERHEAD')) ground = 0.72;
+  if (has('@COMP_CENTER') || has('@COMP_SYMMETRY')) x = 0.5;
+  else if (has('@COMP_THIRDS')) x = 0.34;
+  if (has('@COMP_FIGURE_EDGE')) x = 0.16;
+  const byBlocks = toks.some(t => CT_COMP_RE.test(t));
+  if (!byBlocks) ratio = Math.max(0.30, ratio);
+  return { ratio: Math.round(ratio * 1000) / 1000, ground_y: ground, x: x,
+           byBlocks: byBlocks };
+}
+
+const CT_COMP_RE = /^@COMP_/;
+
+function coopSeedValue() {
+  const raw = (($('#p-seed') || {}).value || '').trim();
+  const n = Number(raw);
+  if (raw && Number.isFinite(n) && n > 0) return n;
+  return Math.floor(Math.random() * 900000) + 100000;
+}
+
+function coopPlanRender(by) {
+  // 2026-11-15：合作模式固定为重映，旧的 regional/paper/b2 名称不再显示
+  const txt = '重映 · 出板 → 人物重绘 → 修脸修手' + (by ? ' · ' + by : '');
+  const el = $('#coop-plan');
+  if (el) el.innerHTML = '<div class="coop-plan-main">' + txt + '</div>';
+  const bi = $('#brain-coop-plan');
+  if (bi) bi.innerHTML = txt;
+  const inline = $('#coop-plan-inline');
+  if (inline) inline.textContent = '出板 → 重绘 → 精修';
+}
+
+async function coopApplyRoute() {
+  // 2026-11-15：本地模型已移除，构图比例用规则推算
+  const plan = coopComposeFromBlocks(0.24);
+  S._coopRoute = {
+    ratio: plan.ratio,
+    env_w: 0.65, char_w: 0.55,
+    env_lora: (($('#coop-slora') || {}).value) || '',
+    char_lora: (($('#style-lora') || {}).value) || '',
+    by: '规则'
+  };
+  try { coopPlanRender('规则'); } catch (e) {}
+}
+
+function coopStart() {
+  const st = $('#run-status'); if (st) st.textContent = '重映 · 准备构图…';
+  coopApplyRoute().then(() => coopStartReal()).catch(() => coopStartReal());
+}
+
+function coopStartReal() {
+  const _rb0 = $('#run-bar'); if (_rb0) _rb0.style.width = '0%';
+  const _rs0 = $('#run-status'); if (_rs0) _rs0.textContent = '合作模式 · 启动中…';
+  S._coopJustStarted = Date.now();
+  if (coopTimer) clearInterval(coopTimer);
+  coopTimer = setInterval(coopPoll, 2000);
+  coopPoll();
+  const c = coopEnsure();
+  const manual = !!(($('#coop-auto') || {}).checked) ? 0 : Number(($('#coop-ratio') || {}).value);
+  const CT_PLAN = coopComposeFromBlocks(manual || 0.24);
+  const call = (pos, neg) => api('/api/expand', { method: 'POST', body: JSON.stringify({ positive: pos, negative: neg }) });
+  const merge = (a, b) => {
+    const seen = new Set(), out = [];
+    (a || []).concat(b || []).forEach(x => {
+      const k = (x.enabled === false ? 'off|' : '') + (x.token || ('txt:' + (x.text || '')));
+      if (seen.has(k)) return;
+      seen.add(k); out.push(x);
+    });
+    return out;
+  };
+  const cpos = c.commonPos || [], cneg = c.commonNeg || [];
+  const rawChr = (c.chrPos || []).slice();
+  const blocks = rawChr.length
+    ? rawChr
+    : [{ id: uid(), token: '', text: '1girl, solo, full body standing', weight: 1, enabled: true }];
+  const facePicked = rawChr.filter(b => /^@(ID|SINGLE|FACE|HAIR|ACC|MOOD|GAZE)/i.test(String(b.token || '')) || (!b.token && String(b.text || '').trim()));
+  const handPicked = rawChr.concat(c.envPos || []).filter(b => /^@(HAND|HOLD|WEAPON|INSTR)/i.test(String(b.token || '')));
+  const allNeg = merge(cneg, c.chrNeg);
+  Promise.all([
+    call(merge(cpos, c.envPos), cneg),
+    call(merge(merge(coopCharCommon(cpos), blocks), reprojExtraChar()), allNeg),
+    facePicked.length ? call(merge(coopCharCommon(cpos), facePicked), allNeg) : Promise.resolve({ positive: '' }),
+    handPicked.length ? call(handPicked, allNeg) : Promise.resolve({ positive: '' })
+  ]).then(([env, chr, faceExp, handExp]) => {
+    const sz = (typeof size === 'function') ? size() : { w: 1216, h: 832 };
+    const extraLoras = (S.loras || [])
+      .filter(l => l && l.name && !l.coop)
+      .map(l => ({ name: l.name, weight: Number(l.weight) || 1.0 }));
+    const charLoraVal = ($('#style-lora') || {}).value || '';
+    const charTrig = artistTrigger(charLoraVal);
+    const withTrig = (t) => (charTrig && t && !t.toLowerCase().includes(charTrig.toLowerCase())) ? (t + ', ' + charTrig) : t;
+    const body = {
+      prompt_scene: env.positive || '',
+      prompt_char: withTrig(chr.positive || ''),
+      neg_scene: env.negative || '',
+      neg_char: chr.negative || '',
+      face_prompt: withTrig((faceExp && faceExp.positive) || ''),
+      hand_prompt: (handExp && handExp.positive) || '',
+      width: sz.w || 1216,
+      height: sz.h || 832,
+      steps: Number(($('#p-steps') || {}).value) || 28,
+      cfg: Number(($('#p-cfg') || {}).value) || 5.5,
+      scene_lora: (document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora') || {}).value || '',
+      char_lora: charLoraVal,
+      extra_loras: extraLoras,
+      ratio: CT_PLAN.ratio,
+      ground_y: CT_PLAN.ground_y,
+      x: CT_PLAN.x,
+      light: coopLightFromBlocks(),
+      seed: S._coopSeed = coopSeedValue(),
+      mode: 'reproject',
+      bg_painter: ($('#coop-bg-painter') || {}).value || 'anima',
+      char_painter: ($('#coop-char-painter') || {}).value || 'anima',
+      env_weight: Number(($('#coop-env-w') || {}).value) || 0.65,
+      char_weight: Number(($('#coop-char-w') || {}).value) || 0.85,
+      ll_strength: Number(($('#coop-ll-strength') || {}).value) || 1.0,
+      ll_end: Number(($('#coop-ll-end') || {}).value) || 0.55,
+      fg: ($('#coop-fg') || {}).value || '',
+      prop: ($('#coop-prop') || {}).value || '',
+      footwear: ($('#coop-footwear') || {}).value || '',
+      scale_bias: Number(($('#coop-scale-bias') || {}).value) || 1.12,
+      char_size: ($('#coop-char-size') || {}).value || '1024x1536',
+      shot: ($('#coop-shot') || {}).value || 'auto',
+      priority: ($('#coop-priority') || {}).value || 'auto',
+      detail: ($('#coop-detail') || {}).value || 'rich',
+      sketch: ($('#coop-sketch') || {}).value || '',
+      auto_compose: true,
+      keep_intermediates: !!($('#coop-keep-mid') && $('#coop-keep-mid').checked),
+      expand_notes: [].concat((env && env.notes) || [], (chr && chr.notes) || [], (faceExp && faceExp.notes) || [], (handExp && handExp.notes) || []),
+      client_meta: (typeof window.loomClientMeta === 'function') ? window.loomClientMeta() : {}
+    };
+    return api('/api/coop', { method: 'POST', body: JSON.stringify(body) });
+  }).then(r => {
+    if (!r || !r.ok) { toast((r && r.note) || '合作模式忙'); return; }
+    if (r.hint) {
+      const set = (sel, v) => { const el = $(sel); if (el) el.value = v; };
+      set('#coop-ratio', r.ratio); set('#coop-gy', r.ground_y); set('#coop-x', r.x);
+      toast('构图：高度 ' + r.ratio + ' · 脚底 ' + r.ground_y + ' · 左右 ' + r.x + '（' + '规则' + '）');
+    }
+    toast('合作模式已启动：出板 → 人物重绘 → 修脸修手');
+    if (coopTimer) clearInterval(coopTimer);
+    coopTimer = setInterval(coopPoll, 3000);
+    coopPoll();
+  }).catch(() => toast('合作模式启动失败', true));
+}
+
 function applyStyle(kind, custom) {
   pushHistory();
-  S.pos = S.pos.filter(b => !/^@STYLE_/.test(b.token || '') && !(b.text && /^\s*\((cel shading|anime cel shading|flat colors|watercolor style|clean lineart)/i.test(b.text)));
-  S.loras = (S.loras || []).filter(l => !/animaNai/i.test(l.name || ''));
+  S.pos = S.pos.filter(b => !/^@STYLE_/.test(b.token || ''));
   let label = '默认';
-  if (kind === 'anima66' || kind === 'anima45') {
-    S.loras.push({ name: 'animaNai5E585B6E4B889.YDAV.safetensors', weight: kind === 'anima66' ? 0.66 : 0.45 });
-    label = 'animaNai ' + (kind === 'anima66' ? '0.66' : '0.45');
-  } else if (kind === 'custom') {
+  if (kind === 'custom') {
     const t = String(custom || '').trim();
     if (t) { S.pos.push({ id: uid(), token: '', text: t, weight: 1, enabled: true }); label = t.slice(0, 24); }
-  } else if (STYLE_TEXT[kind]) {
+  } else if (typeof STYLE_TEXT !== 'undefined' && STYLE_TEXT[kind]) {
     S.pos.push({ id: uid(), token: '', text: STYLE_TEXT[kind], weight: 1, enabled: true });
     label = kind;
   }
@@ -1715,7 +2561,6 @@ async function run() {
   const _steps = Number(($('#p-steps') || {}).value) || 0;
   if (_steps && _steps < 22) toast('步数 ' + _steps + ' 偏低：16 步左右会明显发灰，正式出图建议 ≥26', true);
   const _mdl = (($('#p-model') || {}).value || '');
-  if (/29B/i.test(_mdl) && S.pos.length > 8) toast('29B 建议用自然语言短提示：标签堆会让画面发灰', true);
   if (!S.lastExpanded || !S.lastExpanded.positive.trim()) { alert('正向提示词为空'); return; }
   const { w, h } = size();
   const risk = sizeRisk(w, h);
@@ -1733,10 +2578,12 @@ async function run() {
       cfg: Number($('#p-cfg').value) || 5.5,
       seed: Number($('#p-seed').value) || 0,
       prefix: $('#p-prefix').value || 'st',
-      loras: S.loras.map(l => ({ name: l.name, weight: Number(l.weight) })),
+      loras: S.loras.filter(l => l.name).map(l => ({ name: l.name, weight: Number(l.weight) })),
       model: (($('#p-model') || {}).value || ''),
       blocks_pos: S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
       blocks_neg: S.neg.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
+      expand_notes: (S.lastExpanded && S.lastExpanded.notes) || [],
+      client_meta: (typeof window.loomClientMeta === 'function') ? window.loomClientMeta() : {}
     })});
     S.last = { job: r.job_id, seed: r.seed };
     $('#run-status').textContent = '排队中 · seed ' + r.seed + ' · 预计 ' + r.estimate + ' 秒';
@@ -1748,13 +2595,56 @@ async function run() {
 }
 
 const autoRefine = () => Number(($('#p-refine') || {}).value) || 0;
+// 刷新后恢复：把还在跑的任务接回来（普通出图/精修/批量 + 合作模式）
+async function resumeLastJob() {
+  let rec = null;
+  try { rec = loadJSON('loom.lastJob', null); } catch (e) {}
+  if (rec && rec.id && (Date.now() - (rec.ts || 0) < 6 * 3600 * 1000)) {
+    let j = null;
+    try { j = await api('/api/job/' + encodeURIComponent(rec.id)); } catch (e) { j = null; }
+    const st = $('#run-status'), bar = $('#run-bar'), btn = $('#run-btn');
+    if (j && (j.status === 'running' || j.status === 'queued' || j.status === 'pending')) {
+      if (st) st.textContent = '恢复中：任务还在跑（' + (rec.kind === 'train' ? '训练' : rec.kind === 'tag' ? '打标' : '出图') + '）';
+      if (bar) bar.style.width = Math.round((j.progress || 0) * 100) + '%';
+      if (btn) btn.disabled = true;
+      pollJob(rec.id, rec.kind || 'run');
+    } else if (j && j.status === 'done') {
+      if (st) st.textContent = '上次任务已完成';
+      if (bar) bar.style.width = '100%';
+      saveJSON('loom.lastJob', null);
+    } else {
+      try { saveJSON('loom.lastJob', null); } catch (e) {}
+    }
+  }
+  // 合作模式有独立的进度轮询
+  try {
+    const cs = await api('/api/coop/status');
+    if (cs && cs.status === 'running') {
+      const fl = $('#coop-float');
+      if (fl) fl.hidden = false;
+      if (!coopTimer) { coopTimer = setInterval(coopPoll, 2000); coopPoll(); }
+    }
+  } catch (e) {}
+}
+
 async function pollJob(jid, kind) {
   clearInterval(S.jobTimer);
+  // 刷新页面也能续上进度条：记住这个任务
+  try { saveJSON('loom.lastJob', { id: jid, kind: kind, ts: Date.now() }); } catch (e) {}
   S.jobTimer = setInterval(async () => {
     let j;
     try { j = await api('/api/job/' + jid); } catch (e) { return; }
     if (kind === 'run') {
-      $('#run-bar').style.width = Math.round((j.progress || 0) * 100) + '%';
+      const _pct = Math.round((j.progress || 0) * 100) + '%';
+  $('#run-bar').style.width = _pct;
+  const _fl = $('#coop-float');
+  if (_fl) {
+    _fl.hidden = false;
+    const _ph = $('#coop-float-phase'), _pc = $('#coop-float-pct'), _pb = $('#coop-float-bar');
+    if (_ph) _ph.textContent = '出图 · 生成中';
+    if (_pc) _pc.textContent = _pct;
+    if (_pb) _pb.style.width = _pct;
+  }
       const pct = Math.round((j.progress || 0) * 100);
       const left = Math.max(0, Math.round((S.eta || 60) - (j.elapsed || 0)));
       const tail = left > 0 ? ('约剩 ' + left + 's') : '收尾中';
@@ -1766,6 +2656,7 @@ async function pollJob(jid, kind) {
     }
     if (j.status === 'done' || j.status === 'error' || j.status === 'cancelled') {
       clearInterval(S.jobTimer);
+      try { saveJSON('loom.lastJob', null); } catch (e) {}
       if (kind === 'run') {
         $('#run-btn').disabled = false;
         if (j.status === 'done' && j.result && j.result.images && j.result.images.length) {
@@ -1825,8 +2716,9 @@ function renderResultView(seed, elapsed) {
     '<div class="verdicts"><button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button></div></div>' +
     '<div class="row2" style="margin-top:6px"><button class="ghost" id="rerun">重抽</button><button class="ghost" id="open-file">画廊</button></div>' +
     '<div class="row2" style="margin-top:6px"><button class="primary" id="result-refine">精修</button><button class="ghost danger" id="result-del">删除</button></div>' +
-    '<div class="row2" style="margin-top:6px"><button class="ghost" id="handfix-btn">手部精修</button><button class="ghost" id="repro-btn">复现</button></div>' +
-    '<div class="row2" style="margin-top:6px"><button class="ghost" id="batch-btn">批量</button><button class="ghost" id="params-btn">参数</button></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="ghost" id="handfix-btn">手部精修</button><button class="ghost" id="standee-btn" title="全身 + 右上放大淡化的半身（立绘模板）">立绘模板</button></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="ghost" id="repro-btn">复现</button><button class="ghost" id="batch-btn">批量</button></div>' +
+    '<div class="row2" style="margin-top:6px"><button class="ghost" id="params-btn">参数</button></div>' +
     '<div class="hint">seed ' + seed + ' · ' + elapsed + 's · ' + String(path).split(/[\\/]/).pop() + '</div>';
   const ri = $('#result-img');
   if (ri) ri.onclick = () => openImage(path);
@@ -1837,6 +2729,19 @@ function renderResultView(seed, elapsed) {
   $('#rerun').onclick = () => { $('#p-seed').value = ''; run(); };
   const hb = $('#handfix-btn');
   if (hb) hb.onclick = () => openHandfix(path);
+  const sd = $('#standee-btn');
+  if (sd) sd.onclick = async () => {
+    sd.disabled = true; sd.textContent = '合成中…';
+    try {
+      const r = await api('/api/standee', { method: 'POST', body: JSON.stringify({ path, fade: 0.62 }) });
+      if (!r || !r.ok) { toast('立绘模板失败', true); return; }
+      S.rl = (S.rl || []).concat([r.path]);
+      S.ri = S.rl.length - 1;
+      renderResultView(seed, elapsed);
+      toast('立绘模板已生成');
+    } catch (e) { toast('立绘模板失败：' + e.message, true); }
+    finally { sd.disabled = false; sd.textContent = '立绘模板'; }
+  };
   const rb = $('#repro-btn');
   if (rb) rb.onclick = () => openReproPage(path);
   const bb = $('#batch-btn');
@@ -1911,9 +2816,15 @@ async function logPick(path, verdict, note) {
 }
 
 /* ---------- 画廊 ---------- */
+let _gallerySeq = 0;
 async function renderGallery() {
+  const seq = ++_gallerySeq;
+  const host = $('#gallery');
+  // 首次进入时给个占位，别让画布一片黑
+  if (host && !host.querySelector('.g-item, .hint')) host.innerHTML = '<div class="hint">加载中…</div>';
   const dir = $('#g-dir').value;
-  const r = await api('/api/gallery?dir=' + encodeURIComponent(dir) + '&limit=400');
+  const r = await api('/api/gallery?dir=' + encodeURIComponent(dir) + '&limit=0');
+  if (seq !== _gallerySeq) return;   // 期间又触发了一次渲染，丢弃这次结果
   S.gallery = r.items;
   let rec = { items: [] };
   try { rec = await api('/api/recipes?limit=500'); } catch (e) {}
@@ -1947,16 +2858,19 @@ async function renderGallery() {
       + (selMode ? '<span class="g-check">' + (S.gallerySel[it.path] ? '✓' : '') + '</span>' : '')
       + '<button class="g-params" data-params="' + it.path + '" title="查看这张图的积木与参数">参数</button>'
 
-      + '<div class="meta"><span>' + it.name.slice(0, 16) + '</span><span>' + (it.note || '') + '</span></div>'
+      + '<div class="meta"><span>' + (it.label || it.name).slice(0, 28) + '</span><span>' + (it.note || '') + '</span></div>'
       + '</div>';
   }).join('') || '<div class="hint">没有符合条件的图</div>';
 
-  $$('-g-item').forEach(() => {});
   $$('.g-item').forEach(el => el.onclick = () => {
     if (S.gallerySelect || S.galleryDelMode) {
       const p = el.dataset.path;
       if (S.gallerySel[p]) delete S.gallerySel[p]; else S.gallerySel[p] = 1;
-      renderGallery();
+      // 原地改这一块，别整页重渲染（否则所有缩略图都要重新加载）
+      el.classList.toggle('on', !!S.gallerySel[p]);
+      const chk = el.querySelector('.g-check');
+      if (chk) chk.textContent = S.gallerySel[p] ? '✓' : '';
+      updateGallerySelectionUI();
       return;
     }
     openImage(el.dataset.path);
@@ -1966,27 +2880,52 @@ async function renderGallery() {
     openRecipe(btn.dataset.params);
   });
   const ex = $('#g-export');
-  if (ex) {
-    ex.style.display = S.gallerySelect ? '' : 'none';
-    ex.textContent = '导出选中（' + Object.keys(S.gallerySel).length + '）';
+  if (ex) ex.style.display = S.gallerySelect ? '' : 'none';
   const bd = $('#g-bulk-del');
+  if (bd) bd.style.display = S.galleryDelMode ? '' : 'none';
+  updateGallerySelectionUI();
   if (bd) {
-    bd.style.display = S.galleryDelMode ? '' : 'none';
-    bd.textContent = '删除选中（' + Object.keys(S.gallerySel).length + '）';
     bd.onclick = async () => {
       const paths = Object.keys(S.gallerySel);
       if (!paths.length) { toast('先点几张图选中', true); return; }
       if (!confirm('把选中的 ' + paths.length + ' 张图移入回收站？\n（可在「维护」里恢复）')) return;
-      let ok = 0;
-      for (const p of paths) {
-        try { await api('/api/delete-image', { method: 'POST', body: JSON.stringify({ path: p, permanent: false }) }); ok++; } catch (e) {}
-      }
+      bd.disabled = true;
+      const done = [];
+      await Promise.all(paths.map(async p => {
+        try { await api('/api/delete-image', { method: 'POST', body: JSON.stringify({ path: p, permanent: false }) }); done.push(p); } catch (e) {}
+      }));
+      bd.disabled = false;
       S.gallerySel = {};
-      toast('已移入回收站 ' + ok + ' 张');
-      renderGallery();
+      removeGalleryTiles(done);
+      updateGallerySelectionUI();
+      toast('已移入回收站 ' + done.length + ' 张');
     };
   }
+}
+
+// 批量删除后只把对应格子从 DOM 摘掉，不重渲染（避免整页缩略图重载闪黑）
+function removeGalleryTiles(paths) {
+  const host = $('#gallery');
+  if (!host || !paths || !paths.length) return;
+  const set = new Set(paths);
+  $$('.g-item').forEach(el => { if (set.has(el.dataset.path)) el.remove(); });
+  S.gallery = (S.gallery || []).filter(it => !set.has(it.path));
+  const left = host.querySelectorAll('.g-item').length;
+  if (!left && !host.querySelector('.hint')) host.innerHTML = '<div class="hint">没有符合条件的图</div>';
+  const total = $('#g-total');
+  if (total) {
+    const m = /\/\s*(\d+)/.exec(total.textContent || '');
+    const totalN = m ? Math.max(0, Number(m[1]) - set.size) : null;
+    total.textContent = left + (totalN !== null ? ' / ' + totalN : '') + ' 张';
   }
+}
+
+function updateGallerySelectionUI() {
+  const n = Object.keys(S.gallerySel || {}).length;
+  const ex = $('#g-export');
+  if (ex) { ex.style.display = S.gallerySelect ? '' : 'none'; ex.textContent = '导出选中（' + n + '）'; }
+  const bd = $('#g-bulk-del');
+  if (bd) { bd.style.display = S.galleryDelMode ? '' : 'none'; bd.textContent = '删除选中（' + n + '）'; }
 }
 
 async function exportSelected() {
@@ -2023,7 +2962,7 @@ function importRecipe(r) {
   if (r.cfg && $('#p-cfg')) $('#p-cfg').value = r.cfg;
   if (r.seed !== undefined && $('#p-seed')) $('#p-seed').value = r.seed;
   if (Array.isArray(r.loras) && r.loras.length) {
-    S.loras = r.loras.map(l => ({ name: l.name, weight: Number(l.weight) || 0.5 }));
+    S.loras = r.loras.map(l => ({ name: l.name, weight: Number(l.weight) || 1 }));
     renderLoras();
   }
   const b = document.querySelector('#tabs button[data-tab="build"]');
@@ -2132,7 +3071,8 @@ function randomSceneOnly() {
 }
 
 function randomOutfitOnly() {
-  const garments = Object.keys(S.garments || {});
+  // 只在本性别可穿的服装里挑（之前会跨性别换出男装）
+  const garments = Object.keys(S.garments || {}).filter(k => ((S.garments[k] || {}).gender || 'f') === S.gender);
   if (!garments.length) return;
   const scene = randCurrent('@SET_');
   const cur = (randCurrent('@OUT_') || '').replace('@OUT_', '').toLowerCase();
@@ -2159,7 +3099,7 @@ const RAND_TIME_LIGHT = {
 };
 const RAND_CAM_BY_FRAME = {
   near: ['@CAM_BUST', '@CAM_CLOSEUP', '@CAM_PROFILE', '@CAM_HIP'],
-  mid: ['@CAM_MEDIUM', '@CAM_THREEQ', '@CAM_LOW', '@CAM_HIGH'],
+  mid: ['@CAM_MEDIUM', '@CAM_THREEQ', '@CAM_HIGH'],
   far: ['@CAM_FULL', '@CAM_BACKSIDE', '@CAM_REAR', '@CAM_TOP', '@CAM_WORM']
 };
 const RAND_COMP_BY_FRAME = {
@@ -2186,10 +3126,65 @@ const RAND_SCENE_ONLY_OUTFITS = {
   '@SET_AIRPORT': ['casual_knit', 'suit'],
 };
 
+// 随机一套的第二道工序：把组合交给「当前档位的全局模型」审校，冲突处自动替换/删除。
+// 画布先出图，模型回来后原地改积木；失败/超时就保持原样，不打扰用户。
+let _randAuditSeq = 0;
+let _randAuditTimer = null;
+const AUDIT_PROTECT_POS = new Set(['@ID', '@ID_F', '@ID_MALE', '@ID_M', '@SINGLE', '@SINGLE_F', '@SINGLE_M']);
+// 与服务器同一套底线：这些只能换、不能删
+const AUDIT_REPLACE_ONLY = ['@OUT_', '@BODY_', '@FACE_'];
+
+function scheduleRandomAudit(ctx) {
+  clearTimeout(_randAuditTimer);
+  _randAuditTimer = setTimeout(() => { auditRandomSet(ctx); }, 350);
+}
+
+async function auditRandomSet(ctx) {
+  const seq = ++_randAuditSeq;
+  const snapPos = (S.pos || []).map(b => ({ id: b.id, token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1 }));
+  const snapNeg = (S.neg || []).map(b => ({ id: b.id, token: b.token || '', text: b.text || '', weight: 1 }));
+  if (!snapPos.some(b => b.token)) return;
+  let res = null;
+  try {
+    res = await api('/api/fix/blocks', { method: 'POST', body: JSON.stringify({ blocks: snapPos, negatives: snapNeg }) });
+  } catch (e) { return; }
+  if (seq !== _randAuditSeq) return;
+  const issues = (res && res.issues) || [];
+  const done = [];
+  for (const it of issues) {
+    const tok = String(it.token || '');
+    if (!tok || it.level !== 'error') continue;
+    if (it.action === 'remove') {
+      const inPos = (S.pos || []).some(b => b.token === tok);
+      if (inPos && AUDIT_PROTECT_POS.has(tok)) continue;
+      if (it.lane === 'negative' && tok === '@NEG_BASE') continue;
+      if (it.lane === 'negative') S.neg = (S.neg || []).filter(b => b.token !== tok);
+      else S.pos = (S.pos || []).filter(b => b.token !== tok);
+      done.push(tok);
+    } else if (it.action === 'replace' && it.replace) {
+      if (it.lane === 'negative') (S.neg || []).forEach(b => { if (b.token === tok) b.token = it.replace; });
+      else (S.pos || []).forEach(b => { if (b.token === tok) b.token = it.replace; });
+      done.push(tok + '→' + it.replace);
+    }
+  }
+  if (!done.length) return;
+  try { renderLanes(); expandPreview(); } catch (e) {}
+  toast('规则修正 ' + done.length + ' 处：' + done.slice(0, 4).join('、'));
+}
+
 function randomCompose() {
-  const all = Object.keys(S.tokens || {});
+  // 只抽当前性别 + 未被别的角色卡占用的积木
+  const all = Object.keys(S.tokens || {}).filter(t => { try { return tokenVisible(t); } catch (e) { return true; } });
   if (!all.length) return;
-  const has = t => !!t && all.includes(t);
+  const forGender = t => {
+    let c = resolveToken(t);
+    if (S.gender === 'm' && /_F(_|$)/.test(c)) {
+      const m = c.replace(/_F(_|$)/, '_M$1');
+      if (all.includes(m)) c = m;
+    }
+    return c;
+  };
+  const has = t => !!t && all.includes(forGender(t));
   const hist = S._randHist || [];
   const last = hist[hist.length - 1] || {};
   const last2 = hist[hist.length - 2] || {};
@@ -2212,12 +3207,14 @@ function randomCompose() {
   const cam = camPool.length ? pick(camPool) : '';
 
   // 3. 服装
-  const outfitsAll = Object.keys(S.garments || {}).filter(k => !['school_bare', 'yukata_bare'].includes(k));
+  const outfitsAll = Object.keys(S.garments || {})
+    .filter(k => !['school_bare', 'yukata_bare'].includes(k))
+    .filter(k => ((S.garments[k] || {}).gender || 'f') === S.gender);
   let outfitPool = (RAND_SCENE_ONLY_OUTFITS[scene] || sceneOutfitFor(scene) || []).filter(k => outfitsAll.includes(k));
-  if (RAND_PRIVATE_SCENES.has(scene)) outfitPool = outfitPool.concat(['pajama', 'loungewear'].filter(k => outfitsAll.includes(k)));
+  if (S.gender !== 'm' && RAND_PRIVATE_SCENES.has(scene)) outfitPool = outfitPool.concat(['pajama', 'loungewear'].filter(k => outfitsAll.includes(k)));
   outfitPool = without(outfitPool, [last.outfit, last2.outfit]);
   if (!outfitPool.length) outfitPool = outfitsAll.filter(k => !['swimsuit'].includes(k));
-  const outfit = pick(outfitPool);
+  const outfit = outfitPool.length ? pick(outfitPool) : Object.keys(S.garments || {})[0];
 
   // 4. 时间与光：同一套光源表，避免"清晨 + 霓虹"
   let timePool = ((prof.time && prof.time.length) ? prof.time : fromPrefix('@TIME_')).filter(has);
@@ -2225,16 +3222,14 @@ function randomCompose() {
   const time = timePool.length ? pick(timePool) : '';
   let lightPool = ((prof.light && prof.light.length) ? prof.light : (RAND_TIME_LIGHT[time] || [])).filter(has);
   if (!lightPool.length) lightPool = fromPrefix('@LIGHT_').filter(has);
-  if ((S.loras || []).some(l => /sunhimi_(h1|h3|h4|v[2-6])\.safetensors$/i.test(l.name || ''))) {
-    lightPool = lightPool.filter(t => t !== '@LIGHT_BACK');
-  }
+  
   lightPool = without(lightPool, [last.light]);
   const light = lightPool.length ? pick(lightPool) : '';
 
   // 5. 姿势 / 视线 / 情绪 / 氛围
   const needPose = framing !== 'near';
-  let posePool = ((prof.pose && prof.pose.length) ? prof.pose : fromPrefix('@POSE_')).filter(has);
-  posePool = posePool.filter(t => t !== '@POSE_LIE' || framing === 'far').filter(t => t !== last.pose);
+  let posePool = ((prof.pose && prof.pose.length) ? prof.pose.map(forGender) : fromPrefix('@POSE_')).filter(has);
+  posePool = posePool.filter(t => !/_LIE$/.test(t) || framing === 'far').filter(t => t !== last.pose);
   const pose = needPose && posePool.length ? pick(posePool) : '';
   const gazePool = fromPrefix('@GAZE_').filter(t => t !== '@GAZE_CLOSED');
   const gaze = (framing === 'near' && has('@GAZE_CAMERA') && Math.random() < 0.65)
@@ -2269,13 +3264,23 @@ function randomCompose() {
 
   // 9. 组装
   const blocks = [];
-  const add = t => { if (t && has(t)) blocks.push({ id: uid(), token: t, text: '', weight: 1, enabled: true }); };
-  if (identityMode === 'block') { add('@SINGLE'); add('@ID'); }
-  else {
-    blocks.push({ id: uid(), token: '', text: identityMode === 'text' ? TEXT_ID : '1girl, solo, upper body', weight: 1, enabled: true });
+  const add = t => { const c = forGender(t); if (t && all.includes(c)) blocks.push({ id: uid(), token: c, text: '', weight: 1, enabled: true }); };
+  // 选了角色卡就用她的身份特征积木/弱身份文本，没选才走通用兜底
+  const rc = (S.cards || []).find(x => x.name === ((($('#card-sel') || {}).value) || ''));
+  if (identityMode === 'block') {
+    const toks = (rc && (rc.tokens || []).length) ? rc.tokens
+      : (S.gender === 'm' ? ['@SINGLE_M', '@ID_M'] : ['@SINGLE_F', '@ID_F']);
+    toks.forEach(t => add(t));
+  } else {
+    const txt = identityMode === 'text'
+      ? ((rc && rc.identity_weak) || (S.gender === 'm' ? TEXT_ID_MALE : TEXT_ID))
+      : (S.gender === 'm' ? '1boy, solo' : '1girl, solo');
+    blocks.push({ id: uid(), token: '', text: txt, weight: 1, enabled: true });
   }
-  add(pick(fromPrefix('@BODY_').filter(t => !['@BODY_ADULT', '@BODY_YOUTH', '@BODY_CHIBI'].includes(t))) || '');
-  add(pick(fromPrefix('@FACE_').filter(t => t !== '@FACE_CHIBI')) || '');
+  add(pick(fromPrefix('@BODY_').filter(t => !/_(ADULT|YOUTH|CHIBI|CHIBI_SD)$/.test(t))) || '');
+  add(pick(fromPrefix('@FACE_').filter(t => !/_CHIBI$/.test(t))) || '');
+  const randTrig = artistName ? artistTrigger(artistName) : '';
+  if (randTrig) blocks.push({ id: uid(), token: '', text: randTrig, weight: 1, enabled: true, artist: true });
   add(gaze); add(cam); add(time); add(light); add(scene);
   add('@OUT_' + String(outfit).toUpperCase());
   add(pose); add(mood); add(atmo); add(comp);
@@ -2285,15 +3290,16 @@ function randomCompose() {
   }
   // 近景 + 场景：景深锚
   if (scene && framing === 'near') {
-    blocks.push({ id: uid(), token: '', text: '(shallow depth of field:1.15), (the room softly behind her:1.1), (she stays close to the camera:1.15)', weight: 1, enabled: true });
+    blocks.push({ id: uid(), token: '', text: 'shallow depth of field, softly blurred background behind the subject, standing close to the camera', weight: 1, enabled: true });
   }
 
   // 10. 负向
   const negToks = ['@NEG_BASE', '@NEG_HANDS'];
   const outfitNeg = '@NEG_' + String(outfit).toUpperCase();
   if (has(outfitNeg)) negToks.push(outfitNeg);
-  if (pose) negToks.push('@NEG_ANATOMY');
-  if (artistName && /animaNai|Skin_Enhancer/i.test(artistName)) negToks.push('@NEG_COLORBLEED');
+  if (pose) negToks.push(S.gender === 'm' ? '@NEG_MALE_BODY' : '@NEG_ANATOMY');
+  if (S.gender === 'm') negToks.push('@NEG_MALE_FACE');
+  
 
   S.pos = blocks;
   S.neg = negToks.filter(has).map(t => ({ id: uid(), token: t, text: '', weight: 1, enabled: true }));
@@ -2326,6 +3332,9 @@ function randomCompose() {
   toast('随机：' + String(scene || '').replace('@SET_', '') + ' · ' + label + ' · ' +
         ({ near: '近景', mid: '中景', far: '远景' }[framing] || '') + ' · ' +
         String(light || '无光').replace('@LIGHT_', '') + ' · 身份 ' + identityMode + ' · seed ' + seed);
+
+  // 画面先出，再把这一套交给当前档位的模型审校（异步、不阻塞按钮）
+  scheduleRandomAudit({ scene, outfit, framing, light });
 }
 
 
@@ -2541,18 +3550,20 @@ function bindZoom(path) {
 const COMBOS = [
   { name: '弱 3D 人像', preset: 'soft3d', tokens: [] },
   { name: '弱 3D · 场景版', preset: 'soft3d_scene', tokens: [] },
+  { name: '场景大片（小人物）', preset: 'epic', tokens: [] },
+  { name: '场景大片 · 俯拍', preset: 'epic_top', tokens: [] },
   { name: '电影感封面', tokens: ['@COMP_FRAMEINFRAME', '@BG_DARKFALL', '@LIGHT_RIM'] },
-  { name: '梦境', tokens: ['@STYLE_SURREAL', '@POSE_FLOAT', '@ATMO_FOG'] },
+  { name: '梦境', tokens: ['@STYLE_SURREAL', '@POSE_F_FLOAT', '@ATMO_FOG'] },
   { name: '海报', tokens: ['@FX_SPOTCOLOR', '@COMP_GRAPHIC', '@COMP_MINIMAL'] },
-  { name: '冲击力', tokens: ['@CUSTOM_FORESHORTEN', '@CAM_ZOOMBLUR', '@CAM_LOW'] },
+  { name: '冲击力', tokens: ['@CUSTOM_FORESHORTEN', '@CAM_ZOOMBLUR', '@COMP_LOW'] },
   { name: '叙事', tokens: ['@FX_MULTIEXPO', '@FX_REFLECTION', '@SET_STATION'] },
   { name: '微缩世界', tokens: ['@COMP_TILTSHIFT', '@CAM_HIGH', '@SET_MARKET'] },
   { name: '夜景大片', tokens: ['@SET_ROOFTOP', '@BG_BOKEH', '@LIGHT_NEON', '@NEG_SKIN'] },
-  { name: '干净棚拍', tokens: ['@SET_STUDIO', '@BG_CLEAN', '@LIGHT_STUDIO', '@COMP_MINIMAL'] },
+  { name: '干净棚拍', tokens: ['@BG_CLEAN', '@LIGHT_STUDIO', '@COMP_MINIMAL'] },
   { name: '温泉夜', tokens: ['@SET_ONSEN', '@TIME_NIGHT', '@BG_DARKFALL', '@LIGHT_CANDLE'] },
-  { name: '雨天情绪', tokens: ['@WEATHER_RAIN', '@ATMO_RAIN', '@COMP_REFLECTION', '@BG_BOKEH'] },
+  { name: '雨天情绪', tokens: ['@ATMO_RAIN', '@COMP_REFLECTION', '@BG_BOKEH'] },
   { name: '夏日祭', tokens: ['@SET_MARKET', '@OUT_YUKATA', '@LIGHT_GOLDEN', '@BG_BOKEH'] },
-  { name: '居家慵懒', tokens: ['@SET_BEDROOM', '@OUT_PAJAMA', '@TIME_MORNING', '@HAIR_MESSY'] },
+  { name: '居家慵懒', tokens: ['@SET_BEDROOM', '@OUT_PAJAMA', '@TIME_MORNING', '@HAIR_F_MESSY'] },
 ];
 
 function userCombos() {
@@ -2566,59 +3577,63 @@ function allCombos() {
 }
 
 
-function applySoft3DPreset() {
-  const file = (S.loraFiles || []).find(f => /silver palace/i.test(f)) || '';
-  S.loras = file ? [{ name: file, weight: 1.0 }] : [];
-  S.pos = [{
-    id: uid(), token: '', weight: 1, enabled: true,
-    text: '1girl, solo, upper body, ivory white hair, straight fringe, bob cut, heterochromia one red and one grey eye, grey background, (plain grey top:1.2), (soft studio light:1.05)'
-  }];
-  S.neg = [];
-  const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v; };
-  setVal('#artist-strength', '1');
-  setVal('#identity-strength', '0.5');
-  setVal('#p-size', '1024x1536');
-  setVal('#p-steps', '28');
-  setVal('#p-cfg', '5.5');
-  setVal('#p-seed', '515151');
-  const cs = $('#custom-size'); if (cs) cs.hidden = true;
-  renderLoras(); renderLanes(); expandPreview();
-  if (typeof updateEta === 'function') updateEta();
-  toast('已套用「弱 3D 人像」：@silver palace 1.0 · 灰底柔光 · 1024×1536 · 28 步 · CFG 5.5 · seed 515151');
-}
+function applySoft3DPreset() { toast('请在风格选择框选定一个 Anima 画师 LoRA 后直接预览'); }
 
 
-function applySoft3DScenePreset() {
-  const file = (S.loraFiles || []).find(f => /silver palace/i.test(f)) || '';
-  S.loras = file ? [{ name: file, weight: 1.3 }] : [];
+function applySoft3DScenePreset() { toast('请在画布添加 @SET_* 与可选 Anima LoRA'); }
+
+function applyEpicPreset() {
+  S.loras = [];
   const mk = (t) => ({ id: uid(), token: t, text: '', weight: 1, enabled: true });
   S.pos = [
     { id: uid(), token: '', weight: 1, enabled: true,
-      text: '1girl, solo, upper body, ivory white hair, straight fringe, bob cut, heterochromia one red and one grey eye' },
-    mk('@SET_CAFE'), mk('@OUT_CASUAL_KNIT'), mk('@LIGHT_WIN'), mk('@FX_BG3D')
+      text: 'vast misty jungle interior, ancient moss-covered trees, hanging vines and ferns, steady rain, shallow water with reflections, a tiny lone girl in a dark coat walking along a thin path' },
+    mk('@COMP_FIGURE_SMALL'), mk('@STYLE_ENVPAINT'), mk('@COMP_SINGLE_FIGURE')
   ];
-  S.neg = [];
+  S.neg = [mk('@NEG_BASE'), mk('@NEG_PORTRAIT')];
   const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v; };
-  setVal('#artist-strength', '1.3');
-  setVal('#identity-strength', '0.5');
-  setVal('#p-size', '1024x1536');
-  setVal('#p-steps', '28');
-  setVal('#p-cfg', '5.5');
-  setVal('#p-seed', '515151');
+  setVal('#artist-strength', '1');
+  setVal('#identity-strength', '0');
+  setVal('#p-size', '1536x864');
+  setVal('#p-steps', '30');
+  setVal('#p-cfg', '6');
+  setVal('#p-seed', String(Math.floor(Math.random() * 900000) + 100000));
   const cs = $('#custom-size'); if (cs) cs.hidden = true;
   renderLoras(); renderLanes(); expandPreview();
   if (typeof updateEta === 'function') updateEta();
-  toast('已套用「弱 3D · 场景版」：@silver palace 1.3 + 咖啡馆/开衫/窗光；想换场景直接替换 @SET_*');
+  toast('已套用「场景大片」：不带画师 LoRA、1536×864 宽幅、环境为主、人物缩到很远');
 }
-
+function applyEpicTopPreset() {
+  S.loras = [];
+  const mk = (t) => ({ id: uid(), token: t, text: '', weight: 1, enabled: true });
+  S.pos = [
+    { id: uid(), token: '', weight: 1, enabled: true,
+      text: 'vast misty rainforest, dense foliage and hanging vines, light rain, soft diffuse light, muted green palette, a lone girl in a long coat walking a narrow path' },
+    mk('@CAM_TOPDOWN_SCENE'), mk('@COMP_FIGURE_SMALL'), mk('@COMP_SINGLE_FIGURE')
+  ];
+  S.neg = [mk('@NEG_BASE'), mk('@NEG_PORTRAIT')];
+  const setVal = (sel, v) => { const el = $(sel); if (el) el.value = v; };
+  setVal('#artist-strength', '1');
+  setVal('#identity-strength', '0');
+  setVal('#p-size', '1536x864');
+  setVal('#p-steps', '30');
+  setVal('#p-cfg', '6');
+  setVal('#p-seed', String(Math.floor(Math.random() * 900000) + 100000));
+  const cs = $('#custom-size'); if (cs) cs.hidden = true;
+  renderLoras(); renderLanes(); expandPreview();
+  if (typeof updateEta === 'function') updateEta();
+  toast('已套用「场景大片·俯拍」：高处俯视、人物占 1/5、环境为主');
+}
 function renderCombos() {
   const box = document.querySelector('#combo-list');
   if (!box) return;
   const list = allCombos();
   box.innerHTML = list.map((c, i) => {
     const toks = c.tokens.filter(t => S.tokens[t]);
-    const desc = c.preset === 'soft3d' ? '@silver palace · 灰底柔光 · 28 步 / CFG 5.5'
-      : c.preset === 'soft3d_scene' ? '@silver palace 1.3 · 咖啡馆 + 开衫 + 窗光' : toks.map(t => t.replace('@', '')).join(' · ');
+    const desc = c.preset === 'soft3d' ? '通用人像预设 · 28 步 / CFG 5.5'
+      : c.preset === 'soft3d_scene' ? '咖啡馆 + 开衫 + 窗光'
+      : c.preset === 'epic' ? '无画师 LoRA · 1536×864 · 环境为主 · 小人物'
+      : c.preset === 'epic_top' ? '俯拍 · 人物 1/5 · 1536×864' : toks.map(t => t.replace('@', '')).join(' · ');
     return '<div class="combo-item' + (c.user ? ' user' : '') + '" data-combo="' + i + '">' +
       '<b>' + esc(c.name) + '</b><span>' + desc + '</span>' +
       (c.user ? '<span class="combo-del" data-del-combo="' + i + '" title="删除">×</span>' : '') + '</div>';
@@ -2640,6 +3655,8 @@ function renderCombos() {
       const c = allCombos()[+el.dataset.combo];
       if (c && c.preset === 'soft3d') { applySoft3DPreset(); return; }
       if (c && c.preset === 'soft3d_scene') { applySoft3DScenePreset(); return; }
+      if (c && c.preset === 'epic') { applyEpicPreset(); return; }
+      if (c && c.preset === 'epic_top') { applyEpicTopPreset(); return; }
       const toks = c.tokens.filter(t => S.tokens[t]);
       let added = 0;
       toks.forEach(t => {
@@ -2879,7 +3896,7 @@ function renderGarmentList(activeKey) {
   const box = $('#gm-list');
   if (!box) return;
   const gs = S.garments || {};
-  const keys = Object.keys(gs);
+  const keys = Object.keys(gs).filter(k => ((gs[k] || {}).gender || 'f') === S.gender);
   box.innerHTML = keys.length ? keys.map(k => {
     const g = gs[k] || {};
     const on = k === activeKey ? ' on' : '';
@@ -2891,6 +3908,59 @@ function renderGarmentList(activeKey) {
       '</div>';
   }).join('') : '<div class="hint">还没有服装</div>';
   $$('#gm-list .gm-item').forEach(el => el.onclick = () => loadGarment(el.dataset.key));
+  bindGarmentHover();
+}
+
+// 服装展示图的版本戳：换图后改这里，浏览器就不会拿旧缓存
+const PREVIEW_VER = '20261113c';
+
+// 服装悬停：显示"素体穿着这套服装"的样张
+function bindGarmentHover() {
+  const box = $('#gm-list');
+  if (!box) return;
+  let card = null, timer = null;
+  const hide = () => { clearTimeout(timer); if (card) { card.remove(); card = null; } };
+  box.addEventListener('mouseleave', hide);
+  $$('#gm-list .gm-item').forEach(el => {
+    el.onmouseenter = () => {
+      hide();
+      timer = setTimeout(() => {
+        const key = el.dataset.key;
+        const g = (S.garments || {})[key] || {};
+        const r = el.getBoundingClientRect();
+        card = document.createElement('div');
+        card.className = 'artist-hover garment-hover';
+        card.innerHTML = '<div class="ah-title">' + esc(g.label || key) +
+          '<span class="ah-kind">服装展示</span></div>' +
+          '<div class="ah-thumbs"><figure class="ah-item"><img alt="" src="/api/garment_preview?key=' +
+          encodeURIComponent(key) + '&v=' + encodeURIComponent(PREVIEW_VER) +
+          '" onerror="this.parentNode.parentNode.dataset.empty=1">' +
+          '</figure></div>' +
+          '<div class="hint" style="margin-top:6px">素体穿着效果；没有图说明还没生成</div>';
+        document.body.appendChild(card);
+        // 图片还没加载时 offsetHeight 是 0，算出来的 top 会把卡片顶到视口外；
+        // 所以加载完（以及窗口尺寸变化时）都要重新定位
+        const clamp = () => {
+          if (!card) return;
+          const w = card.offsetWidth, h = card.offsetHeight;
+          let left = r.right + 12;
+          if (left + w > window.innerWidth - 8) left = Math.max(8, r.left - w - 12);
+          let top = r.top - 8;
+          if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
+          if (top < 8) top = 8;
+          card.style.left = Math.max(8, left) + 'px';
+          card.style.top = top + 'px';
+        };
+        clamp();
+        const im = card.querySelector('img');
+        if (im) {
+          im.addEventListener('load', clamp);
+          im.addEventListener('error', () => { const h = card && card.querySelector('.hint'); if (h) h.textContent = '还没生成这套的展示图'; card && clamp(); });
+        }
+        requestAnimationFrame(clamp);
+      }, 400);
+    };
+  });
 }
 
 function appendToGarmentPrompt(text) {
@@ -3103,10 +4173,34 @@ async function refreshMaint() {
   $('#doc-list').innerHTML = docs.items.map(d =>
     '<button data-doc="' + d.path + '">' + d.name + '</button>').join('');
   $$('#rg-table .rg-row').forEach(el => el.onclick = () => { if (el.dataset.path) openImage(el.dataset.path); });
+  refreshMemory();
+  if ($('#mt-mem-refresh')) $('#mt-mem-refresh').onclick = refreshMemory;
+  if ($('#mt-mem-free')) $('#mt-mem-free').onclick = async () => {
+    if (!confirm('释放 ComfyUI 模型？下次出图会重新加载。')) return;
+    const r = await api('/api/memory/free', { method: 'POST' });
+    toast('已释放：可用 ' + r.before.free_gb + ' → ' + r.after.free_gb + ' GB');
+    refreshMemory();
+  };
   $$('#doc-list button').forEach(el => el.onclick = async () => {
     const r = await api('/api/doc?path=' + encodeURIComponent(el.dataset.doc));
     openModal(el.textContent, '<pre>' + esc(r.text) + '</pre>');
   });
+}
+
+async function refreshMemory() {
+  try {
+    const m = await api('/api/memory');
+    const r = m.ram || {}, cf = m.comfy || {}, auto = m.auto || {};
+    if ($('#mt-mem')) $('#mt-mem').textContent = '系统 ' + r.used_gb + ' / ' + r.total_gb + ' GB · ' + r.percent + '%';
+    const rows = [
+      ['系统可用', r.free_gb + ' GB'],
+      ['站台进程', m.station_mb + ' MB'],
+      ['ComfyUI', cf.up ? ('VRAM 空闲 ' + Math.round((cf.vram_free || 0) / 1e9) + ' / ' + Math.round((cf.vram_total || 0) / 1e9) + ' GB') : '离线'],
+      ['自动回收', 'Comfy ' + Math.round((auto.comfy_idle_sec || 0) / 60) + ' 分'],
+    ];
+    if ($('#mt-mem-kv')) $('#mt-mem-kv').innerHTML = rows.map(x =>
+      '<span class="k">' + x[0] + '</span><span class="v">' + x[1] + '</span>').join('');
+  } catch (e) {}
 }
 
 async function cleanup(dry) {
@@ -3211,7 +4305,7 @@ function buildSetupSummary() {
   ];
   const zh = (x) => LABEL_MAP[x] || x;
   const first = groups.filter(([, v]) => v.length).map(([k, v]) => k + ' ' + (k === '身份' ? '锁定' : v.slice(0, 2).map(zh).join('/'))).join(' · ');
-  const loras = (S.loras || []).map(l => String(l.name || '').replace(/\.safetensors$/i, '').replace(/^sunhimi_/i, '').replace(/[0-9A-F]{6,}.*$/i, '').replace(/[._-]+$/, '') + ' ' + Number(l.weight).toFixed(2)).join(' + ') || '无';
+  const loras = (S.loras || []).map(l => String(l.name || '').replace(/\.safetensors$/i, '').replace(/[0-9A-F]{6,}.*$/i, '').replace(/[._-]+$/, '') + ' ' + Number(l.weight).toFixed(2)).join(' + ') || '无';
   const sz = ($('#p-size') || {}).value === 'custom' ? (($('#p-w') || {}).value + '×' + ($('#p-h') || {}).value) : String(($('#p-size') || {}).value || '').replace('x', '×');
   const second = [sz, (($('#p-steps') || {}).value || '') + ' 步', 'CFG ' + (($('#p-cfg') || {}).value || ''), '精修 ' + (($('#p-refine') || {}).value || '0'), 'LoRA ' + loras].filter(Boolean).join(' · ');
   const textBlock = S.pos.find(b => !b.token && (b.text || '').trim());
@@ -3223,12 +4317,18 @@ async function validateBlocks() {
   const bar = $('#validate-bar');
   if (!bar) return;
   try {
-    const v = await api('/api/validate', { method: 'POST', body: JSON.stringify({ positive: S.pos, negative: S.neg }) });
+    const viewTok = (S.reproj && S.reproj.view) ||
+      ((S.pos || []).map(b => b.token || '').find(t => /^@(ID_F_.*_(BACK|TQ_BACK|SIDE_[LR]|GLANCE_[LR]))/.test(t)) || '');
+    const v = await api('/api/validate', { method: 'POST', body: JSON.stringify({ positive: S.pos, negative: S.neg, view: viewTok }) });
     S.validation = v;
     const parts = [];
-    if (v.errors.length) parts.push('<b class="err">' + v.errors.length + ' 个错误</b>：' + v.errors.map(e => esc(e.msg)).join('；'));
-    if (v.warnings.length) parts.push('<b class="warn-t">' + v.warnings.length + ' 个警告</b>：' + v.warnings.map(e => esc(e.msg)).join('；'));
-    if (v.hints.length) parts.push('<b class="hint-t">建议</b>：' + v.hints.map(e => esc(e.msg)).join('；'));
+    const brief = (arr, n) => {
+      const head = arr.slice(0, n).map(e => esc(e.msg)).join('；');
+      return head + (arr.length > n ? '；等 ' + arr.length + ' 条' : '');
+    };
+    if (v.errors.length) parts.push('<b class="err">' + v.errors.length + ' 个错误</b>：' + brief(v.errors, 2));
+    if (v.warnings.length) parts.push('<b class="warn-t">' + v.warnings.length + ' 个警告</b>：' + brief(v.warnings, 2));
+    if (v.hints.length) parts.push('<b class="hint-t">建议</b>：' + brief(v.hints, 1));
     const bad = S.pos.concat(S.neg).filter(b => b.token && (S.rel || {})[b.token] === 'X');
     if (bad.length) {
       parts.push('<b class="warn-t">⚠ 实测失败积木</b>：' +
@@ -3673,7 +4773,7 @@ function openHandfix(path) {
     '<div class="hf-readout" id="hf-readout">未选择区域（在图上拖出要重画的手）</div>' +
     '</div><div>' +
     '<div class="field"><label>重绘幅度</label><input id="hf-d" type="number" step="0.05" value="0.55"></div>' +
-    '<div class="field"><label>提示词（只描述要画的那块）</label><textarea id="hf-p" rows="3">(hand with five fingers:1.4), (fingers pressing the piano keys:1.4), (detailed fingers:1.35), same art style</textarea></div>' +
+    '<div class="field"><label>提示词（只描述要画的那块）</label><textarea id="hf-p" rows="3">hand with five fingers, fingers pressing the piano keys, detailed fingers, same art style</textarea></div>' +
     '<div class="row2"><div class="field"><label>x</label><input id="hf-x" readonly></div>' +
     '<div class="field"><label>y</label><input id="hf-y" readonly></div></div>' +
     '<div class="row2"><div class="field"><label>宽</label><input id="hf-w" readonly></div>' +
@@ -3959,7 +5059,7 @@ async function loadRecipes() {
   try { r = await api('/api/recipes?limit=120'); } catch (e) { return; }
   const box = $('#rc-list');
   const cnt = $('#rc-count');
-  if (cnt) cnt.textContent = r.total + ' 张';
+  if (cnt) cnt.textContent = r.total + ' 张' + (r.missing ? ('（失效路径 ' + r.missing + '）') : '');
   if (!box) return;
   if (!r.items.length) {
     box.innerHTML = '<div class="hint">还没有配方记录。出图时会自动记下积木、参数与 LoRA。</div>';
@@ -4103,10 +5203,15 @@ async function openRecipe(path, stay) {
     '<h4 class="rc-h">LoRA</h4><div class="rc-chips">' + loras + '</div>' +
     '<h4 class="rc-h">展开后的正向</h4><pre class="prompt-preview">' + esc(r.positive || '') + '</pre>' +
     '<h4 class="rc-h">展开后的负向</h4><pre class="prompt-preview neg">' + esc(r.negative || '') + '</pre>' +
+    ((r.rewrite_notes && r.rewrite_notes.length) ? ('<h4 class="rc-h">规则自动改写</h4><pre class="prompt-preview">' + esc(r.rewrite_notes.join('\n')) + '</pre>') : '') +
+    ((r.client_meta && r.client_meta.ls_keys) ? ('<p class="hint">前端状态快照：' + esc(r.client_meta.ls_keys.join(', ')) + '</p>') : '') +
     '<div class="row2" style="margin-top:10px">' +
       '<button class="primary" id="rc-import">一键导入该配方</button>' +
       '<button class="ghost" id="rc-copy">复制正向</button>' +
+      ((r.mode === 'reproject' || r.manifest_path) ? '<button class="ghost" id="rc-manifest">重映过程清单</button>' : '') +
       '</div>';
+  const mfBtn = $('#rc-manifest');
+  if (mfBtn) mfBtn.onclick = () => { if (typeof showCoopManifest === 'function') showCoopManifest(path, true); };
   const imp = $('#rc-import');
   if (imp) imp.onclick = () => importRecipe(r);
   const cp = $('#rc-copy');
@@ -4231,6 +5336,10 @@ function applyTemplate(tpl, appendMode) {
     }
     if (tpl.params.model) {
       const ms = $('#p-model');
+  if (ms && S.altModels && S.altModels.length && !ms.dataset.altAdded) {
+    ms.dataset.altAdded = '1';
+    S.altModels.forEach(f => { if (![...ms.options].some(o => o.value === f)) ms.insertAdjacentHTML('beforeend', '<option value="' + f + '">' + f + '</option>'); });
+  }
       if (ms && [...ms.options].some(o => o.value === tpl.params.model)) { ms.value = tpl.params.model; S.model = tpl.params.model; }
     }
     if (tpl.params.steps) $('#p-steps').value = tpl.params.steps;
@@ -4255,17 +5364,19 @@ async function loadPresets() {
 
 /* ---------- 工作流向导 ---------- */
 function guideSteps() {
-  const has = t => !!(S.tokens && S.tokens[t]);
-  const pick = arr => arr.filter(has);
-  const outfits = Object.keys(S.garments || {}).map(k => '@OUT_' + k.toUpperCase()).filter(has);
+  const canon = t => resolveToken(t);
+  const has = t => !!(S.tokens && S.tokens[canon(t)]);
+  const pick = arr => arr.map(canon).filter(t => !!(S.tokens && S.tokens[t]));
+  const outfits = Object.keys(S.garments || {}).map(k => '@OUT_' + k.toUpperCase()).filter(t => !!(S.tokens && S.tokens[t]));
   const sets = pick(['@SET_CAFE','@SET_BEDROOM','@SET_LIBRARY','@SET_ROOFTOP','@SET_BEACH','@SET_CLASSROOM',
-                     '@SET_KITCHEN','@SET_STREET','@SET_GREENHOUSE','@SET_ONSEN','@SET_SCHOOL_GATE','@SET_MUSEUM']);
-  const moods = pick(['@MOOD_CALM','@MOOD_SMILE','@MOOD_SHY','@MOOD_AMUSED','@MOOD_TENDER','@MOOD_FOCUSED',
+                     '@SET_KITCHEN','@SET_CITY_STREET','@SET_GREENHOUSE','@SET_ONSEN','@SET_SCHOOL_GATE','@SET_MUSEUM']);
+  const moods = pick(['@MOOD_CALM','@MOOD_AMUSED','@MOOD_SHY','@MOOD_EXCITED','@MOOD_TENDER','@MOOD_FOCUSED',
                       '@MOOD_SLEEPY','@MOOD_SURPRISED']);
   const gazes = pick(['@GAZE_CAMERA','@GAZE_ASIDE','@GAZE_DOWN','@GAZE_UP','@GAZE_FAR']);
   return [
     { cats:['id'], key:'subject', title:'主体与身份', sub:'先定是谁；出图用 1024×1536 / 30 步 / CFG 5.5', multi:2,
-      items: pick(['@SINGLE','@ID_SOFT','@ID','@ID_TIGHT']) },
+      items: pick(S.gender === 'm' ? ['@SINGLE_M', '@ID_M_SOFT', '@ID_M', '@ID_M_TIGHT']
+                                      : ['@SINGLE_F', '@ID_F_SOFT', '@ID_F', '@ID_F_TIGHT']) },
     { cats:['cam'], key:'cam', title:'机位', sub:'构图的第一刀，先选一个', multi:1,
       items: pick(['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_THREEQ','@CAM_PROFILE','@CAM_HIGH','@CAM_TOP','@CAM_WORM']) },
     { cats:['set'], key:'set', title:'场景', sub:'可选；没有场景也能出图', multi:1, skip:true, items: sets },
@@ -4590,7 +5701,7 @@ function guideApply() {
   if (b) b.click();
   const artistPick = (g.picks['artist'] || [])[0];
   if (artistPick && artistPick !== '__none__') {
-    S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师' && !/animaNai/i.test(l.name || ''));
+    S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
     const aw = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(artistPick, currentCharLora()) : null) || 1.0;
     S.loras.push({ name: artistPick, weight: aw });
     if (typeof renderLoras === 'function') renderLoras();
@@ -4671,6 +5782,29 @@ function bindUI() {
       renderPalette();
     };
   }
+  // 性别开关：切女/男，只影响积木库、服装页与随机一套
+  const gbox = $('#pal-gender');
+  if (gbox) {
+    S.gender = loadJSON('loom.gender', 'f') === 'm' ? 'm' : 'f';
+    const syncGender = () => {
+      $$('#pal-gender button').forEach(b => b.classList.toggle('on', b.dataset.g === S.gender));
+    };
+    syncGender();
+    $$('#pal-gender button').forEach(b => b.onclick = () => {
+      if (b.dataset.g === S.gender) return;
+      S.gender = b.dataset.g;
+      saveJSON('loom.gender', S.gender);
+      syncGender();
+      renderPalette();
+      try { loadCards(); } catch (e) {}
+      try { if (typeof renderGarmentList === 'function') renderGarmentList(); } catch (e) {}
+      if (S.gender === 'm' && currentCardName()) {
+        const card = (S.cards || []).find(x => x.name === currentCardName());
+        if (card && (card.gender || 'f') !== 'm') toast('男性模式：' + card.name + ' 是女性角色卡，专属积木已隐藏', true);
+      }
+      toast('积木库：' + (S.gender === 'm' ? '男性' : '女性'));
+    });
+  }
   $('#lib-search').oninput = e => loadLibrary(e.target.value);
   document.querySelectorAll('[data-adddesc]').forEach(b => b.onclick = () => {
     openTextBlockDialog({ lane: b.dataset.adddesc, title: '插入描述', weight: 1.1 });
@@ -4688,7 +5822,7 @@ function bindUI() {
     if (b.dataset.clear === 'positive') S.pos = []; else S.neg = [];
     renderLanes(); expandPreview();
   });
-  $('#run-btn').onclick = run;
+  $('#run-btn').onclick = () => { if (S.coopOn) { coopStart(); } else { run(); } };
   const goTab = name => { const b = document.querySelector('#tabs button[data-tab="' + name + '"]'); if (b) b.click(); };
 
   const pc0 = $('#pal-collapse');
@@ -4862,6 +5996,33 @@ function bindUI() {
   $('#tg-run').onclick = startTag;
   $('#mt-dry').onclick = () => cleanup(true);
   $('#mt-run').onclick = () => { if (confirm('执行清理？登记作品会保留')) cleanup(false); };
+  const mtClassify = $('#mt-classify');
+  if (mtClassify) mtClassify.onclick = async () => {
+    try {
+      const r = await fetch('/api/lib/classify?apply=true', { method: 'POST' }).then(x => x.json());
+      $('#mt-log').textContent = r.output || '';
+      toast(r.ok ? '积木分类已更新' : '分类失败，看日志');
+    } catch (e) { toast('分类失败：' + e.message, true); }
+  };
+  const draftsDry = $('#mt-drafts-dry');
+  if (draftsDry) draftsDry.onclick = async () => {
+    try {
+      const r = await fetch('/api/maintenance/drafts?dry=true', { method: 'POST' }).then(x => x.json());
+      $('#mt-log').textContent = '半成品 ' + r.count + ' 个 · ' + r.mb + ' MB\n' + (r.sample || []).join('\n');
+      toast('半成品 ' + r.count + ' 个 · ' + r.mb + ' MB');
+    } catch (e) { toast('预演失败：' + e.message, true); }
+  };
+  const draftsRun = $('#mt-drafts-run');
+  if (draftsRun) draftsRun.onclick = async () => {
+    try {
+      const pre = await fetch('/api/maintenance/drafts?dry=true', { method: 'POST' }).then(x => x.json());
+      if (!pre.count) { toast('没有半成品需要清理'); return; }
+      if (!confirm('把 ' + pre.count + ' 个半成品（' + pre.mb + ' MB）移到回收站？\n成品、服装样张不动。')) return;
+      const r = await fetch('/api/maintenance/drafts?dry=false', { method: 'POST' }).then(x => x.json());
+      $('#mt-log').textContent = '已移入回收站 ' + r.moved + ' / ' + r.count + ' 个 · ' + r.mb + ' MB\n' + (r.trash || '');
+      toast('已清理 ' + r.moved + ' 个半成品');
+    } catch (e) { toast('清理失败：' + e.message, true); }
+  };
   $('#help-btn').onclick = async () => {
     const r = await api('/api/features');
     const body = r.groups.map(g =>
@@ -4869,8 +6030,53 @@ function bindUI() {
       g.items.map(i => '<li style="font-size:12.5px;color:#c3c9d6;margin:2px 0">' + i + '</li>').join('') + '</ul>').join('');
     openModal('功能总览', body);
   };
+  coopFillLoras();
+  if (typeof coopAutoBind === 'function') coopAutoBind();
+  if (typeof coopRegionalBind === 'function') coopRegionalBind();
+  if (typeof bindEnvDetail === 'function') bindEnvDetail();
+  const syncPainter = (sel, target) => {
+    if (!sel) return;
+    sel.addEventListener('change', () => {
+      const t = $(target);
+      if (t) t.value = (typeof loraBase === 'function' && loraBase(sel.value) === 'other') ? 'other' : 'anima';
+    });
+  };
+  syncPainter(document.querySelector('#coop-slora-row #coop-slora'), '#coop-bg-painter');
+  syncPainter($('#style-lora'), '#coop-char-painter');
+  const asel = $('#artist-strength');
+  if (asel) asel.onchange = applyArtistStrength;
+  const isel = $('#identity-strength');
+  if (isel) {
+    let prevId = isel.value;
+    isel.addEventListener('focus', () => { prevId = isel.value; });
+    isel.onchange = () => { identityChangeGuard(prevId); prevId = isel.value; };
+  }
+  bindAllArtistHovers();
+  if ($('#coop-slora')) {
+    const envPick = document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora');
+    envPick.addEventListener('change', () => {
+      if (!S.coopOn) return;
+      S.loras = (S.loras || []).filter(l => l.coop !== 'env');
+      const v = envPick.value;
+      if (v) S.loras.push({ name: v, weight: 1.0, coop: 'env' });
+      if (typeof renderLoras === 'function') renderLoras();
+    });
+  }
+  const replan = () => coopApplyRoute().then(() => toast('模型已重新判断')).catch(() => toast('判断失败', true));
+  if ($('#coop-replan')) $('#coop-replan').onclick = replan;
+  if ($('#coop-replan-inline')) $('#coop-replan-inline').onclick = replan;
+  if ($('#coop-mode')) $('#coop-mode').addEventListener('change', () => coopPlanRender(''));
+  coopPlanRender('');
+  if ($('#coop-toggle')) {
+    $('#coop-toggle').onclick = coopToggle;
+    if (loadJSON('loom.coopOn', false)) { try { coopToggle(); } catch (e) {} }
+  }
   $('#modal-close').onclick = closeModal;
-  $('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
+  $('#modal').onclick = e => {
+    if (e.target.id !== 'modal') return;
+    if (document.querySelector('.brain-shell')) return;
+    closeModal();
+  };
   let rzT = null;
   window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(equalizeMaint, 150); });
   document.addEventListener('keydown', e => {
@@ -5025,6 +6231,7 @@ boot().then(async () => {
   } catch (e) {}
   S.fav = loadJSON('loom.fav', []);
   renderPalette();
+  try { resumeLastJob(); } catch (e) {}
   const gk0 = Object.keys(S.garments || {})[0]; if (gk0) loadGarment(gk0); else newGarment();
   loadRecipes();
   expandPreview();
@@ -5162,25 +6369,267 @@ async function loadCards() {
   } catch (e) { S.cards = []; }
   const sel = $('#card-sel');
   if (!sel) return;
-  sel.innerHTML = (S.cards.length
-    ? S.cards.map(c => '<option>' + esc(c.name) + '</option>').join('')
-    : '<option value="">（还没有角色卡）</option>');
+  const keepName = sel.value;   // 保存/刷新后保持当前选中的卡，不然要重新选
+  const g = (typeof S.gender === 'string' && S.gender === 'm') ? 'm' : 'f';
+  const list = (S.cards || []).filter(c => (c.gender || 'f') === g);
+  sel.innerHTML = (list.length
+    ? '<option value="">（不选角色）</option>' + list.map(c =>
+        '<option value="' + esc(c.name) + '">' + esc(c.name) + ((c.gender || 'f') === 'm' ? ' · 男' : ' · 女') + '</option>').join('')
+    : '<option value="">（没有' + (g === 'm' ? '男' : '女') + '性角色卡）</option>');
+  if (keepName && list.some(c => c.name === keepName)) sel.value = keepName;
+  if (!sel._cardBound) {
+    sel._cardBound = true;
+    sel.onchange = () => {
+      try { renderPalette(); } catch (e) {}
+      if (sel.value) return;
+      // 没选角色：把她的特征积木从正向与负向一起摘掉
+      const hadPos = (S.pos || []).some(b => b && b.cardIdentity);
+      const hadNeg = (S.neg || []).some(b => b && b.cardIdentity);
+      if (!hadPos && !hadNeg) return;
+      S.pos = (S.pos || []).filter(b => !(b && b.cardIdentity));
+      S.neg = (S.neg || []).filter(b => !(b && b.cardIdentity));
+      try { if (S.coopOn && typeof renderCoopLanes === 'function') renderCoopLanes(); else renderLanes(); } catch (e) {}
+      try { expandPreview(); } catch (e) {}
+      toast('未选角色卡：已移除特征积木（正/负向）');
+    };
+  }
+}
+
+function currentBaseModel() {
+  return (($('#p-model') || {}).value) || '';
 }
 
 function cardApply() {
   const sel = $('#card-sel');
   const c = (S.cards || []).find(x => x.name === (sel && sel.value));
   if (!c) { toast('先保存一张角色卡'); return; }
-  S.loras = (c.loras || []).map(l => ({ name: l.name, weight: Number(l.weight) || 0.5 }));
+  if ((c.gender || 'f') !== S.gender) {
+    toast('这张卡是' + ((c.gender || 'f') === 'm' ? '男' : '女') + '性角色，先切换积木库的性别再应用', true);
+    return;
+  }
+  pushHistory();
+  S.loras = (c.loras || []).map(l => ({ name: l.name, weight: Number(l.weight) || 1 }));
   (c.loras || []).forEach(l => { if (!S.loraFiles.includes(l.name)) S.loraFiles.push(l.name); });
   renderLoras();
-  (c.tokens || []).forEach(tok => {
-    if (!S.pos.some(b => b.token === tok)) {
-      S.pos.push({ id: uid(), token: tok, text: '', weight: 1, enabled: true });
+
+  // 身份调度：强身份 → 专有积木块；弱身份 → 文本；换底模 → 自动降级为弱身份
+  const lvl = Number(($('#identity-strength') || {}).value);
+  const cardBase = c.base || '';
+  const cur = currentBaseModel();
+  const baseMismatch = !!(cardBase && cur && loraBase(cur) !== loraBase(cardBase));
+  const useStrong = lvl >= 1 && !baseMismatch;
+
+  // 先清掉上一张卡的痕迹：身份积木以及带 cardIdentity 标记的文本块
+  S.pos = (S.pos || []).filter(b => !isIdentityToken(b.token) || !useStrong);
+  S.pos = (S.pos || []).filter(b => !b.cardIdentity);
+
+  if (useStrong) {
+    (c.tokens || []).map(resolveToken).forEach(tok => {
+      if (!S.pos.some(b => b.token === tok)) {
+        S.pos.push({ id: uid(), token: tok, text: '', weight: 1, enabled: true, cardIdentity: true });
+      }
+    });
+    if (!S.pos.some(b => isIdentityToken(b.token))) {
+      const fallback = (c.tokens || []).map(resolveToken).find(t => isIdentityToken(t))
+        || (S.gender === 'm' ? '@ID_M' : '@ID_F');
+      S.pos.unshift({ id: uid(), token: fallback, text: '', weight: 1, enabled: true, cardIdentity: true });
     }
+  } else if (lvl > 0) {
+    const weak = (c.identity_weak || '').trim() || ('1girl, solo, ' + ((c.persona || '').split(/\n/)[0] || c.name) + ', short dark hair');
+    S.pos.push({ id: uid(), token: '', text: weak, weight: lvl, enabled: true, cardIdentity: true });
+  }
+
+  // 专属负向：和正向一样带 cardIdentity 标记，取消选角时一并摘掉
+  S.neg = (S.neg || []).filter(b => !b.cardIdentity);
+  (c.neg_blocks || []).forEach(b => {
+    const tok = (b && b.token) || '';
+    const txt = (b && b.text) || '';
+    if (!tok && !txt.trim()) return;
+    if (tok && S.neg.some(x => x.token === tok)) return;
+    S.neg.push({ id: uid(), token: tok, text: tok ? '' : txt, weight: Number(b && b.weight) || 1, enabled: true, cardIdentity: true });
   });
+
   renderLanes(); expandPreview();
-  toast('已应用角色卡：' + c.name);
+  toast('已应用角色卡：' + c.name + (baseMismatch ? '（底模不同，已用弱身份）' : (useStrong ? '（强身份积木）' : '')));
+}
+
+// 修改角色卡：人设 / 弱身份 / 底模 / 角色 LoRA / 专属正向 / 专属负向
+function cardBlocksOf(card, lane) {
+  const raw = lane === 'pos'
+    ? ((card.pos_blocks && card.pos_blocks.length) ? card.pos_blocks : (card.tokens || []))
+    : (card.neg_blocks || []);
+  return raw.map(x => (typeof x === 'string')
+    ? { token: x.startsWith('@') ? x : '', text: x.startsWith('@') ? '' : x, weight: 1 }
+    : { token: x.token || '', text: x.text || '', weight: Number(x.weight) || 1 });
+}
+
+// 用工作台同款 chip 样式画一个小泳道
+function renderCardBlocks(host, blocks, lane) {
+  if (!host) return;
+  host.innerHTML = blocks.map((b, i) => {
+    const body = b.token ? '<span class="tk">' + esc(b.token) + '</span>'
+      : '<span class="txt">' + esc(b.text || '（空）') + '</span>';
+    const cat = b.token ? tokenCat(b.token) : 'custom';
+    return '<div class="chip ' + (lane === 'pos' ? 'pos' : 'neg') + '" data-i="' + i + '" data-cat="' + cat + '"' +
+      (b.token ? ' data-token="' + esc(b.token) + '"' : '') + '>' +
+      body +
+      '<input type="number" step="0.05" min="0" max="3" value="' + b.weight + '" data-w="' + i + '" title="权重">' +
+      '<button class="x" data-x="' + i + '">×</button></div>';
+  }).join('') || '<span class="hint">还没有积木</span>';
+  host.querySelectorAll('[data-w]').forEach(inp => inp.oninput = () => {
+    blocks[Number(inp.dataset.w)].weight = Number(inp.value) || 1;
+  });
+  host.querySelectorAll('[data-x]').forEach(btn => btn.onclick = () => {
+    blocks.splice(Number(btn.dataset.x), 1);
+    renderCardBlocks(host, blocks, lane);
+  });
+}
+
+function cardPersonaEdit() {
+  const sel = $('#card-sel');
+  const name = sel && sel.value;
+  const c = (S.cards || []).find(x => x.name === name);
+  if (!c) { toast('先选一张角色卡', true); return; }
+  const pos = cardBlocksOf(c, 'pos');
+  const neg = cardBlocksOf(c, 'neg');
+
+  const models = [...new Set([...(S.models || []), ...(S.altModels || [])])];
+  const baseOpts = '<option value="">（不限，换底模时自动降级弱身份）</option>' +
+    models.map(m => '<option value="' + esc(m) + '"' + (m === (c.base || '') ? ' selected' : '') + '>' + esc(m) + '</option>').join('');
+  const loras = (S.loraFiles || []).slice().sort((a, b) => (loraCat(b) === '角色' ? 1 : 0) - (loraCat(a) === '角色' ? 1 : 0));
+  const curLora = (c.loras || []).find(l => { try { return loraCat(l.name) === '角色'; } catch (e) { return false; } }) || (c.loras || [])[0] || {};
+  const loraOpts = '<option value="">（不指定角色 LoRA）</option>' + loras.map(n =>
+    '<option value="' + esc(n) + '"' + (n === curLora.name ? ' selected' : '') + '>' + esc(shortLoraName(n)) + ' · ' + esc(loraCat(n)) + '</option>').join('');
+  const tokenList = '<datalist id="cp-token-list">' +
+    Object.keys(S.tokens || {}).filter(tokenVisible).map(t => '<option value="' + esc(t) + '">').join('') + '</datalist>';
+
+  openModal('修改 · ' + c.name,
+    '<p class="hint">专属正向/负向就是这张卡的特征积木：点「应用」时落进画布，取消选角时自动摘掉。</p>' +
+    '<div class="field"><label>人设（可多行）</label><textarea id="cp-persona" rows="4">' + esc(c.persona || '') + '</textarea></div>' +
+    '<div class="field"><label>弱身份文本（换底模/弱身份时使用）</label>' +
+      '<textarea id="cp-weak" rows="3" placeholder="1girl, solo, short dark hair, warm brown eyes, anime character">' +
+      esc(c.identity_weak || '') + '</textarea></div>' +
+    '<div class="row2">' +
+      '<div class="field"><label>对应底模</label><select id="cp-base">' + baseOpts + '</select></div>' +
+      '<div class="field"><label>角色 LoRA</label><select id="cp-lora">' + loraOpts + '</select></div>' +
+    '</div>' +
+    '<div class="row2">' +
+      '<div class="field"><label>LoRA 权重</label><input id="cp-lora-w" type="number" step="0.05" min="0.1" max="2" value="' +
+        (Number(curLora.weight) || 1) + '"></div>' +
+      '<div class="field"><label>性别</label><select id="cp-gender">' +
+        '<option value="f"' + (((c.gender || S.gender) === 'f') ? ' selected' : '') + '>女</option>' +
+        '<option value="m"' + (((c.gender || S.gender) === 'm') ? ' selected' : '') + '>男</option></select></div>' +
+    '</div>' +
+    '<div class="field"><label>专属正向（身份 / 体型 / 表情…）</label><div id="cp-pos" class="card-blocks"></div>' +
+      '<div class="row2" style="margin-top:6px"><input id="cp-pos-add" placeholder="积木名或文本，例 @ID_F" list="cp-token-list">' +
+      '<button class="ghost" id="cp-pos-btn">＋ 加</button></div></div>' +
+    '<div class="field"><label>专属负向（跟着这张卡一起落进负向）</label><div id="cp-neg" class="card-blocks"></div>' +
+      '<div class="row2" style="margin-top:6px"><input id="cp-neg-add" placeholder="积木名或文本，例 @NEG_COLORBLEED" list="cp-token-list">' +
+      '<button class="ghost" id="cp-neg-btn">＋ 加</button></div></div>' + tokenList +
+    '' +
+    '<div class="row2" style="margin-top:8px"><button class="ghost" id="cp-cancel">取消</button>' +
+      '<button class="primary" id="cp-save">保存</button></div>' +
+    '<div id="cp-out" class="hint" style="margin-top:6px"></div>');
+
+  const posHost = $('#cp-pos'), negHost = $('#cp-neg');
+  renderCardBlocks(posHost, pos, 'pos');
+  renderCardBlocks(negHost, neg, 'neg');
+  const addTo = (blocks, host, inputId, lane) => {
+    const inp = $('#' + inputId);
+    const v = ((inp && inp.value) || '').trim();
+    if (!v) return;
+    if (v.startsWith('@')) {
+      if (!(S.tokens || {})[v]) { toast('没有这个积木：' + v, true); return; }
+      blocks.push({ token: v, text: '', weight: 1 });
+    } else {
+      blocks.push({ token: '', text: v, weight: 1 });
+    }
+    if (inp) inp.value = '';
+    renderCardBlocks(host, blocks, lane);
+  };
+  $('#cp-pos-btn').onclick = () => addTo(pos, posHost, 'cp-pos-add', 'pos');
+  $('#cp-neg-btn').onclick = () => addTo(neg, negHost, 'cp-neg-add', 'neg');
+  ['cp-pos-add', 'cp-neg-add'].forEach(id => {
+    const el = $('#' + id);
+    if (el) el.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $(id === 'cp-pos-add' ? '#cp-pos-btn' : '#cp-neg-btn').click(); } };
+  });
+
+  $('#cp-cancel').onclick = closeModal;
+
+  const save = $('#cp-save');
+  if (save) save.onclick = async () => {
+    const lname = ($('#cp-lora') || {}).value || '';
+    const lw = Number(($('#cp-lora-w') || {}).value) || 1;
+    const keep = (c.loras || []).filter(l => { try { return loraCat(l.name) !== '角色'; } catch (e) { return true; } });
+    const loras = lname ? keep.concat([{ name: lname, weight: lw }]) : keep;
+    const body = {
+      name: c.name, loras,
+      pos_blocks: pos.filter(b => b.token || (b.text || '').trim()),
+      neg_blocks: neg.filter(b => b.token || (b.text || '').trim()),
+      tokens: pos.filter(b => b.token).map(b => b.token),
+      note: c.note || '',
+      persona: ($('#cp-persona').value || '').trim(),
+      identity_weak: ($('#cp-weak').value || '').trim(),
+      base: ($('#cp-base') || {}).value || '',
+      gender: (($('#cp-gender') || {}).value) || c.gender || S.gender,
+      views: c.views || null,
+    };
+    try {
+      const r = await api('/api/card/save', { method: 'POST', body: JSON.stringify(body) });
+      S.cards = r.items || [];
+      await loadCards();
+      closeModal();
+      toast('已保存：' + c.name + '（正向 ' + body.tokens.length + ' / 负向 ' + body.neg_blocks.length + '）');
+    } catch (e) { toast('保存失败：' + e.message, true); }
+  };
+}
+
+// 「写入」：独立页面，选人物 LoRA（带权重）+ 人设 + 弱身份，存成一张卡
+function cardWrite() {
+  const sel = $('#card-sel');
+  const cur = (S.cards || []).find(x => x.name === (sel && sel.value)) || {};
+  const keepRoles = ['角色'];
+  const loraFiles = (S.loraFiles || []).filter(n => {
+    try { return loraCat(n) === '角色'; } catch (e) { return false; }
+  });
+  const curLora = (cur.loras || []).find(l => /char_|角色/i.test(l.name || '')) || (cur.loras || [])[0] || {};
+  const opts = loraFiles.map(n => '<option value="' + esc(n) + '"' + (n === curLora.name ? ' selected' : '') + '>' + esc(shortLoraName(n)) + '</option>').join('');
+  openModal('写入角色卡',
+    '<p class="hint">这张卡记录：人物 LoRA（含权重）、人设、身份积木。应用时才导入画布。</p>' +
+    '<div class="field"><label>角色名</label><input id="cw-name" value="' + esc(cur.name || '') + '" placeholder="例如 小绫 / Aya"></div>' +
+    '<div class="row2">' +
+      '<div class="field"><label>人物 LoRA</label><select id="cw-lora">' + (opts || '<option value="">（没有角色类 LoRA）</option>') + '</select></div>' +
+      '<div class="field"><label>权重</label><input id="cw-weight" type="number" step="0.05" value="' + (Number(curLora.weight) || 1) + '"></div>' +
+    '</div>' +
+    '<div class="field"><label>人设</label><textarea id="cw-persona" rows="4">' + esc(cur.persona || '') + '</textarea></div>' +
+    '<div class="field"><label>弱身份文本（换底模时使用）</label><textarea id="cw-weak" rows="3">' + esc(cur.identity_weak || '') + '</textarea></div>' +
+    '<div class="field"><label>身份积木（逗号分隔的 @ 积木）</label><input id="cw-tokens" value="' + esc((cur.tokens || []).join(', ')) + '" placeholder="@ID_F, @FACE_FSOFT"></div>' +
+    '<div class="row2"><button class="ghost" id="cw-cancel">取消</button>' +
+      '<button class="primary" id="cw-ok">写入</button></div>');
+  $('#cw-cancel').onclick = closeModal;
+  const ok = $('#cw-ok');
+  if (ok) ok.onclick = async () => {
+    const name = ($('#cw-name').value || '').trim();
+    if (!name) { toast('角色名不能空', true); return; }
+    const lname = ($('#cw-lora').value || '').trim();
+    if (!lname) { toast('先选一个人物 LoRA', true); return; }
+    const weight = Number($('#cw-weight').value) || 1;
+    const tokens = ($('#cw-tokens').value || '').split(/[,，\s]+/).map(s => s.trim()).filter(s => s.startsWith('@'));
+    try {
+      const r = await api('/api/card/save', { method: 'POST', body: JSON.stringify({
+        name, loras: [{ name: lname, weight }], tokens,
+        pos_blocks: tokens.map(t => ({ token: t, text: '', weight: 1 })),
+        persona: ($('#cw-persona').value || '').trim(),
+        identity_weak: ($('#cw-weak').value || '').trim(),
+        base: currentBaseModel(), note: cur.note || '', gender: cur.gender || S.gender,
+        views: cur.views || null,
+      }) });
+      S.cards = r.items || [];
+      await loadCards();
+      closeModal();
+      toast('已写入角色卡：' + name);
+    } catch (e) { toast('写入失败：' + e.message, true); }
+  };
 }
 
 async function cardSave() {
@@ -5189,7 +6638,7 @@ async function cardSave() {
     .map(b => b.token))];
   const loras = (S.loras || []).map(l => ({ name: l.name, weight: l.weight }));
   openModal('保存角色卡',
-    '<div class="field"><label>名字</label><input id="cs-name" placeholder="例如 篠宮みお"></div>' +
+    '<div class="field"><label>名字</label><input id="cs-name" placeholder="例如 小绫 / Aya"></div>' +
     '<p class="hint">会保存 <b>' + loras.length + '</b> 个 LoRA、<b>' + tokens.length + '</b> 个身份积木' +
       (tokens.length ? '：' + esc(tokens.join(' ')) : '（当前画布没有身份类积木）') + '</p>' +
     '<div class="row2"><button class="ghost" id="cs-cancel">取消</button>' +
@@ -5201,8 +6650,13 @@ async function cardSave() {
     const name = ($('#cs-name').value || '').trim();
     if (!name) { toast('名字不能空', true); return; }
     try {
+      const prev = (S.cards || []).find(x => x.name === name) || {};
       const r = await api('/api/card/save', { method: 'POST',
-        body: JSON.stringify({ name, loras, tokens }) });
+        body: JSON.stringify({ name, loras, tokens,
+          pos_blocks: tokens.map(t => ({ token: t, text: '', weight: 1 })),
+          persona: prev.persona || '', identity_weak: prev.identity_weak || '',
+          base: prev.base || currentBaseModel(), gender: prev.gender || S.gender,
+          views: prev.views || null }) });
       S.cards = r.items || [];
       await loadCards();
       closeModal();
@@ -5226,9 +6680,15 @@ async function cardDelete() {
   await loadCards();
   const bind = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
   bind('#card-apply', cardApply);
+  bind('#card-write', cardWrite);
   bind('#card-save', cardSave);
+  bind('#card-persona', cardPersonaEdit);
   bind('#card-del', cardDelete);
-  bind('#card-export', () => { window.location = '/api/cards/export'; });
+  bind('#card-export', () => {
+    const name = ($('#card-sel') || {}).value;
+    if (!name) { toast('先选一张角色卡再导出', true); return; }
+    window.location = '/api/card/export?name=' + encodeURIComponent(name);
+  });
   bind('#card-import', () => {
     openModal('导入角色卡',
       '<div class="field"><label>情况一：粘贴 JSON</label>' +
@@ -5351,3 +6811,408 @@ async function cardDelete() {
     $('#plib-only-neg').onclick = () => write('negative', fs);
   };
 })();
+
+// ---------------- 智囊（语言层） ----------------
+
+// ---------------- 通用下拉选择器（.llm-pick 样式类名保留） ----------------
+// items() 返回 [{value,title,desc}]；current() 返回当前值；onPick(v) 处理选中。
+function makePicker(cfg) {
+  const { btn, menu, items, current, onPick, labelOf, titleOf } = cfg;
+  if (!btn || !menu) return null;
+  const escv = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  const sync = () => {
+    if (labelOf) btn.innerHTML = labelOf() + '<span class="llm-caret">▾</span>';
+    if (titleOf) { const t = titleOf(); if (t) btn.title = t; }
+  };
+  const open = () => {
+    const cur = current ? current() : '';
+    const list = (items && items()) || [];
+    menu.innerHTML = list.length
+      ? list.map(it =>
+          '<div class="llm-pick-item' + (it.value === cur ? ' on' : '') + '" data-v="' + escv(it.value) + '" role="option">' +
+            '<span class="t">' + escv(it.title) + '</span>' +
+            '<span class="d">' + escv(it.desc || '') + '</span></div>').join('')
+      : '<div class="llm-pick-item"><span class="t">没有可选项</span></div>';
+    menu.querySelectorAll('.llm-pick-item[data-v]').forEach(el => {
+      el.onclick = () => { onPick(el.dataset.v); sync(); close(); };
+    });
+    if (menu.parentNode !== document.body) document.body.appendChild(menu);
+    const r = btn.getBoundingClientRect();
+    menu.style.left = Math.round(r.left) + 'px';
+    menu.style.top = Math.round(r.bottom + 6) + 'px';
+    menu.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+  };
+  btn.onclick = (e) => { e.stopPropagation(); menu.hidden ? open() : close(); };
+  document.addEventListener('click', (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  window.addEventListener('scroll', () => close(), true);
+  window.addEventListener('resize', () => close());
+  sync();
+  return { open, close, sync };
+}
+
+// 代码里直接改 select.value 时也同步按钮文字（值变更不触发 change）
+function bindSelectValueSync(sel, picker) {
+  if (!sel || !picker) return;
+  try {
+    const d = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    Object.defineProperty(sel, 'value', {
+      get() { return d.get.call(this); },
+      set(v) { d.set.call(this, v); picker.sync(); },
+    });
+  } catch (e) {}
+}
+
+// ---------------- 通用下拉选择器 ----------------
+
+// ---------------- 引导选择器（同一套通用组件） ----------------
+
+/* ---------- 重映工作台：页签 + 独立主场景/主服装积木槽（无本地模型） ---------- */
+function reprojState() {
+  if (!S.reproj) S.reproj = { garment: '', view: '', door: true };
+  return S.reproj;
+}
+
+function reprojFindGarmentKey(tok) {
+  const up = String(tok || '').toUpperCase();
+  if (!up.startsWith('@OUT_')) return '';
+  const raw = up.slice(5).toLowerCase();
+  const g = S.garments || {};
+  if (g[raw] && !/^neg_/i.test(raw)) return raw;
+  return '';
+}
+
+function reprojIsMainGarmentToken(tok) {
+  const up = String(tok || '').toUpperCase();
+  if (/^@OUT_/.test(up) && !/^@OUT_(TIGHTS|SOCKS)$/.test(up)) return true;
+  if (/^@OUTFIT(_[AB])?$/.test(up)) return true;
+  return false;
+}
+
+function reprojMainGarmentBlock(arr) {
+  return (arr || []).find(b => b && reprojFindGarmentKey(b.token))
+    || (arr || []).find(b => b && reprojIsMainGarmentToken(b.token))
+    || null;
+}
+
+function reprojBindSlotChip(slotNameEl, lane) {
+  if (!slotNameEl) return;
+  try { if (typeof bindTips === 'function') bindTips(slotNameEl); } catch (e) {}
+  slotNameEl.querySelectorAll('.chip').forEach(el => {
+    el.addEventListener('dblclick', ev => {
+      if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'BUTTON')) return;
+      const id = el.dataset.id, ln = el.dataset.coopLane || lane;
+      const b = (coopEnsure()[ln] || []).find(x => x.id === id);
+      if (b && b.token && typeof openBlockDetail === 'function') {
+        openBlockDetail(b, ln.endsWith('Neg') ? 'negative' : 'positive');
+      }
+    });
+  });
+}
+
+function reprojSceneThemeTitle(tok) {
+  const note = String((S.notes && S.notes[tok]) || '').trim();
+  if (note) {
+    const first = note.split(/[:：。，,（(]/)[0].trim();
+    if (first) return first;
+  }
+  return String(tok || '').replace(/^@SET_/, '').replace(/_/g, ' ');
+}
+
+function reprojSceneThemeChip(b) {
+  const title = reprojSceneThemeTitle(b.token);
+  return '<div class="chip pos reproj-theme-card' + (b.enabled === false ? ' off' : '') + '"' +
+    ' data-coop-lane="envPos" data-id="' + b.id + '" data-cat="set" data-token="' + esc(b.token) + '">' +
+    '<button type="button" class="on" data-coop-toggle="' + b.id + '" data-coop-lane="envPos">' + (b.enabled === false ? '○' : '●') + '</button>' +
+    '<button type="button" class="reproj-theme-btn" id="reproj-add-scene" title="跳转到左侧场景分类">' +
+      '<span class="reproj-theme-title">' + esc(title) + '</span>' +
+      '<span class="tk">' + esc(b.token) + '</span>' +
+    '</button>' +
+    '<button type="button" class="x" data-coop-del="' + b.id + '" data-coop-lane="envPos" title="移除主场景">×</button>' +
+    '</div>';
+}
+
+function reprojSyncSceneWeight(sceneBlk) {
+  const wbox = $('#reproj-scene-wbox');
+  const wr = $('#reproj-scene-wr');
+  const wn = $('#reproj-scene-weight');
+  if (!wbox || !wr || !wn) return;
+  const has = !!sceneBlk;
+  wbox.classList.toggle('disabled', !has);
+  wr.disabled = !has;
+  wn.disabled = !has;
+  const w = has ? (Number(sceneBlk.weight) || 1) : 1;
+  wr.value = String(w);
+  wn.value = String(w);
+}
+
+function reprojGarmentThemeChip(b, gKey) {
+  const g = (S.garments && S.garments[gKey]) || {};
+  const label = g.label || (S.notes && S.notes[b.token] && S.notes[b.token].split(/[:：。，,（(]/)[0].trim()) || b.token.replace(/^@(OUT_)?/, '');
+  return '<div class="chip pos reproj-theme-card' + (b.enabled === false ? ' off' : '') + '"' +
+    ' data-coop-lane="chrPos" data-id="' + b.id + '" data-cat="outfit" data-token="' + esc(b.token) + '">' +
+    '<button type="button" class="on" data-coop-toggle="' + b.id + '" data-coop-lane="chrPos">' + (b.enabled === false ? '○' : '●') + '</button>' +
+    '<button type="button" class="reproj-theme-btn" data-rcat="outfit" data-rlane="chrPos" title="跳转到左侧服装分类">' +
+      '<span class="reproj-theme-title">' + esc(label) + '</span>' +
+      '<span class="tk">' + esc(b.token) + '</span>' +
+    '</button>' +
+    '<button type="button" class="x" data-coop-del="' + b.id + '" data-coop-lane="chrPos" title="卸下服装">×</button>' +
+    '</div>';
+}
+
+function reprojSyncGarmentWeight(garmentBlk) {
+  const wbox = $('#reproj-garment-wbox');
+  const wr = $('#reproj-garment-wr');
+  const wn = $('#reproj-garment-weight');
+  if (!wbox || !wr || !wn) return;
+  const has = !!garmentBlk;
+  wbox.classList.toggle('disabled', !has);
+  wr.disabled = !has;
+  wn.disabled = !has;
+  const w = has ? (Number(garmentBlk.weight) || 1) : 1;
+  wr.value = String(w);
+  wn.value = String(w);
+}
+
+function reprojSyncCatPills(c) {
+  document.querySelectorAll('.reproj-cat-pills[data-cat-lane]').forEach(bar => {
+    const lane = bar.getAttribute('data-cat-lane');
+    const arr = (c && c[lane]) || [];
+    const mainGarment = lane === 'chrPos' ? reprojMainGarmentBlock(arr) : null;
+    const counts = {};
+    arr.forEach(b => {
+      if (!b || !b.token || b.enabled === false || b === mainGarment) return;
+      let cat = '';
+      try { cat = tokenCat(b.token); } catch (e) {}
+      if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    });
+    bar.querySelectorAll('.rcat-pill').forEach(btn => {
+      const cat = btn.dataset.rcat;
+      const n = counts[cat] || 0;
+      btn.classList.toggle('has', n > 0);
+      if (!btn.dataset.baseLabel) btn.dataset.baseLabel = (btn.textContent || '').trim();
+      const label = btn.dataset.baseLabel || CAT_LABEL[cat] || cat;
+      btn.innerHTML = '<i></i>' + esc(label) + (n > 0 ? ' · ' + n : '');
+    });
+  });
+}
+
+function reprojSyncFromLanes() {
+  const c = coopEnsure();
+  const st = reprojState();
+
+  // 主场景独立积木块同步（焦点落在主题 + 右侧场景权重）
+  const sceneSlot = $('#reproj-scene-slot');
+  const sceneName = $('#reproj-scene-name');
+  const sceneBlk = (c.envPos || []).find(b => b && /^@SET_/.test(String(b.token || ''))) || null;
+  if (sceneSlot && sceneName) {
+    sceneSlot.classList.toggle('has-scene', !!sceneBlk);
+    sceneName.innerHTML = sceneBlk
+      ? reprojSceneThemeChip(sceneBlk)
+      : '<button type="button" class="reproj-theme-empty" id="reproj-add-scene">＋ 去左侧选场景（或拖入 @SET_*）</button>';
+    if (sceneBlk) reprojBindSlotChip(sceneName, 'envPos');
+  }
+  reprojSyncSceneWeight(sceneBlk);
+
+  // 主服装独立积木块同步（与主场景一致：焦点落在服装名 + 右侧服装权重）
+  const garmentSlot = $('#reproj-garment-slot');
+  const garmentName = $('#reproj-garment-name');
+  const garmentBlk = reprojMainGarmentBlock(c.chrPos || []);
+  const gKey = garmentBlk ? (reprojFindGarmentKey(garmentBlk.token) || String(garmentBlk.token || '').replace(/^@OUT_/, '').toLowerCase()) : '';
+  st.garment = garmentBlk && reprojFindGarmentKey(garmentBlk.token) ? reprojFindGarmentKey(garmentBlk.token) : '';
+  if (garmentSlot && garmentName) {
+    garmentSlot.classList.toggle('has-scene', !!garmentBlk);
+    garmentName.innerHTML = garmentBlk
+      ? reprojGarmentThemeChip(garmentBlk, gKey)
+      : '<button type="button" class="reproj-theme-empty" data-rcat="outfit" data-rlane="chrPos">＋ 去左侧选服装（或拖入 @OUT_*）</button>';
+    if (garmentBlk) reprojBindSlotChip(garmentName, 'chrPos');
+  }
+  reprojSyncGarmentWeight(garmentBlk);
+  reprojSyncCatPills(c);
+}
+
+function reprojSetGarment(keyOrToken) {
+  pushHistory();
+  const c = coopEnsure();
+  c.chrPos = c.chrPos || [];
+  c.chrNeg = c.chrNeg || [];
+  const oldKeys = new Set();
+  const curKey = reprojState().garment;
+  if (curKey) oldKeys.add(curKey.toUpperCase());
+  c.chrPos.forEach(b => {
+    const gk = reprojFindGarmentKey(b && b.token);
+    if (gk) oldKeys.add(gk.toUpperCase());
+  });
+  c.chrPos = c.chrPos.filter(b => !(b && (reprojFindGarmentKey(b.token) || reprojIsMainGarmentToken(b.token))));
+  c.chrNeg = c.chrNeg.filter(b => !(b && oldKeys.has(String(b.token || '').replace(/^@NEG_/, '').toUpperCase()) && /^@NEG_/.test(String(b.token || ''))));
+  const raw = String(keyOrToken || '').trim();
+  let tok = '';
+  let cleanKey = '';
+  if (raw) {
+    tok = raw.startsWith('@') ? raw.toUpperCase() : ('@OUT_' + raw.toUpperCase());
+    cleanKey = reprojFindGarmentKey(tok);
+    c.chrPos.unshift({ id: uid(), token: tok, text: '', weight: 1, enabled: true });
+    if (tok.startsWith('@OUT_')) {
+      const negTok = tok.replace(/^@OUT_/, '@NEG_');
+      if (S.tokens && S.tokens[negTok] && !c.chrNeg.some(b => b && b.token === negTok)) {
+        c.chrNeg.push({ id: uid(), token: negTok, text: '', weight: 1, enabled: true, auto: true });
+      }
+    }
+  }
+  reprojState().garment = cleanKey;
+  renderCoopLanes(); coopBind(); expandPreview();
+}
+
+function reprojFillViews() {
+  const box = $('#reproj-views');
+  if (!box) return;
+  const name = ($('#card-sel') || {}).value || '';
+  const card = (S.cards || []).find(c => c.name === name);
+  const views = (card && card.views) || {};
+  const keys = Object.keys(views);
+  if (!keys.length) { box.innerHTML = '<span class="hint">先选角色卡</span>'; return; }
+  box.innerHTML = keys.map(k => '<button class="rbtn" data-view="' + k + '">' +
+    esc(k.replace('', '').replace(/_/g, ' ')) + '</button>').join('');
+  box.querySelectorAll('[data-view]').forEach(b => {
+    b.onclick = () => {
+      box.querySelectorAll('.rbtn').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      reprojState().view = b.dataset.view;
+    };
+  });
+}
+
+function reprojBindSlotDrop(slotEl, matchFn, applyFn) {
+  if (!slotEl || slotEl.dataset.dropBound) return;
+  slotEl.dataset.dropBound = '1';
+  slotEl.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    slotEl.classList.add('drag-over');
+  });
+  slotEl.addEventListener('dragleave', e => {
+    if (!e.relatedTarget || !slotEl.contains(e.relatedTarget)) slotEl.classList.remove('drag-over');
+  });
+  slotEl.addEventListener('drop', e => {
+    e.preventDefault();
+    slotEl.classList.remove('drag-over');
+    const raw = e.dataTransfer.getData('text/plain');
+    if (!raw) return;
+    let d = null; try { d = JSON.parse(raw); } catch (err) { d = null; }
+    let tok = d && d.token ? d.token : '';
+    if (!tok && d && d.move && d.lane) {
+      const moved = (coopEnsure()[d.lane] || []).find(b => b && b.id === d.move);
+      if (moved && moved.token) tok = moved.token;
+    }
+    if (tok && matchFn(tok)) applyFn(tok);
+  });
+}
+
+function reprojInit() {
+  reprojFillViews();
+  const dr = $('#reproj-door');
+  if (dr && !dr._bound) { dr._bound = true; dr.onchange = () => { reprojState().door = dr.checked; expandPreview(); }; }
+  const cs = $('#card-sel');
+  if (cs && !cs._reprojBound) { cs._reprojBound = true; cs.addEventListener('change', () => setTimeout(reprojFillViews, 50)); }
+  const wr = $('#reproj-scene-wr'), wn = $('#reproj-scene-weight');
+  const setSceneWeight = raw => {
+    const c = coopEnsure();
+    const blk = (c.envPos || []).find(b => b && /^@SET_/.test(String(b.token || '')));
+    if (!blk) return;
+    const w = Math.round(Math.max(0.3, Math.min(2, Number(raw) || 1)) * 100) / 100;
+    blk.weight = w;
+    if (wr) wr.value = String(w);
+    if (wn) wn.value = String(w);
+    expandPreview();
+  };
+  if (wr && !wr._bound) { wr._bound = true; wr.oninput = () => setSceneWeight(wr.value); }
+  if (wn && !wn._bound) { wn._bound = true; wn.onchange = () => setSceneWeight(wn.value); }
+  const gwr = $('#reproj-garment-wr'), gwn = $('#reproj-garment-weight');
+  const setGarmentWeight = raw => {
+    const c = coopEnsure();
+    const blk = reprojMainGarmentBlock(c.chrPos || []);
+    if (!blk) return;
+    const w = Math.round(Math.max(0.3, Math.min(2, Number(raw) || 1)) * 100) / 100;
+    blk.weight = w;
+    if (gwr) gwr.value = String(w);
+    if (gwn) gwn.value = String(w);
+    expandPreview();
+  };
+  if (gwr && !gwr._bound) { gwr._bound = true; gwr.oninput = () => setGarmentWeight(gwr.value); }
+  if (gwn && !gwn._bound) { gwn._bound = true; gwn.onchange = () => setGarmentWeight(gwn.value); }
+  reprojBindSlotDrop($('#reproj-scene-slot'), t => /^@SET_/.test(t), t => reprojAddScene(t));
+  reprojBindSlotDrop($('#reproj-garment-slot'), t => reprojIsMainGarmentToken(t), t => reprojSetGarment(t));
+  try { reprojSyncFromLanes(); } catch (e) {}
+}
+
+function reprojExtraEnv() {
+  const st = reprojState(), out = [];
+  if (st.door) out.push({ id: uid(), token: '', text: 'a wooden door on a side wall', weight: 1, enabled: true });
+  return out;
+}
+
+function reprojExtraChar() {
+  const st = reprojState(), out = [], c = coopEnsure();
+  if (st.view) out.push({ id: uid(), token: st.view, weight: 1, enabled: true });
+  if (st.garment) {
+    const key = st.garment.toUpperCase();
+    const hasOut = (c.chrPos || []).some(b => b && b.token === '@OUT_' + key);
+    const hasNeg = (c.chrNeg || []).some(b => b && b.token === '@NEG_' + key);
+    if (!hasOut && S.tokens && S.tokens['@OUT_' + key]) out.push({ id: uid(), token: '@OUT_' + key, weight: 1, enabled: true });
+    if (!hasNeg && S.tokens && S.tokens['@NEG_' + key]) out.push({ id: uid(), token: '@NEG_' + key, weight: 1, enabled: true });
+  }
+  return out;
+}
+
+function reprojAddScene(token) {
+  pushHistory();
+  const c = coopEnsure();
+  c.envPos = (c.envPos || []).filter(x => !(x && /^@SET_/.test(String(x.token || ''))));
+  c.envPos.unshift({ id: uid(), token: token, text: '', weight: 1, enabled: true });
+  try { renderCoopLanes(); coopBind(); expandPreview(); } catch (e) {}
+  try { closeModal(); } catch (e) {}
+}
+
+function reprojJumpPalette(cat) {
+  if (document.body.classList.contains('lib-collapsed') && typeof setLibCollapsed === 'function') {
+    setLibCollapsed(false);
+  }
+  const railBtn = document.querySelector('#pal-rail .rail-item[data-jump="' + cat + '"]');
+  if (railBtn) { railBtn.click(); return; }
+  try {
+    S.collapsedCats = S.collapsedCats || {};
+    if (S.collapsedCats[cat]) { S.collapsedCats[cat] = false; saveJSON('loom.collapsedCats', S.collapsedCats); renderPalette(); }
+    if (typeof scrollPalTo === 'function') scrollPalTo(cat);
+  } catch (e) {}
+}
+
+document.addEventListener('click', ev => {
+  const t = ev.target;
+  if (!t || !t.closest) return;
+  const tab = t.closest('[data-rtab]');
+  if (tab) {
+    const want = tab.dataset.rtab;
+    document.querySelectorAll('[data-rtab]').forEach(x => x.classList.toggle('on', x === tab));
+    ['env', 'char', 'out'].forEach(k => {
+      const el = document.getElementById('rtab-' + k);
+      if (el) el.hidden = (k !== want);
+    });
+    return;
+  }
+  const rcatBtn = t.closest('[data-rcat]');
+  if (rcatBtn) {
+    const cat = rcatBtn.dataset.rcat;
+    reprojJumpPalette(cat);
+    toast('左侧已定位到：' + (CAT_LABEL[cat] || cat));
+    return;
+  }
+  if (t.closest('#reproj-add-scene')) {
+    reprojJumpPalette('set');
+    toast('左侧已定位到：' + (CAT_LABEL.set || '场景'));
+    return;
+  }
+  if (t.closest('#reproj-clear-garment')) { reprojSetGarment(''); return; }
+});

@@ -8,6 +8,7 @@
 """
 import json
 import os
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB = os.path.join(HERE, "prompt_lib.json")
@@ -21,13 +22,12 @@ STRIP_RULES = {
     "@STRIP_GLOVES": (["glove", "gloves", "mittens"], "bare hands"),
     "@STRIP_COAT": (["coat", "jacket", "parka", "overcoat", "cloak", "cape"], ""),
     "@STRIP_HAT": (["hat", "cap", "beret", "hood", "headband"], ""),
-    "@STRIP_SUNFLOWER": (["sunflower"], ""),
 }
 STRIP_KEYS = set(STRIP_RULES)
 
 
-def apply_strips(text, raw=""):
-    """按 @STRIP_* 去掉对应衣物片段，并在末尾补上替代描述。"""
+def apply_strips(text, raw="", append_add=True):
+    """按 @STRIP_* 去掉对应衣物片段，append_add=True 时在末尾补上替代描述。"""
     import re as _re
     hits = [k for k in STRIP_RULES if k in (raw or "")]
     if not hits or not text:
@@ -42,10 +42,11 @@ def apply_strips(text, raw=""):
         return False
     kept = [x for x in segs if x and not hated(x)]
     out = ", ".join(kept)
-    for k in hits:
-        add = STRIP_RULES[k][1]
-        if add and add not in out:
-            out = (out + ", " + add) if out else add
+    if append_add:
+        for k in hits:
+            add = STRIP_RULES[k][1]
+            if add and add not in out:
+                out = (out + ", " + add) if out else add
     return out, hits
 
 
@@ -56,7 +57,22 @@ def load_lib():
 
 
 # 旧积木名 → 新名（2026-11-08 重命名，兼容老配方）
+try:
+    from gender_alias_new import GENDER_ALIASES
+except Exception:
+    try:
+        from .gender_alias_new import GENDER_ALIASES
+    except Exception:
+        GENDER_ALIASES = {}
+
 ALIASES = {
+    # 2026-11-12：澪专属身份/体型积木改名
+    '@ID': '@ID_F',
+    '@ID_SOFT': '@ID_F_SOFT',
+    '@ID_TIGHT': '@ID_F_TIGHT',
+    '@ID_ADULT': '@ID_F_ADULT',
+    '@BODY': '@BODY_MIO',
+    '@BODY_B': '@BODY_MIO_B',
     '@CUSTOM_DUTCH': '@CAM_DUTCH',
     '@CUSTOM_FRAMEINFRAME': '@COMP_FRAMEINFRAME',
     '@CUSTOM_MULTIEXPO': '@FX_MULTIEXPO',
@@ -71,6 +87,10 @@ ALIASES = {
     '@CUSTOM_REFLECTION': '@FX_REFLECTION',
     '@Customize': '@PROP_KEY',
 }
+# 性别拆分后：老名指向的新名若又被改名，再补一跳
+ALIASES.update(GENDER_ALIASES)
+ALIASES = {k: GENDER_ALIASES.get(v, v) for k, v in ALIASES.items()}
+
 
 
 
@@ -128,24 +148,75 @@ def _resolve_alias(t):
     return ALIASES.get(t, t)
 
 
-def expand(text, tokens):
+_ALIAS_PAIRS = sorted(ALIASES.items(), key=lambda kv: -len(kv[0]))
+
+
+def apply_aliases(text):
+    """把旧积木名换成新名。按名字长度倒序 + 词边界，避免 @ID 命中 @ID_SOFT。"""
     text = text or ''
-    for old, new in ALIASES.items():
-        text = text.replace(old, new)
-    out = text
+    for old, new in _ALIAS_PAIRS:
+        text = re.sub(re.escape(old) + r'(?![A-Za-z0-9_])', new, text)
+    return text
+
+
+def expand(text, tokens):
+    out = apply_aliases(text)
     used = []
     for k, v in sorted(tokens.items(), key=lambda kv: -len(kv[0])):
         if k in out and v:
-            out = out.replace(k, v)
-            used.append(k)
+            pat = re.escape(k) + r"(?![A-Za-z0-9_])"
+            if re.search(pat, out):
+                out = re.sub(pat, lambda _m, _v=v: _v, out)
+                used.append(k)
     return out, used
 
 
 def expand_pair(pos, neg):
     tokens, lib, _ = load_tokens()
-    for old, new in ALIASES.items():
-        pos = (pos or '').replace(old, new)
-        neg = (neg or '').replace(old, new)
-    p, pu = expand(pos, tokens)
+    p, pu = expand(apply_aliases(pos), tokens)
     n, nu = expand(neg, tokens)
     return {"positive": p, "negative": n, "used": sorted(set(pu + nu))}
+
+
+def token_gender(tok, meta=None):
+    """判定积木的性别标记（f/m/空串）。meta 可传完整的 lib['meta'] 或直接传 meta['gender']。"""
+    gmap = (meta or {}).get("gender") if isinstance((meta or {}).get("gender"), dict) else (meta or {})
+    g = gmap.get(tok)
+    if g in ("f", "m"):
+        return g
+    if re.search(r"_M_|_M$", tok):
+        return "m"
+    if re.search(r"_F_|_F$", tok):
+        return "f"
+    return ""
+
+
+def resolve_token(tok):
+    """按 ALIASES 迭代解析旧积木名，返回 (新名, 是否发生改名)。"""
+    cur, seen = tok, 0
+    while cur in ALIASES and seen < 3:
+        nxt = ALIASES[cur]
+        if nxt == cur:
+            break
+        cur = nxt
+        seen += 1
+    return cur, (cur != tok)
+
+
+def load_full_catalog():
+    """加载完整积木目录：prompt_lib + 服装派生 + 角色卡视角块，返回 (tokens, notes, meta, lib, ch)。"""
+    tokens, lib, ch = load_tokens()
+    notes = dict(lib.get("notes") or {})
+    meta = dict(lib.get("meta") or {})
+    cards_dir = os.path.join(HERE, "cards")
+    try:
+        for fn in os.listdir(cards_dir):
+            if not fn.endswith(".json"):
+                continue
+            with open(os.path.join(cards_dir, fn), encoding="utf-8") as f:
+                c = json.load(f)
+            for k, v in (c.get("views") or {}).items():
+                tokens.setdefault(k, v)
+    except Exception:
+        pass
+    return tokens, notes, meta, lib, ch

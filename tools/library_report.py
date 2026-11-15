@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import json
-lib=json.load(open(r'A:/workflow/dsh/ref/prompt_lib.json',encoding='utf-8'))
+import json, os
+ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+lib=json.load(open(os.path.join(ROOT,'ref/prompt_lib.json'),encoding='utf-8'))
 toks=lib['tokens']
 def cat(k):
     n=k.upper()
@@ -32,5 +33,5 @@ for g in order:
         t=str(v).replace('|','/')
         out.append('| %s | %s |' % (k, t[:90]))
     out.append('')
-open(r'A:/workflow/dsh/产出作品/积木总表.md','w',encoding='utf-8').write('\n'.join(out))
+open(os.path.join(ROOT,'产出作品/积木总表.md'),'w',encoding='utf-8').write('\n'.join(out))
 print('written', len(toks), 'tokens', len(groups), 'groups')

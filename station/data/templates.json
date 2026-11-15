@@ -8,13 +8,13 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
@@ -23,10 +23,10 @@
         "token": "@DRAPE_ELBOW"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "text": "sitting by a window in the afternoon, soft daylight from the left"
@@ -37,7 +37,7 @@
     ],
     "negative": [
       {
-        "text": "(empty windowsill:1.35), (nothing resting on the sill:1.25)"
+        "text": "empty windowsill, nothing resting on the sill"
       },
       {
         "token": "@NEG_BEDSIDE"
@@ -71,13 +71,13 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
@@ -86,10 +86,10 @@
         "token": "@DRAPE_OFF"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "text": "standing in a dim hallway with wall lamps"
@@ -131,25 +131,25 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
         "token": "@DRAPE_WORN"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "text": "sitting on a wooden staircase step, both hands on her knees"
@@ -191,25 +191,25 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
         "token": "@DRAPE_WORN"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "text": "standing in a doorway, one hand on the door frame, warm light behind her"
@@ -248,16 +248,16 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
         "token": "@DRAPE_WORN"
@@ -266,13 +266,13 @@
         "text": "sitting on a wooden step in an old bookstore, hands on her knees"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
-        "token": "@POSE_SIT"
+        "token": "@POSE_F_SIT"
       },
       {
         "token": "@SET_BOOKSTORE"
@@ -311,13 +311,13 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
@@ -329,13 +329,13 @@
         "text": "standing on an empty platform at night, rain streaks in the light"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
-        "token": "@POSE_STAND"
+        "token": "@POSE_F_STAND"
       },
       {
         "token": "@SET_STATION"
@@ -347,7 +347,7 @@
         "token": "@ATMO_NEON"
       },
       {
-        "text": "(wet platform reflecting the lights:1.3), (cool rim light on her hair:1.25)"
+        "text": "wet platform reflecting the lights, cool rim light on her hair"
       },
       {
         "token": "@BG_BOKEH"
@@ -380,31 +380,31 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@DRAPE_WORN"
+        "token": "@DRAPE_ELBOW"
       },
       {
         "text": "sitting in an art studio, palette in her left hand"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
-        "token": "@POSE_SIT"
+        "token": "@POSE_F_SIT"
       },
       {
         "token": "@HOLD_R_BRUSH"
@@ -416,7 +416,7 @@
         "token": "@SET_ARTROOM"
       },
       {
-        "text": "(paintbrush clearly visible in her right hand:1.4), (brush tip loaded with paint:1.25)"
+        "text": "paintbrush clearly visible in her right hand, brush tip loaded with paint"
       }
     ],
     "negative": [
@@ -443,13 +443,13 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
@@ -461,10 +461,10 @@
         "text": "standing among tall green plants inside a glass greenhouse"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@SET_GREENHOUSE"
@@ -497,16 +497,16 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
         "token": "@DRAPE_WORN"
@@ -515,10 +515,10 @@
         "text": "standing on a rooftop at dusk"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@WEAPON_SWORD"
@@ -533,7 +533,7 @@
         "token": "@LIGHT_BACK"
       },
       {
-        "text": "(sword held point-down at her side:1.35), (both hands on the hilt:1.3)"
+        "text": "sword held point-down at her side, both hands on the hilt"
       }
     ],
     "negative": [
@@ -560,7 +560,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
@@ -572,16 +572,16 @@
         "token": "@COMP_MINIMAL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -607,7 +607,7 @@
         "token": "@NEG_PROPS"
       },
       {
-        "text": "(busy background:1.3), (cluttered:1.25)"
+        "text": "busy background, cluttered"
       }
     ]
   },
@@ -620,7 +620,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
@@ -635,16 +635,16 @@
         "token": "@COMP_LOOKROOM"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_ASIDE"
@@ -664,7 +664,7 @@
         "token": "@NEG_PROPS"
       },
       {
-        "text": "(centered subject:1.2), (cramped framing:1.25)"
+        "text": "centered subject, cramped framing"
       }
     ]
   },
@@ -677,7 +677,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
@@ -692,19 +692,19 @@
         "token": "@SET_CORRIDOR"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
         "token": "@DRAPE_WORN"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_FAR"
@@ -724,7 +724,7 @@
         "token": "@NEG_BASE"
       },
       {
-        "text": "(flat lighting:1.2), (cropped feet:1.25), (two people:1.4)"
+        "text": "flat lighting, cropped feet, two people"
       }
     ]
   },
@@ -737,7 +737,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -755,16 +755,16 @@
         "token": "@LIGHT_CANDLE"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_DOWN"
@@ -784,7 +784,7 @@
         "token": "@NEG_ANATOMY"
       },
       {
-        "text": "(bright daylight:1.3), (overexposed:1.25)"
+        "text": "bright daylight, overexposed"
       }
     ]
   },
@@ -797,7 +797,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_THREEQ"
@@ -815,19 +815,19 @@
         "token": "@WEATHER_CLEAR"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@OUT_INITIAL"
+        "token": "@OUT_CASUAL_KNIT"
       },
       {
         "token": "@DRAPE_WORN"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_FAR"
@@ -857,7 +857,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_CLOSEUP"
@@ -869,13 +869,13 @@
         "token": "@SET_ARTROOM"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@MOOD_SLEEPY"
@@ -905,7 +905,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -926,16 +926,16 @@
         "token": "@TIME_AFTERNOON"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_WINDOW"
@@ -959,7 +959,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_BUST"
@@ -977,16 +977,16 @@
         "token": "@STYLE_PASTEL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -1006,7 +1006,7 @@
         "token": "@NEG_FABRIC"
       },
       {
-        "text": "(satin sheen:1.2), (harsh contrast:1.2)"
+        "text": "satin sheen, harsh contrast"
       }
     ]
   },
@@ -1019,7 +1019,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1037,16 +1037,16 @@
         "token": "@OBJ_PLANT"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@MOOD_AMUSED"
@@ -1070,7 +1070,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1079,13 +1079,13 @@
         "token": "@OUT_SCHOOL"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_ASIDE"
@@ -1121,7 +1121,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1130,13 +1130,13 @@
         "token": "@OUT_YUKATA"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -1175,7 +1175,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_FULL"
@@ -1184,13 +1184,13 @@
         "token": "@OUT_WINTER"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_FAR"
@@ -1226,7 +1226,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1235,13 +1235,13 @@
         "token": "@OUT_YUKATA"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -1283,7 +1283,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1292,13 +1292,13 @@
         "token": "@OUT_SLIP"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@SET_ONSEN"
@@ -1334,7 +1334,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1352,16 +1352,16 @@
         "token": "@BG_BOKEH"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_CASUAL_KNIT"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_DOWN"
@@ -1388,7 +1388,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_HIGH"
@@ -1403,19 +1403,19 @@
         "token": "@BG_BOKEH"
       },
       {
-        "token": "@CUSTOM_TILTSHIFT"
+        "token": "@COMP_TILTSHIFT"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SCHOOL"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       }
     ],
     "negative": [
@@ -1439,7 +1439,7 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
         "token": "@CAM_MEDIUM"
@@ -1460,19 +1460,16 @@
         "token": "@MOOD_SMOKE"
       },
       {
-        "token": "@STYLE_NOIR"
-      },
-      {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
         "token": "@OUT_SUIT"
       },
       {
-        "token": "@BODY"
+        "token": "@BODY_F"
       },
       {
-        "token": "@FACE"
+        "token": "@FACE_F"
       },
       {
         "token": "@GAZE_ASIDE"
@@ -1499,16 +1496,16 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@FACE_ADULT"
+        "token": "@FACE_F_ADULT"
       },
       {
-        "token": "@BODY_ADULT"
+        "token": "@BODY_F_ADULT"
       },
       {
         "token": "@CAM_FULL"
@@ -1552,11 +1549,14 @@
     "positive": [
       {
         "token": "",
-        "text": "a girl with long white hair, heterochromia eyes (one red one grey), a sunflower hair ornament, wearing a grey hoodie and denim shorts, standing in a bright laundromat, soft window light, detailed face, delicate shading, intricate details, high detail",
+        "text": "a girl with long white hair, expressive eyes eyes (one red one grey), a seasonal blooms hair ornament, wearing a grey hoodie and denim shorts, standing in a bright laundromat, soft window light, detailed face, delicate shading, intricate details, high detail",
         "weight": 1
       }
     ],
     "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
       {
         "token": "",
         "text": "lowres, bad anatomy, worst quality, blurry, flat colors, washed out, red hair streak, multicolored hair, text, watermark",
@@ -1574,13 +1574,13 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@FACE_SOFT"
+        "token": "@FACE_F_SOFT"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -1598,7 +1598,7 @@
         "token": "@TIME_AFTERNOON"
       },
       {
-        "token": "@POSE_STAND"
+        "token": "@POSE_F_STAND"
       },
       {
         "token": "@MOOD_AMUSED"
@@ -1611,9 +1611,6 @@
       },
       {
         "token": "@BG_DEPTH"
-      },
-      {
-        "token": "@STYLE_SOFT"
       }
     ],
     "negative": [
@@ -1650,19 +1647,19 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@FACE_SOFT"
+        "token": "@FACE_F_SOFT"
       },
       {
         "token": "@CAM_MEDIUM"
       },
       {
-        "token": "@POSE_LEAN"
+        "token": "@POSE_F_LEAN"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -1687,9 +1684,6 @@
       },
       {
         "token": "@COMP_NEGATIVE"
-      },
-      {
-        "token": "@STYLE_SOFT"
       }
     ],
     "negative": [
@@ -1726,13 +1720,13 @@
     },
     "positive": [
       {
-        "token": "@SINGLE"
+        "token": "@SINGLE_F"
       },
       {
-        "token": "@ID"
+        "token": "@ID_F"
       },
       {
-        "token": "@FACE_SOFT"
+        "token": "@FACE_F_SOFT"
       },
       {
         "token": "@GAZE_CAMERA"
@@ -1750,7 +1744,7 @@
         "token": "@TIME_NIGHT"
       },
       {
-        "token": "@POSE_SIT"
+        "token": "@POSE_F_SIT"
       },
       {
         "token": "@MOOD_CALM"
@@ -1763,9 +1757,6 @@
       },
       {
         "token": "@BG_DEPTH"
-      },
-      {
-        "token": "@STYLE_SOFT"
       }
     ],
     "negative": [
@@ -1792,7 +1783,7 @@
       },
       {
         "token": "",
-        "text": "duplicate hair ornament, extra flowers in hair, twin sunflowers",
+        "text": "duplicate hair ornament, extra flowers in hair, multiple hair ornaments",
         "weight": 1
       }
     ]
@@ -1808,11 +1799,14 @@
     "positive": [
       {
         "token": "",
-        "text": "full body, a girl sitting on a wooden chair in a dark bedroom at night, a lit candle on the table in the foreground, long white hair, heterochromia eyes one red and one grey, a sunflower hair ornament, cream striped pajamas, clean anime illustration, soft cel shading, muted colors, cinematic soft light, delicate linework, detailed face, crisp details",
+        "text": "full body, a girl sitting on a wooden chair in a dark bedroom at night, a lit candle on the table in the foreground, long white hair, expressive eyes eyes one red and one grey, a seasonal blooms hair ornament, cream striped pajamas, clean anime illustration, soft cel shading, muted colors, cinematic soft light, delicate linework, detailed face, crisp details",
         "weight": 1
       }
     ],
     "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
       {
         "token": "",
         "text": "lowres, bad anatomy, worst quality, blurry, flat colors, painterly, rough brush strokes, oil painting, heavy texture, oversaturated, text, watermark, extra limbs, bad hands",
@@ -1825,19 +1819,29 @@
     "params": {},
     "positive": [
       {
-        "token": "@STYLE_PHOTO"
+        "token": "@ID_F"
+      },
+      {
+        "token": "",
+        "text": "photorealistic rendering, natural skin texture",
+        "weight": 1
       },
       {
         "token": "@STYLE_GLITCH"
       },
       {
-        "token": "@STYLE_DATAMOSH"
+        "token": "",
+        "text": "heavy datamosh patches scattered around, corrupted codec blocks",
+        "weight": 1
       },
       {
         "token": "@FX_BLACK_BLOCKS"
       }
     ],
     "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
       {
         "token": "@NEG_OUTLINE"
       },
@@ -1851,13 +1855,20 @@
     "params": {},
     "positive": [
       {
-        "token": "@STYLE_PHOTO"
+        "token": "@ID_F"
+      },
+      {
+        "token": "",
+        "text": "photorealistic rendering, natural skin texture",
+        "weight": 1
       },
       {
         "token": "@STYLE_GLITCH"
       },
       {
-        "token": "@STYLE_DATAMOSH"
+        "token": "",
+        "text": "heavy datamosh patches scattered around, corrupted codec blocks",
+        "weight": 1
       },
       {
         "token": "@FX_BAND_GLITCH"
@@ -1865,8 +1876,76 @@
     ],
     "negative": [
       {
+        "token": "@NEG_BASE"
+      },
+      {
         "token": "@NEG_OUTLINE"
       }
     ]
+  },
+  {
+    "name": "立绘板·澪（40步·BiRefNet·白底）",
+    "params": {
+      "size": "1216x1664",
+      "steps": 40,
+      "cfg": 6.0,
+      "loras": [
+        {
+          "name": "character_lora.safetensors",
+          "weight": 0.8
+        },
+        {
+          "name": "artist_style.safetensors",
+          "weight": 0.85
+        }
+      ]
+    },
+    "positive": [
+      {
+        "token": "@ID_F"
+      },
+      {
+        "token": "@SINGLE_F"
+      },
+      {
+        "token": "@CAM_FULL"
+      },
+      {
+        "token": "@POSE_F_STAND"
+      },
+      {
+        "token": "@OUT_SUNBLOOM"
+      },
+      {
+        "token": "@BG_CLEAN"
+      },
+      {
+        "token": "@LIGHT_SOFT"
+      },
+      {
+        "text": "1girl, solo, single figure, white background, full body visible, standing, centered composition, facing viewer, feet visible, long shoulder-length hair, high detail"
+      }
+    ],
+    "negative": [
+      {
+        "token": "@NEG_BASE"
+      },
+      {
+        "token": "@NEG_HANDS"
+      },
+      {
+        "token": "@NEG_DOUBLE"
+      },
+      {
+        "token": "@NEG_ANATOMY"
+      },
+      {
+        "token": "@NEG_TEXT"
+      },
+      {
+        "text": "multiple girls, two girls, duplicate, short hair, cropped, out of frame, blurry, lowres"
+      }
+    ],
+    "note": "立绘板：出图后跑 tools/standee_template.py（fade 0.75 / size 1792 / matte auto=BiRefNet）"
   }
 ]

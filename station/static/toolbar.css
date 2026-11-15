@@ -1,0 +1,106 @@
+
+/* 工具栏：原始位置（画布列内），一行排完；窄屏自动收紧，不换行 */
+.top-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  scrollbar-width:none;
+  padding-bottom:0;
+  width:100%;
+}
+/* 有空间时整排拉满：每个按钮按内容比例吃掉剩余宽度 */
+.top-actions > button,
+.top-actions > .llm-pick,
+.top-actions > select{
+  flex:1 1 auto;
+  min-width:max-content;
+}
+.top-actions > .llm-pick > .llm-pick-btn{width:100%;}
+.top-actions::-webkit-scrollbar{display:none}
+
+
+
+.top-actions > button,
+.top-actions > .llm-pick > .llm-pick-btn,
+.top-actions > select{
+  height:36px;
+  min-height:36px;
+  padding:0 15px;
+  border-radius:17px;
+  font-size:13px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  box-sizing:border-box;
+  white-space:nowrap;
+}
+.top-actions > button.primary{padding:0 16px;font-weight:600;}
+
+.top-actions .tb-sep{
+  width:1px;
+  height:18px;
+  margin:0 4px;
+  background:rgba(255,255,255,.14);
+  flex:0 0 auto;
+}
+
+/* 引导：单控件，标题写在选项里 */
+.top-actions #guide-mode.guide-pick{
+  height:36px;
+  min-width:132px;
+  padding:0 32px 0 14px;
+  border-radius:17px;
+  font-size:13px;
+}
+
+/* 模型选择菜单：fixed 定位，避免被工具栏的 overflow 裁掉 */
+.llm-pick-menu{
+  position:fixed;
+  z-index:120;
+}
+
+/* 窄屏：收紧但仍比上一版大一点，保证一行 */
+@media (max-width:1700px){
+  .top-actions{gap:2px;letter-spacing:-.2px;}
+  .top-actions .tb-sep{display:none;}
+  .top-actions > button,
+  .top-actions > .llm-pick > .llm-pick-btn,
+  .top-actions > select{
+    height:34px;
+    min-height:34px;
+    padding:0 7px;
+    border-radius:16px;
+    font-size:11.5px;
+    gap:4px;
+  }
+  .top-actions > button.primary{padding:0 10px;}
+  .top-actions #guide-mode.guide-pick{height:32px;min-width:112px;padding:0 24px 0 8px;font-size:11.5px;}
+}
+
+/* 满排版：12 个控件占满一行，字尽量大 */
+.top-actions{
+  gap:4px;
+  letter-spacing:-.2px;
+  flex-wrap:nowrap;
+  overflow:hidden;
+}
+.top-actions > button,
+.top-actions > .llm-pick,
+.top-actions > select{
+  flex:1 1 auto;
+  min-width:0;
+  height:34px;
+  min-height:34px;
+  padding:0 6px;
+  border-radius:16px;
+  font-size:12px;
+  gap:4px;
+}
+.top-actions > button.primary{padding:0 8px;font-weight:600;}
+.top-actions .tb-sep{display:none;}
+.top-actions #guide-mode.guide-pick{height:34px;min-width:96px;padding:0 18px 0 6px;font-size:12px;}
+.top-actions > .llm-pick > .llm-pick-btn{width:100%;padding:0 6px;font-size:12px;}

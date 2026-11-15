@@ -8,6 +8,7 @@
 import json
 import os
 import sqlite3
+import sys
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -19,11 +20,33 @@ CREATE TABLE IF NOT EXISTS registry (id INTEGER PRIMARY KEY AUTOINCREMENT, ts RE
 CREATE TABLE IF NOT EXISTS templates (name TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS cards (name TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS jobs_history (id TEXT PRIMARY KEY, ts REAL, kind TEXT, status TEXT, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS coop_runs (id TEXT PRIMARY KEY, ts REAL, mode TEXT, status TEXT, out_dir TEXT, final_image TEXT, data TEXT NOT NULL);
 """
 
 _LOCK = threading.RLock()
 _INITED = False
 _PATHS = {}
+_WARN_HOOK = None
+
+
+def set_warn_hook(fn):
+    """注册异常告警回调（由 station/svc_obs 注入，避免循环依赖）。"""
+    global _WARN_HOOK
+    _WARN_HOOK = fn
+
+
+def _notify_warn(where, exc, detail=""):
+    if _WARN_HOOK is not None:
+        try:
+            _WARN_HOOK(where, exc, detail)
+            return
+        except Exception:
+            pass
+    try:
+        sys.stderr.write(f"[store:{where}] {exc} {detail}\n")
+    except Exception:
+        pass
 
 
 def set_db(path):
@@ -64,10 +87,13 @@ def _conn():
 
 
 def _json(path, default):
+    if not path or not os.path.isfile(path):
+        return default
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except Exception as e:
+        _notify_warn("store_json", e, path)
         return default
 
 
@@ -126,7 +152,8 @@ def load_recipes():
     for path, data in rows:
         try:
             out[path] = json.loads(data)
-        except Exception:
+        except Exception as e:
+            _notify_warn("load_recipes_row", e, path)
             continue
     return out
 
@@ -153,6 +180,21 @@ def upsert_recipe(path, obj):
         con.close()
 
 
+def trim_recipes(max_count=400):
+    """按 ts 保留最新的 max_count 条配方，删掉超出的旧记录并返回被删条数。"""
+    con = _conn()
+    try:
+        cur = con.execute(
+            "DELETE FROM recipes WHERE path IN ("
+            "SELECT path FROM recipes ORDER BY ts DESC, path DESC LIMIT -1 OFFSET ?)",
+            (int(max_count),),
+        )
+        con.commit()
+        return cur.rowcount or 0
+    finally:
+        con.close()
+
+
 def get_recipe(path):
     con = _conn()
     try:
@@ -173,8 +215,8 @@ def load_registry():
     for (data,) in rows:
         try:
             out.append(json.loads(data))
-        except Exception:
-            pass
+        except Exception as e:
+            _notify_warn("load_registry_row", e)
     return out
 
 
@@ -193,15 +235,15 @@ def append_registry(obj, ts=None):
 def load_templates():
     con = _conn()
     try:
-        rows = con.execute("SELECT data FROM templates ORDER BY rowid").fetchall()
+        rows = con.execute("SELECT name, data FROM templates ORDER BY rowid").fetchall()
     finally:
         con.close()
     out = []
-    for (data,) in rows:
+    for name, data in rows:
         try:
             out.append(json.loads(data))
-        except Exception:
-            pass
+        except Exception as e:
+            _notify_warn("load_templates_row", e, name)
     return out
 
 
@@ -221,15 +263,15 @@ def save_templates(items):
 def load_cards():
     con = _conn()
     try:
-        rows = con.execute("SELECT data FROM cards ORDER BY rowid").fetchall()
+        rows = con.execute("SELECT name, data FROM cards ORDER BY rowid").fetchall()
     finally:
         con.close()
     out = []
-    for (data,) in rows:
+    for name, data in rows:
         try:
             out.append(json.loads(data))
-        except Exception:
-            pass
+        except Exception as e:
+            _notify_warn("load_cards_row", e, name)
     return out
 
 
@@ -243,3 +285,133 @@ def save_cards(items):
         con.commit()
     finally:
         con.close()
+
+
+# ---------- jobs_history & coop_runs ----------
+def upsert_job(job_dict):
+    if not isinstance(job_dict, dict) or not job_dict.get("id"):
+        return
+    con = _conn()
+    try:
+        con.execute(
+            "INSERT OR REPLACE INTO jobs_history(id, ts, kind, status, data) VALUES(?,?,?,?,?)",
+            (str(job_dict["id"]), _num(job_dict.get("started") or job_dict.get("ts")),
+             str(job_dict.get("kind") or ""), str(job_dict.get("status") or ""),
+             json.dumps(job_dict, ensure_ascii=False)),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def trim_jobs(max_count=120):
+    con = _conn()
+    try:
+        cur = con.execute(
+            "DELETE FROM jobs_history WHERE id IN ("
+            "SELECT id FROM jobs_history ORDER BY ts DESC, id DESC LIMIT -1 OFFSET ?)",
+            (int(max_count),),
+        )
+        con.commit()
+        return cur.rowcount or 0
+    finally:
+        con.close()
+
+
+def load_jobs(limit=120):
+    con = _conn()
+    try:
+        rows = con.execute(
+            "SELECT id, data FROM jobs_history ORDER BY ts DESC, id DESC LIMIT ?", (int(limit),)
+        ).fetchall()
+    finally:
+        con.close()
+    out = []
+    for jid, data in rows:
+        try:
+            out.append(json.loads(data))
+        except Exception as e:
+            _notify_warn("load_jobs_row", e, jid)
+    return out
+
+
+def upsert_coop_run(run_dict):
+    if not isinstance(run_dict, dict) or not run_dict.get("id"):
+        return
+    con = _conn()
+    try:
+        con.execute(
+            "INSERT OR REPLACE INTO coop_runs(id, ts, mode, status, out_dir, final_image, data) VALUES(?,?,?,?,?,?,?)",
+            (str(run_dict["id"]), _num(run_dict.get("started") or run_dict.get("ts")),
+             str(run_dict.get("mode") or ""), str(run_dict.get("status") or ""),
+             str(run_dict.get("dir") or ""), str(run_dict.get("image") or ""),
+             json.dumps(run_dict, ensure_ascii=False)),
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def trim_coop_runs(max_count=60):
+    con = _conn()
+    try:
+        cur = con.execute(
+            "DELETE FROM coop_runs WHERE id IN ("
+            "SELECT id FROM coop_runs ORDER BY ts DESC, id DESC LIMIT -1 OFFSET ?)",
+            (int(max_count),),
+        )
+        con.commit()
+        return cur.rowcount or 0
+    finally:
+        con.close()
+
+
+def load_coop_runs(limit=40):
+    con = _conn()
+    try:
+        rows = con.execute(
+            "SELECT id, data FROM coop_runs ORDER BY ts DESC, id DESC LIMIT ?", (int(limit),)
+        ).fetchall()
+    finally:
+        con.close()
+    out = []
+    for rid, data in rows:
+        try:
+            out.append(json.loads(data))
+        except Exception as e:
+            _notify_warn("load_coop_runs_row", e, rid)
+    return out
+
+
+def table_counts():
+    con = _conn()
+    try:
+        out = {}
+        for tbl in ("recipes", "registry", "templates", "cards", "jobs_history", "coop_runs"):
+            out[tbl] = int(con.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0])
+        return out
+    finally:
+        con.close()
+
+
+def export_snapshots(recipes_json="", templates_json="", cards_json=""):
+    """显式把 SQLite 最新数据导出到 JSON 快照，消除遗留 JSON 与数据库的计数漂移。"""
+    written = {}
+    targets = [
+        ("recipes", recipes_json, load_recipes),
+        ("templates", templates_json, load_templates),
+        ("cards", cards_json, load_cards),
+    ]
+    for name, path, loader in targets:
+        if not path:
+            continue
+        data = loader()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=(2 if name != "recipes" else None))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+        written[name] = len(data)
+    return written

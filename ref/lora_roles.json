@@ -1,0 +1,11 @@
+{
+ "note": "环境画师（场景向）判定；其余为人物画师。patterns 兜底，names 为显式清单。",
+ "patterns": [
+  "bg_detailer",
+  "impasto",
+  "painterly",
+  "background",
+  "environment"
+ ],
+ "names": []
+}

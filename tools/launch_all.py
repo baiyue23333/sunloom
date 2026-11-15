@@ -4,7 +4,7 @@
 """
 import os, socket, subprocess, sys, time, webbrowser
 
-ROOT = r"A:/workflow/dsh"
+ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = r"C:/Users/A2870/AppData/Local/Programs/Python/Python310/python.exe"
 PYW = r"C:/Users/A2870/AppData/Local/Programs/Python/Python310/pythonw.exe"
 COMFY_PY = os.path.join(ROOT, "comfy", "venv", "Scripts", "python.exe")

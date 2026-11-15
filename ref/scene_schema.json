@@ -1,0 +1,3534 @@
+{
+ "greenhouse": {
+  "auto": true,
+  "source_token": "@SET_GREENHOUSE",
+  "locked": [
+   {
+    "item": "inside a tall glass greenhouse",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "white iron frame ribs arching overhead",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "overhead"
+   },
+   {
+    "item": "rows of potted ferns and monstera along a gravel path",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": "along a gravel path"
+   },
+   {
+    "item": "condensation droplets on the glass behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "behind her"
+   },
+   {
+    "item": "low stone planter boxes at her waist level",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "at her waist"
+   },
+   {
+    "item": "pale daylight filtered green through the canopy",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a tall glass greenhouse",
+   "rows of potted ferns and monstera along a gravel path",
+   "pale daylight filtered green through the canopy"
+  ]
+ },
+ "bookstore": {
+  "auto": true,
+  "source_token": "@SET_BOOKSTORE",
+  "locked": [
+   {
+    "item": "inside a narrow second-hand bookstore",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "floor-to-ceiling wooden shelves packed with mismatched spines",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "stacks of books and a rolling ladder beside her",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": "beside her"
+   },
+   {
+    "item": "a brass reading lamp on a small desk",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on a small desk"
+   },
+   {
+    "item": "dust motes drifting in the light from the front window",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the light from the front"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a narrow second-hand bookstore",
+   "floor-to-ceiling wooden shelves packed with mismatched spine",
+   "stacks of books and a rolling ladder beside her"
+  ]
+ },
+ "piano": {
+  "auto": true,
+  "source_token": "@SET_PIANO",
+  "locked": [
+   {
+    "item": "a black grand piano with its lid propped open beside her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "beside her"
+   },
+   {
+    "item": "music sheets scattered on the stand",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "on the stand"
+   },
+   {
+    "item": "a high-ceilinged recital room with parquet floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "tall curtained windows behind the piano",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": "behind the piano"
+   },
+   {
+    "item": "reflection of the keys on the polished lid",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on the polished lid"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a high-ceilinged recital room with parquet floor",
+   "tall curtained windows behind the piano"
+  ]
+ },
+ "tram": {
+  "auto": true,
+  "source_token": "@SET_TRAM",
+  "locked": [
+   {
+    "item": "inside a vintage tram car",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "rows of worn wooden bench seats",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "brass hand straps hanging from a curved rail",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "large windows showing a passing street",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "warm afternoon light across the aisle floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a vintage tram car",
+   "rows of worn wooden bench seats",
+   "brass hand straps hanging from a curved rail",
+   "large windows showing a passing street",
+   "warm afternoon light across the aisle floor"
+  ]
+ },
+ "rooftop": {
+  "auto": true,
+  "source_token": "@SET_ROOFTOP",
+  "locked": [
+   {
+    "item": "on a rooftop water tower platform at dusk",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "on a rooftop water towe"
+   },
+   {
+    "item": "city skyline and distant towers behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "behind her"
+   },
+   {
+    "item": "gravel roof with vents and pipes in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in the foreground"
+   },
+   {
+    "item": "faded billboard frame at the edge",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "at the edge"
+   },
+   {
+    "item": "wind lifting her hair and skirt",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   },
+   {
+    "item": "deep blue sky fading to amber at the horizon",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "at the horizon"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "wind lifting her hair and skirt"
+  ]
+ },
+ "laundry": {
+  "auto": true,
+  "source_token": "@SET_LAUNDRY",
+  "locked": [
+   {
+    "item": "inside a small 24-hour laundromat",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "rows of front-loading washing machines along the wall",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": "along the wall"
+   },
+   {
+    "item": "plastic baskets and a folding table beside her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "beside her"
+   },
+   {
+    "item": "fluorescent tubes reflecting on wet tiled floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on wet tiled floor"
+   },
+   {
+    "item": "a vending machine glowing at the far end",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "at the far end"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a small 24-hour laundromat",
+   "rows of front-loading washing machines along the wall"
+  ]
+ },
+ "corridor": {
+  "auto": true,
+  "source_token": "@SET_CORRIDOR",
+  "locked": [
+   {
+    "item": "long school corridor with a polished floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "a row of classroom doors receding into perspective",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "windows along one side casting striped light",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": "along one side casting str"
+   },
+   {
+    "item": "lockers and a notice board on the opposite wall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the opposite wall"
+   },
+   {
+    "item": "light spilling from one half-open doorway",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "long school corridor with a polished floor",
+   "a row of classroom doors receding into perspective",
+   "windows along one side casting striped light",
+   "light spilling from one half-open doorway"
+  ]
+ },
+ "station": {
+  "auto": true,
+  "source_token": "@SET_STATION",
+  "locked": [
+   {
+    "item": "outdoor train station platform",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "a commuter train stopped beside the platform",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "beside the platform"
+   },
+   {
+    "item": "yellow tactile paving strip running along the edge",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "along the edge"
+   },
+   {
+    "item": "overhead steel canopy and hanging signs",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "overhead"
+   },
+   {
+    "item": "tracks and gravel visible below the platform",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "below the platform"
+   },
+   {
+    "item": "late afternoon sun raking across the platform",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "outdoor train station platform",
+   "late afternoon sun raking across the platform"
+  ]
+ },
+ "artroom": {
+  "auto": true,
+  "source_token": "@SET_ARTROOM",
+  "locked": [
+   {
+    "item": "inside a cluttered art studio",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "a large easel with a half-finished canvas in front of her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "in front of her"
+   },
+   {
+    "item": "jars of brushes and squeezed paint tubes on a workbench",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "on a workbench"
+   },
+   {
+    "item": "stacked canvases leaning against the wall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "north-facing window giving even daylight",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a cluttered art studio",
+   "stacked canvases leaning against the wall",
+   "north-facing window giving even daylight"
+  ]
+ },
+ "kitchen": {
+  "auto": true,
+  "source_token": "@SET_KITCHEN",
+  "locked": [
+   {
+    "item": "inside a compact home kitchen",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "wooden counter and a farmhouse sink beside her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "beside her"
+   },
+   {
+    "item": "upper cabinets and a hanging rack of utensils",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "a kettle and cutting board on the counter",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the counter"
+   },
+   {
+    "item": "morning light through a small window",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a compact home kitchen",
+   "upper cabinets and a hanging rack of utensils",
+   "morning light through a small window"
+  ]
+ },
+ "balcony": {
+  "auto": true,
+  "source_token": "@SET_BALCONY",
+  "locked": [
+   {
+    "item": "small apartment balcony at night",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "at night"
+   },
+   {
+    "item": "metal railing in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the foreground"
+   },
+   {
+    "item": "potted plants and a folding laundry rack",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "city lights and lit windows in the background",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": "in the background"
+   },
+   {
+    "item": "a plastic chair and an ashtray on the tiles",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.1,
+    "where": "on the tiles"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "potted plants and a folding laundry rack",
+   "city lights and lit windows in the background"
+  ]
+ },
+ "flower_shop": {
+  "auto": true,
+  "source_token": "@SET_FLOWER_SHOP",
+  "locked": [
+   {
+    "item": "inside a small flower shop",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "metal buckets of seasonal blooms and eucalyptus on the floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "on the floor"
+   },
+   {
+    "item": "wooden crates and a work counter behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "behind her"
+   },
+   {
+    "item": "warm shop lamp glowing above the counter",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "above the counter"
+   },
+   {
+    "item": "cut stems and scattered petals on the tiles",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on the tiles"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a small flower shop"
+  ]
+ },
+ "library": {
+  "auto": false,
+  "source_token": "@SET_LIBRARY",
+  "locked": [
+   {
+    "item": "inside a quiet old library",
+    "count": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "a bookcase wall with floor-to-ceiling wooden shelves",
+    "count": 1,
+    "weight": 1.3,
+    "where": "along the back wall"
+   },
+   {
+    "item": "a long wooden reading table",
+    "count": 1,
+    "weight": 1.3,
+    "where": "parallel to the bookcase, one aisle-width away"
+   },
+   {
+    "item": "wooden chairs",
+    "count": 2,
+    "weight": 1.25,
+    "where": "tucked under the reading table"
+   },
+   {
+    "item": "a brass desk lamp",
+    "count": 1,
+    "weight": 1.25,
+    "where": "on the reading table"
+   },
+   {
+    "item": "a rolling library ladder",
+    "count": 1,
+    "weight": 1.3,
+    "where": "leaning against the bookcase, both feet on the floor"
+   }
+  ],
+  "circulation": "an open walkable aisle between the table and the bookcase",
+  "free": [
+   "light quality",
+   "weather and time",
+   "colour palette",
+   "one small prop of the model's choice"
+  ],
+  "forbidden": [
+   "table pushed against the shelves",
+   "table without chairs",
+   "two identical desk lamps",
+   "floating objects",
+   "books outside the shelves"
+  ],
+  "needs_review": []
+ },
+ "cafe": {
+  "auto": true,
+  "source_token": "@SET_CAFE",
+  "locked": [
+   {
+    "item": "inside a cozy corner cafe",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "round wooden tables and bentwood chairs around her",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": "around her"
+   },
+   {
+    "item": "pendant lamps hanging low over the counter",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a chalkboard menu and pastry case behind",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "latte and a book on the table in front of her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in front of her"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a cozy corner cafe",
+   "round wooden tables and bentwood chairs around her",
+   "pendant lamps hanging low over the counter",
+   "a chalkboard menu and pastry case behind"
+  ]
+ },
+ "beach": {
+  "auto": true,
+  "source_token": "@SET_BEACH",
+  "locked": [
+   {
+    "item": "on a wide sandy beach",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "on a wide sandy beach"
+   },
+   {
+    "item": "shallow waves and wet sand reflecting the sky",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "distant headland and a line of gulls",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "scattered shells and driftwood in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the foreground"
+   },
+   {
+    "item": "bright overcast light with a low sun",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "shallow waves and wet sand reflecting the sky",
+   "distant headland and a line of gulls",
+   "bright overcast light with a low sun"
+  ]
+ },
+ "classroom": {
+  "auto": true,
+  "source_token": "@SET_CLASSROOM",
+  "locked": [
+   {
+    "item": "inside a classroom",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "rows of wooden desks and chairs",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "green chalkboard on the back wall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the back wall"
+   },
+   {
+    "item": "windows along one wall",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": "along one wall"
+   },
+   {
+    "item": "papers and a chair in the midground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.1,
+    "where": "in the midground"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a classroom",
+   "rows of wooden desks and chairs",
+   "windows along one wall"
+  ]
+ },
+ "shrine": {
+  "auto": true,
+  "source_token": "@SET_SHRINE",
+  "locked": [
+   {
+    "item": "at a quiet shinto shrine",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "at a quiet shinto shrin"
+   },
+   {
+    "item": "vermilion torii gate behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "behind her"
+   },
+   {
+    "item": "stone steps flanked by mossy lanterns",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "sacred rope and paper streamers across the gate",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "cedar trees rising behind the shrine",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "behind the shrine"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "stone steps flanked by mossy lanterns",
+   "sacred rope and paper streamers across the gate"
+  ]
+ },
+ "forest": {
+  "auto": true,
+  "source_token": "@SET_FOREST",
+  "locked": [
+   {
+    "item": "deep in an old-growth forest",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "in an old"
+   },
+   {
+    "item": "tall trunks and exposed roots around her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "around her"
+   },
+   {
+    "item": "shafts of light cutting through the canopy",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "moss and ferns covering the ground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a fallen log and scattered leaves in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in the foreground"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "shafts of light cutting through the canopy",
+   "moss and ferns covering the ground"
+  ]
+ },
+ "snowfield": {
+  "auto": true,
+  "source_token": "@SET_SNOWFIELD",
+  "locked": [
+   {
+    "item": "in a vast open snowfield",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "in a vast open snowfiel"
+   },
+   {
+    "item": "wind-carved drifts and bare trees in the distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the distance"
+   },
+   {
+    "item": "a low fence half-buried in snow",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in snow"
+   },
+   {
+    "item": "cold blue shadow on the snow surface",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "on the snow surface"
+   },
+   {
+    "item": "pale winter sun low on the horizon",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the horizon"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": []
+ },
+ "ruins": {
+  "auto": true,
+  "source_token": "@SET_RUINS",
+  "locked": [
+   {
+    "item": "inside the ruins of a stone building",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "broken walls and collapsed beams around her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "around her"
+   },
+   {
+    "item": "vines and weeds pushing through the cracks",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "daylight falling through the open roof",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "rubble and dust on the floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on the floor"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside the ruins of a stone building",
+   "vines and weeds pushing through the cracks",
+   "daylight falling through the open roof"
+  ]
+ },
+ "bedroom": {
+  "auto": true,
+  "source_token": "@SET_BEDROOM",
+  "locked": [
+   {
+    "item": "in a small lived-in bedroom",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "in a small lived"
+   },
+   {
+    "item": "unmade bed with wrinkled sheets behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "behind her"
+   },
+   {
+    "item": "sheer curtains and a wooden desk by the window",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "clothes and a mug on the chair",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on the chair"
+   },
+   {
+    "item": "morning light through the curtains",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "sheer curtains and a wooden desk by the window",
+   "morning light through the curtains"
+  ]
+ },
+ "bathroom": {
+  "auto": true,
+  "source_token": "@SET_BATHROOM",
+  "locked": [
+   {
+    "item": "in a tiled bathroom",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "in a tiled bathroom"
+   },
+   {
+    "item": "frosted glass shower partition behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "behind her"
+   },
+   {
+    "item": "a mirror cabinet and a sink in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the foreground"
+   },
+   {
+    "item": "steam fogging the mirror edges",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "towel and bottles on a shelf",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on a shelf"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "steam fogging the mirror edges"
+  ]
+ },
+ "arcade": {
+  "auto": true,
+  "source_token": "@SET_ARCADE",
+  "locked": [
+   {
+    "item": "inside a game arcade at night",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "at night"
+   },
+   {
+    "item": "rows of arcade cabinets with glowing screens",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a claw machine and change machine beside her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "beside her"
+   },
+   {
+    "item": "neon signs reflecting on the polished floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the polished floor"
+   },
+   {
+    "item": "cables and tokens on the control panel",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.1,
+    "where": "on the control panel"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "rows of arcade cabinets with glowing screens"
+  ]
+ },
+ "market": {
+  "auto": true,
+  "source_token": "@SET_MARKET",
+  "locked": [
+   {
+    "item": "at a night street food market",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "at a night street food "
+   },
+   {
+    "item": "stalls with hanging red lanterns and steam",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "grills and steaming pots in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the foreground"
+   },
+   {
+    "item": "crowd blurred in the background",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in the background"
+   },
+   {
+    "item": "wet pavement reflecting the lantern light",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "stalls with hanging red lanterns and steam",
+   "wet pavement reflecting the lantern light"
+  ]
+ },
+ "desert": {
+  "auto": true,
+  "source_token": "@SET_DESERT",
+  "locked": [
+   {
+    "item": "in an open desert",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "in an open desert"
+   },
+   {
+    "item": "sand dunes stretching to the horizon",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "to the horizon"
+   },
+   {
+    "item": "a weathered wooden post and dry shrubs",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   },
+   {
+    "item": "harsh sun and long shadows across the sand",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "heat haze shimmering near the ground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a weathered wooden post and dry shrubs",
+   "harsh sun and long shadows across the sand",
+   "heat haze shimmering near the ground"
+  ]
+ },
+ "temple": {
+  "auto": true,
+  "source_token": "@SET_TEMPLE",
+  "locked": [
+   {
+    "item": "inside an old wooden temple hall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "red lacquer pillars and a worn stone floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a bronze incense burner with drifting smoke",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "paper screens and hanging banners behind",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "light falling in bars from the entrance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in bars from the entran"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside an old wooden temple hall",
+   "red lacquer pillars and a worn stone floor",
+   "a bronze incense burner with drifting smoke",
+   "paper screens and hanging banners behind"
+  ]
+ },
+ "onsen": {
+  "auto": true,
+  "source_token": "@SET_ONSEN",
+  "locked": [
+   {
+    "item": "at an outdoor hot spring bath",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "at an outdoor hot sprin"
+   },
+   {
+    "item": "steam rising thick from the water surface",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "wooden buckets and a stone edge around the pool",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "around the pool"
+   },
+   {
+    "item": "bamboo fence and rocks behind her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "behind her"
+   },
+   {
+    "item": "lantern light glowing through the steam",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "steam rising thick from the water surface",
+   "lantern light glowing through the steam"
+  ]
+ },
+ "subway": {
+  "auto": true,
+  "source_token": "@SET_SUBWAY",
+  "locked": [
+   {
+    "item": "inside a subway car",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "metal grab poles and overhead hanging straps",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "overhead"
+   },
+   {
+    "item": "rows of seats and a closing door behind",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "fluorescent light on the floor and windows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": "on the floor"
+   },
+   {
+    "item": "a route map panel above the seats",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.1,
+    "where": "above the seats"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a subway car",
+   "rows of seats and a closing door behind",
+   "fluorescent light on the floor and windows"
+  ]
+ },
+ "elevator": {
+  "auto": true,
+  "source_token": "@SET_ELEVATOR",
+  "locked": [
+   {
+    "item": "inside a narrow elevator",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "mirror walls doubling her reflection",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a floor indicator and button panel beside the door",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "beside the door"
+   },
+   {
+    "item": "harsh ceiling light and metal handrail",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "scuffed floor with a faint reflection",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.1,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a narrow elevator",
+   "mirror walls doubling her reflection",
+   "harsh ceiling light and metal handrail",
+   "scuffed floor with a faint reflection"
+  ]
+ },
+ "school_gate": {
+  "auto": true,
+  "source_token": "@SET_SCHOOL_GATE",
+  "locked": [
+   {
+    "item": "at a school gate in the afternoon",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "at a school gate in the"
+   },
+   {
+    "item": "brick wall and a large iron gate beside her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "beside her"
+   },
+   {
+    "item": "a signboard and row of bicycles behind",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "cherry trees along the street",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "along the street"
+   },
+   {
+    "item": "afternoon sunlight and long shadows",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a signboard and row of bicycles behind",
+   "afternoon sunlight and long shadows"
+  ]
+ },
+ "airport": {
+  "auto": true,
+  "source_token": "@SET_AIRPORT",
+  "locked": [
+   {
+    "item": "inside a modern airport terminal",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "floor-to-ceiling windows with airplanes outside",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "rows of waiting seats and luggage carts",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "departure boards glowing overhead",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "overhead"
+   },
+   {
+    "item": "polished floor reflecting the window light",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a modern airport terminal",
+   "floor-to-ceiling windows with airplanes outside",
+   "rows of waiting seats and luggage carts",
+   "polished floor reflecting the window light"
+  ]
+ },
+ "museum": {
+  "auto": true,
+  "source_token": "@SET_MUSEUM",
+  "locked": [
+   {
+    "item": "inside a quiet art museum",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "white walls with framed paintings and spotlights",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a bench and velvet rope in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in the foreground"
+   },
+   {
+    "item": "polished floor with faint reflections",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "high ceiling with skylights",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a quiet art museum",
+   "white walls with framed paintings and spotlights",
+   "polished floor with faint reflections",
+   "high ceiling with skylights"
+  ]
+ },
+ "castle": {
+  "auto": true,
+  "source_token": "@SET_CASTLE",
+  "locked": [
+   {
+    "item": "inside a stone castle hall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "tall arched windows with stained glass",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "hanging banners and iron chandeliers",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a long table with candles in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in the foreground"
+   },
+   {
+    "item": "colored light falling across the flagstones",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a stone castle hall",
+   "tall arched windows with stained glass",
+   "hanging banners and iron chandeliers",
+   "colored light falling across the flagstones"
+  ]
+ },
+ "garden_peony": {
+  "auto": true,
+  "source_token": "@SET_GARDEN_PEONY",
+  "locked": [
+   {
+    "item": "a garden of pink peonies in full bloom",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "in full bloom"
+   },
+   {
+    "item": "dense peony bushes at her waist on both sides",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "at her waist"
+   },
+   {
+    "item": "a stone path and low hedge behind",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "petals scattered on the ground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on the ground"
+   },
+   {
+    "item": "warm afternoon light through the leaves",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a stone path and low hedge behind",
+   "warm afternoon light through the leaves"
+  ]
+ },
+ "jungle_pool": {
+  "auto": true,
+  "source_token": "@SET_JUNGLE_POOL",
+  "locked": [
+   {
+    "item": "a dense tropical rainforest clearing",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "hanging vines and giant ferns crowding both sides",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "thick mist drifting between the trunks",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a still shallow water surface across the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": ""
+   },
+   {
+    "item": "the water mirrors the forest and the pale sky",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "fine rain streaks falling through the canopy",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "a low stone edge along the waterline",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "along the waterline"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a dense tropical rainforest clearing",
+   "hanging vines and giant ferns crowding both sides",
+   "thick mist drifting between the trunks",
+   "a still shallow water surface across the foreground",
+   "the water mirrors the forest and the pale sky",
+   "fine rain streaks falling through the canopy"
+  ]
+ },
+ "city_street": {
+  "auto": true,
+  "source_token": "@SET_CITY_STREET",
+  "locked": [
+   {
+    "item": "a city street in the evening",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "in the evening"
+   },
+   {
+    "item": "crosswalk stripes and lane markings in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the foreground"
+   },
+   {
+    "item": "shop fronts with lit signs along the sidewalk",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "along the sidewalk"
+   },
+   {
+    "item": "parked cars and a bicycle rack at the curb",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "at the curb"
+   },
+   {
+    "item": "pedestrians passing in the midground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the midground"
+   },
+   {
+    "item": "tall buildings framing the street above",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "traffic light glow on the wet asphalt",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the wet asphalt"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "tall buildings framing the street above"
+  ]
+ },
+ "city_block": {
+  "auto": true,
+  "source_token": "@SET_CITY_BLOCK",
+  "locked": [
+   {
+    "item": "a busy city intersection seen from slightly above",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "wide asphalt crossing with lane arrows",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "glass office towers and a shopping mall on both sides",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "on both sides"
+   },
+   {
+    "item": "an elevated train line cutting across the background",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "crowds and taxis crossing the intersection",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "billboards and traffic lights at the corners",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "at the corners"
+   },
+   {
+    "item": "street trees and utility poles along the edges",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "along the edges"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a busy city intersection seen from slightly above",
+   "wide asphalt crossing with lane arrows",
+   "an elevated train line cutting across the background",
+   "crowds and taxis crossing the intersection"
+  ]
+ },
+ "city_skyline": {
+  "auto": true,
+  "source_token": "@SET_CITY_SKYLINE",
+  "locked": [
+   {
+    "item": "a sprawling city skyline at dusk",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.4,
+    "where": "at dusk"
+   },
+   {
+    "item": "a river in the foreground reflecting the towers",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "in the foreground"
+   },
+   {
+    "item": "bridges with light trails spanning the water",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "dense blocks of buildings receding into haze",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "tiny window lights flickering across the towers",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   },
+   {
+    "item": "low clouds catching the last light",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "bridges with light trails spanning the water",
+   "dense blocks of buildings receding into haze",
+   "tiny window lights flickering across the towers",
+   "low clouds catching the last light"
+  ]
+ },
+ "alley": {
+  "auto": true,
+  "source_token": "@SET_ALLEY",
+  "locked": [
+   {
+    "item": "a narrow back alley between buildings",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "dumpsters and stacked crates along one wall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "along one wall"
+   },
+   {
+    "item": "air-conditioning units and pipes overhead",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "overhead"
+   },
+   {
+    "item": "a wet paved floor reflecting the sky",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "laundry lines and fire escapes on both sides",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on both sides"
+   },
+   {
+    "item": "a single doorway light at the far end",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "at the far end"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a narrow back alley between buildings",
+   "a wet paved floor reflecting the sky"
+  ]
+ },
+ "mall": {
+  "auto": true,
+  "source_token": "@SET_MALL",
+  "locked": [
+   {
+    "item": "inside a multi-storey shopping mall atrium",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "glass balconies stacked in tiers around the open space",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "in tiers around the ope"
+   },
+   {
+    "item": "an escalator crossing the frame diagonally",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "storefronts and hanging banners along each level",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "along each level"
+   },
+   {
+    "item": "a skylight pouring daylight down the centre",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a few shoppers scattered in the distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the distance"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a multi-storey shopping mall atrium",
+   "an escalator crossing the frame diagonally",
+   "a skylight pouring daylight down the centre"
+  ]
+ },
+ "schoolyard": {
+  "auto": true,
+  "source_token": "@SET_SCHOOLYARD",
+  "locked": [
+   {
+    "item": "a wide school sports ground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "a red running track curving around the field",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "around the field"
+   },
+   {
+    "item": "tall chain-link fence and floodlight poles",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "the school building with rows of windows behind",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "goalposts and a equipment shed at the far side",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "at the far side"
+   },
+   {
+    "item": "afternoon light casting long shadows on the track",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the track"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a wide school sports ground",
+   "tall chain-link fence and floodlight poles",
+   "the school building with rows of windows behind"
+  ]
+ },
+ "harbor": {
+  "auto": true,
+  "source_token": "@SET_HARBOR",
+  "locked": [
+   {
+    "item": "a working harbour dock",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "stacked shipping containers in rows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": "in rows"
+   },
+   {
+    "item": "a gantry crane towering above the quay",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "above the quay"
+   },
+   {
+    "item": "moored cargo ships and thick ropes",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "wet concrete with puddles and oil stains",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   },
+   {
+    "item": "crates and pallets in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in the foreground"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a working harbour dock",
+   "stacked shipping containers in rows",
+   "moored cargo ships and thick ropes",
+   "wet concrete with puddles and oil stains"
+  ]
+ },
+ "aquarium": {
+  "auto": true,
+  "source_token": "@SET_AQUARIUM",
+  "locked": [
+   {
+    "item": "inside a glass aquarium tunnel",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "a curved acrylic ceiling full of water above her",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "above her"
+   },
+   {
+    "item": "schools of fish and a large ray passing overhead",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "overhead"
+   },
+   {
+    "item": "blue caustic light rippling on the floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "on the floor"
+   },
+   {
+    "item": "handrails and visitor benches along the walkway",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "along the walkway"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a glass aquarium tunnel"
+  ]
+ },
+ "theater": {
+  "auto": true,
+  "source_token": "@SET_THEATER",
+  "locked": [
+   {
+    "item": "inside a grand theatre auditorium",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "rows of red velvet seats receding toward the stage",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a heavy red curtain and gilded balconies",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "warm stage lights washing the stage and the first rows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "aisle lights glowing along the carpet",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "along the carpet"
+   },
+   {
+    "item": "a few playbills and a programme on the armrest",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.1,
+    "where": "on the armrest"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a grand theatre auditorium",
+   "rows of red velvet seats receding toward the stage",
+   "a heavy red curtain and gilded balconies",
+   "warm stage lights washing the stage and the first rows"
+  ]
+ },
+ "parking": {
+  "auto": true,
+  "source_token": "@SET_PARKING",
+  "locked": [
+   {
+    "item": "inside an underground parking garage",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "concrete pillars and painted parking bays",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "rows of parked cars fading into the dark",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "overhead fluorescent tubes with one flickering",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "overhead"
+   },
+   {
+    "item": "yellow-and-black hazard stripes on a low beam",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "on a low beam"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside an underground parking garage",
+   "concrete pillars and painted parking bays",
+   "rows of parked cars fading into the dark"
+  ]
+ },
+ "festival": {
+  "auto": true,
+  "source_token": "@SET_FESTIVAL",
+  "locked": [
+   {
+    "item": "a street festival at night",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "at night"
+   },
+   {
+    "item": "rows of wooden stalls with paper lanterns overhead",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": "overhead"
+   },
+   {
+    "item": "steam and smoke rising from food grills",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "crowds in yukata walking between stalls",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "in yukata walking betwe"
+   },
+   {
+    "item": "strings of lights crossing the street",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "rows of wooden stalls with paper lanterns overhead",
+   "steam and smoke rising from food grills",
+   "strings of lights crossing the street"
+  ]
+ },
+ "bridge": {
+  "auto": true,
+  "source_token": "@SET_BRIDGE",
+  "locked": [
+   {
+    "item": "on a long steel suspension bridge",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "on a long steel suspens"
+   },
+   {
+    "item": "tall pylons and cables receding into the distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "receding into the distance"
+   },
+   {
+    "item": "a wide river with boats far below",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "guard rails and lamp posts along the walkway",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "along the walkway"
+   },
+   {
+    "item": "distant city towers on the far bank",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "on the far bank"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a wide river with boats far below"
+  ]
+ },
+ "rooftop_garden": {
+  "auto": true,
+  "source_token": "@SET_ROOFTOP_GARDEN",
+  "locked": [
+   {
+    "item": "a rooftop garden above the city",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "above the city"
+   },
+   {
+    "item": "planter boxes with shrubs and small trees",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a wooden deck with benches and a pergola",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "glass railing overlooking the skyline",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "string lights strung between posts",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "planter boxes with shrubs and small trees",
+   "a wooden deck with benches and a pergola",
+   "glass railing overlooking the skyline",
+   "string lights strung between posts"
+  ]
+ },
+ "gym": {
+  "auto": true,
+  "source_token": "@SET_GYM",
+  "locked": [
+   {
+    "item": "inside a school gymnasium",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "polished wooden floor with painted court lines",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a basketball hoop and backboard on one side",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "on one side"
+   },
+   {
+    "item": "stacked folded mats and a equipment rack along the wall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "along the wall"
+   },
+   {
+    "item": "high clerestory windows letting in daylight",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": "in daylight"
+   },
+   {
+    "item": "a stage curtain at the far end",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "at the far end"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a school gymnasium",
+   "polished wooden floor with painted court lines",
+   "high clerestory windows letting in daylight"
+  ]
+ },
+ "cafeteria": {
+  "auto": true,
+  "source_token": "@SET_CAFETERIA",
+  "locked": [
+   {
+    "item": "inside a large school cafeteria",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "long tables with benches in rows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": "in rows"
+   },
+   {
+    "item": "a serving counter with trays and menu boards",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "steam rising from the food warmers",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "tall windows along one wall",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": "along one wall"
+   },
+   {
+    "item": "a few students queuing in the distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the distance"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a large school cafeteria",
+   "long tables with benches in rows",
+   "a serving counter with trays and menu boards",
+   "steam rising from the food warmers",
+   "tall windows along one wall"
+  ]
+ },
+ "library_hall": {
+  "auto": true,
+  "source_token": "@SET_LIBRARY_HALL",
+  "locked": [
+   {
+    "item": "inside a grand library reading hall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "soaring bookshelves along both walls",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": "along both walls"
+   },
+   {
+    "item": "long reading tables with green banker lamps",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a gallery balcony circling the hall",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "shafts of light from tall arched windows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a globe and card catalogue in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the foreground"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a grand library reading hall",
+   "long reading tables with green banker lamps",
+   "a gallery balcony circling the hall",
+   "shafts of light from tall arched windows"
+  ]
+ },
+ "office": {
+  "auto": true,
+  "source_token": "@SET_OFFICE",
+  "locked": [
+   {
+    "item": "inside an open-plan office floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "rows of desks with monitors and partition screens",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "glass meeting rooms along one side",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "along one side"
+   },
+   {
+    "item": "city towers visible through the floor-to-ceiling windows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "cable trays and ceiling lights overhead",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "overhead"
+   },
+   {
+    "item": "a coffee machine and printer corner",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside an open-plan office floor",
+   "rows of desks with monitors and partition screens",
+   "city towers visible through the floor-to-ceiling windows",
+   "a coffee machine and printer corner"
+  ]
+ },
+ "hotel_lobby": {
+  "auto": true,
+  "source_token": "@SET_HOTEL_LOBBY",
+  "locked": [
+   {
+    "item": "inside a luxury hotel lobby",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "marble floor with a patterned inlay",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a tall reception desk with brass details",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "chandeliers hanging above the seating area",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "above the seating area"
+   },
+   {
+    "item": "velvet armchairs and a luggage trolley",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "revolving doors and glass façade behind",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a luxury hotel lobby",
+   "marble floor with a patterned inlay",
+   "a tall reception desk with brass details",
+   "velvet armchairs and a luggage trolley",
+   "revolving doors and glass façade behind"
+  ]
+ },
+ "station_hall": {
+  "auto": true,
+  "source_token": "@SET_STATION_HALL",
+  "locked": [
+   {
+    "item": "inside a large train station concourse",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "a high arched roof with steel trusses",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a departure board and ticket gates in the distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the distance"
+   },
+   {
+    "item": "rows of waiting benches and vending machines",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "travelers with luggage moving across the floor",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "light falling through the roof glazing",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": ""
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a large train station concourse",
+   "a high arched roof with steel trusses",
+   "rows of waiting benches and vending machines",
+   "travelers with luggage moving across the floor",
+   "light falling through the roof glazing"
+  ]
+ },
+ "stadium": {
+  "auto": true,
+  "source_token": "@SET_STADIUM",
+  "locked": [
+   {
+    "item": "inside a floodlit sports stadium",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": ""
+   },
+   {
+    "item": "tiered stands packed with a distant crowd",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a green pitch with white line markings",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "floodlight pylons towering above the rim",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "above the rim"
+   },
+   {
+    "item": "a running track around the field",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "around the field"
+   },
+   {
+    "item": "empty seats in the foreground rows",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.15,
+    "where": "in the foreground"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "inside a floodlit sports stadium",
+   "tiered stands packed with a distant crowd",
+   "a green pitch with white line markings",
+   "empty seats in the foreground rows"
+  ]
+ },
+ "park": {
+  "auto": true,
+  "source_token": "@SET_PARK",
+  "locked": [
+   {
+    "item": "a city park in the afternoon",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "in the afternoon"
+   },
+   {
+    "item": "a paved path curving between lawns",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "benches and lamp posts along the path",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "along the path"
+   },
+   {
+    "item": "a pond with ducks in the middle distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the middle distance"
+   },
+   {
+    "item": "tall trees framing the sky",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": ""
+   },
+   {
+    "item": "a fountain with shallow water in the foreground",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the foreground"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a paved path curving between lawns",
+   "tall trees framing the sky"
+  ]
+ },
+ "riverbank": {
+  "auto": true,
+  "source_token": "@SET_RIVERBANK",
+  "locked": [
+   {
+    "item": "along a city river embankment",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "along a city river embankm"
+   },
+   {
+    "item": "a railing and stone steps down to the water",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "the river reflecting the opposite bank",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a bridge crossing in the distance",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "in the distance"
+   },
+   {
+    "item": "grass and low shrubs along the promenade",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "along the promenade"
+   },
+   {
+    "item": "lamp posts spaced along the walkway",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.2,
+    "where": "along the walkway"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a railing and stone steps down to the water",
+   "the river reflecting the opposite bank"
+  ]
+ },
+ "construction": {
+  "auto": true,
+  "source_token": "@SET_CONSTRUCTION",
+  "locked": [
+   {
+    "item": "on a construction site",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.35,
+    "where": "on a construction site"
+   },
+   {
+    "item": "a half-finished concrete frame with scaffolding",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.3,
+    "where": ""
+   },
+   {
+    "item": "a tower crane overhead",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.25,
+    "where": "overhead"
+   },
+   {
+    "item": "stacks of rebar and pallets of bricks",
+    "count": 1,
+    "count_hint": 2,
+    "weight": 1.2,
+    "where": ""
+   },
+   {
+    "item": "safety fencing and warning tape",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": ""
+   },
+   {
+    "item": "dust hanging in the air",
+    "count": 1,
+    "count_hint": 1,
+    "weight": 1.15,
+    "where": "in the air"
+   }
+  ],
+  "free": [
+   "light quality",
+   "weather and time",
+   "color palette",
+   "one small prop of the model's choice"
+  ],
+  "circulation": "",
+  "forbidden": [
+   "floating objects",
+   "objects clipping through walls",
+   "empty foreground blocking the aisle"
+  ],
+  "needs_review": [
+   "a half-finished concrete frame with scaffolding",
+   "stacks of rebar and pallets of bricks",
+   "safety fencing and warning tape"
+  ]
+ }
+}

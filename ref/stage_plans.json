@@ -1,0 +1,426 @@
+{
+ "bedaabd4848e5b66": {
+  "stage": {
+   "horizon_y": 0.42,
+   "vanishing_x": 0.52,
+   "ground": [
+    [
+     0.1,
+     0.92
+    ],
+    [
+     0.5,
+     0.86
+    ],
+    [
+     0.9,
+     0.93
+    ]
+   ],
+   "lights": [
+    {
+     "dir": "left",
+     "color": "warm",
+     "strength": 0.9
+    }
+   ],
+   "objects": [],
+   "person_slots": [
+    {
+     "x": 0.35,
+     "ground_y": 0.9,
+     "scale": 0.42
+    }
+   ],
+   "key_light": "left",
+   "foreground": false,
+   "person_box": {
+    "x": 0.35,
+    "head_y": 0.48,
+    "feet_y": 0.9,
+    "shoulder_w": 0.1
+   },
+   "occluders": [
+    {
+     "name": "planter",
+     "depth": "fg",
+     "polygon": [
+      [
+       0.05,
+       0.8
+      ],
+      [
+       0.2,
+       0.8
+      ],
+      [
+       0.2,
+       0.98
+      ],
+      [
+       0.05,
+       0.98
+      ]
+     ]
+    },
+    {
+     "name": "plant",
+     "depth": "fg",
+     "polygon": [
+      [
+       0.75,
+       0.75
+      ],
+      [
+       0.95,
+       0.75
+      ],
+      [
+       0.95,
+       0.95
+      ],
+      [
+       0.75,
+       0.95
+      ]
+     ]
+    }
+   ],
+   "palette": {
+    "light": "#ffc070",
+    "shadow": "#3a3a52",
+    "ground": "#6a5548"
+   },
+   "style": "warm gaslight, wet stone",
+   "wet_ground": true,
+   "atmosphere": "rain haze",
+   "shot": "mid",
+   "priority": "balanced",
+   "details": [
+    "wet cobblestone joints",
+    "warm window reflections",
+    "distant tram wires"
+   ],
+   "char_details": [
+    "cream blouse ruffles",
+    "dark pleated skirt",
+    "seasonal blooms hairpin"
+   ],
+   "interaction": {
+    "surface": "wet stone",
+    "wet": true,
+    "wind": "none",
+    "held": ""
+   },
+   "by": "qwen2.5-vl-7b"
+  },
+  "by": "qwen2.5-vl-7b"
+ },
+ "81aeea0413df1102": {
+  "stage": {
+   "horizon_y": 0.42,
+   "vanishing_x": 0.52,
+   "ground": [
+    [
+     0.1,
+     0.92
+    ],
+    [
+     0.5,
+     0.86
+    ],
+    [
+     0.9,
+     0.93
+    ]
+   ],
+   "lights": [
+    {
+     "dir": "left",
+     "color": "warm",
+     "strength": 0.9
+    }
+   ],
+   "objects": [],
+   "person_slots": [
+    {
+     "x": 0.35,
+     "ground_y": 0.9,
+     "scale": 0.42
+    }
+   ],
+   "key_light": "left",
+   "foreground": false,
+   "person_box": {
+    "x": 0.35,
+    "head_y": 0.48,
+    "feet_y": 0.9,
+    "shoulder_w": 0.1
+   },
+   "occluders": [
+    {
+     "name": "planter",
+     "depth": "fg",
+     "polygon": [
+      [
+       0.05,
+       0.8
+      ],
+      [
+       0.2,
+       0.8
+      ],
+      [
+       0.2,
+       0.98
+      ],
+      [
+       0.05,
+       0.98
+      ]
+     ]
+    },
+    {
+     "name": "sign",
+     "depth": "fg",
+     "polygon": [
+      [
+       0.45,
+       0.75
+      ],
+      [
+       0.55,
+       0.75
+      ],
+      [
+       0.55,
+       0.85
+      ],
+      [
+       0.45,
+       0.85
+      ]
+     ]
+    }
+   ],
+   "palette": {
+    "light": "#ffc070",
+    "shadow": "#3a3a52",
+    "ground": "#6a5548"
+   },
+   "style": "warm gaslight, wet stone",
+   "wet_ground": true,
+   "atmosphere": "rain haze",
+   "shot": "mid",
+   "priority": "balanced",
+   "details": [
+    "wet cobblestone joints",
+    "warm window reflections",
+    "distant tram wires"
+   ],
+   "char_details": [
+    "cream blouse ruffles",
+    "dark pleated skirt",
+    "seasonal blooms hairpin"
+   ],
+   "interaction": {
+    "surface": "wet stone",
+    "wet": true,
+    "wind": "none",
+    "held": ""
+   },
+   "by": "qwen2.5-vl-7b"
+  },
+  "by": "qwen2.5-vl-7b"
+ },
+ "51517fbcaeebb38c": {
+  "stage": {
+   "horizon_y": 0.42,
+   "vanishing_x": 0.52,
+   "ground": [
+    [
+     0.1,
+     0.92
+    ],
+    [
+     0.5,
+     0.86
+    ],
+    [
+     0.9,
+     0.93
+    ]
+   ],
+   "lights": [
+    {
+     "dir": "left",
+     "color": "warm",
+     "strength": 0.9
+    }
+   ],
+   "objects": [],
+   "person_slots": [
+    {
+     "x": 0.35,
+     "ground_y": 0.9,
+     "scale": 0.42
+    }
+   ],
+   "key_light": "left",
+   "foreground": false,
+   "person_box": {
+    "x": 0.35,
+    "head_y": 0.48,
+    "feet_y": 0.9,
+    "shoulder_w": 0.1
+   },
+   "occluders": [
+    {
+     "name": "feather",
+     "depth": "fg",
+     "polygon": [
+      [
+       0.05,
+       0.8
+      ],
+      [
+       0.2,
+       0.8
+      ],
+      [
+       0.2,
+       0.98
+      ],
+      [
+       0.05,
+       0.98
+      ]
+     ]
+    }
+   ],
+   "palette": {
+    "light": "#ffc070",
+    "shadow": "#3a3a52",
+    "ground": "#6a5548"
+   },
+   "style": "warm gaslight, wet stone",
+   "wet_ground": true,
+   "atmosphere": "rain haze",
+   "shot": "mid",
+   "priority": "balanced",
+   "details": [
+    "wet cobblestone joints",
+    "warm window reflections",
+    "distant tram wires"
+   ],
+   "char_details": [
+    "cream blouse ruffles",
+    "dark pleated skirt",
+    "seasonal blooms hairpin"
+   ],
+   "interaction": {
+    "surface": "wet stone",
+    "wet": true,
+    "wind": "none",
+    "held": ""
+   },
+   "by": "qwen2.5-vl-7b"
+  },
+  "by": "qwen2.5-vl-7b"
+ },
+ "3a84a4d08a3a59c6": {
+  "stage": {
+   "horizon_y": 0.42,
+   "vanishing_x": 0.52,
+   "ground": [
+    [
+     0.1,
+     0.92
+    ],
+    [
+     0.5,
+     0.86
+    ],
+    [
+     0.9,
+     0.93
+    ]
+   ],
+   "lights": [
+    {
+     "dir": "left",
+     "color": "warm",
+     "strength": 0.9
+    }
+   ],
+   "objects": [],
+   "person_slots": [
+    {
+     "x": 0.35,
+     "ground_y": 0.9,
+     "scale": 0.42
+    }
+   ],
+   "key_light": "left",
+   "foreground": false,
+   "person_box": {
+    "x": 0.35,
+    "head_y": 0.48,
+    "feet_y": 0.9,
+    "shoulder_w": 0.1
+   },
+   "occluders": [
+    {
+     "name": "planter",
+     "depth": "fg",
+     "polygon": [
+      [
+       0.05,
+       0.8
+      ],
+      [
+       0.2,
+       0.8
+      ],
+      [
+       0.2,
+       0.98
+      ],
+      [
+       0.05,
+       0.98
+      ]
+     ]
+    }
+   ],
+   "palette": {
+    "light": "#ff6347",
+    "shadow": "#3a3a52",
+    "ground": "#6a5548"
+   },
+   "style": "neon-lit alley, wet cobblestone",
+   "wet_ground": true,
+   "atmosphere": "rain haze",
+   "shot": "mid",
+   "priority": "balanced",
+   "details": [
+    "wet cobblestone joints",
+    "neon reflections",
+    "distant tram wires"
+   ],
+   "char_details": [
+    "cream blouse ruffles",
+    "dark pleated skirt",
+    "seasonal blooms hairpin"
+   ],
+   "interaction": {
+    "surface": "wet cobblestone",
+    "wet": true,
+    "wind": "none",
+    "held": ""
+   },
+   "by": "qwen2.5-vl-7b"
+  },
+  "by": "qwen2.5-vl-7b"
+ }
+}

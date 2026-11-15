@@ -1,0 +1,14 @@
+
+/* 语言模型选择器：收起只显示简称，展开显示说明 */
+.llm-pick{position:relative;display:inline-flex;align-items:center}
+.llm-pick-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.llm-pick-btn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.llm-pick-btn .llm-caret{font-size:10px;opacity:.6}
+.llm-pick-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:60;min-width:260px;padding:6px;border-radius:12px;
+  background:rgba(24,26,32,.98);border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.llm-pick-item{position:relative;display:flex;flex-direction:column;gap:2px;padding:8px 26px 8px 10px;border-radius:8px;cursor:pointer}
+.llm-pick-item:hover{background:rgba(255,255,255,.08)}
+.llm-pick-item .t{font-size:13px;color:#f2e7cf}
+.llm-pick-item .d{font-size:11px;color:rgba(255,255,255,.55)}
+.llm-pick-item.on .t{color:#ffd88a}
+.llm-pick-item.on::after{content:"✓";position:absolute;right:9px;top:8px;float:none;line-height:1;color:#ffd88a}

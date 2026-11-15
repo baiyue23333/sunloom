@@ -26,6 +26,15 @@ def _get(path, timeout=15):
         return json.loads(r.read().decode("utf-8"))
 
 
+def models(folder):
+    """通过 ComfyUI 自己的 /models/<folder> 列模型（搬家后仍然准）。"""
+    try:
+        r = _get("/models/" + urllib.parse.quote(folder), 8)
+        return [x for x in r if isinstance(x, str)]
+    except Exception:
+        return []
+
+
 def system_stats():
     try:
         s = _get("/system_stats", 4)
@@ -47,6 +56,37 @@ def queue_state():
         return {"running": len(q.get("queue_running", [])), "pending": len(q.get("queue_pending", []))}
     except Exception:
         return {"running": 0, "pending": 0}
+
+
+def free(unload_models=True, free_memory=True):
+    """释放 ComfyUI 模型和/或缓存；支持只清碎片保留热模型。"""
+    body = json.dumps({
+        "unload_models": bool(unload_models),
+        "free_memory": bool(free_memory),
+    }).encode()
+    req = urllib.request.Request(COMFY + "/free", data=body,
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return {"ok": True, "status": r.status, "unload_models": bool(unload_models)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:120], "unload_models": bool(unload_models)}
+
+
+_OOM_HINTS = (
+    "out of memory",
+    "cuda out of memory",
+    "allocation on device",
+    "cudaerrormemoryallocation",
+    "cublas_status_alloc_failed",
+    "not enough memory",
+)
+
+
+def is_oom_error(msg):
+    """判断 ComfyUI 报错是否属于显存不足/分配失败。"""
+    low = str(msg or "").lower()
+    return any(h in low for h in _OOM_HINTS)
 
 
 def build_wf(prompt, negative, width, height, steps, cfg, seed, loras, prefix,

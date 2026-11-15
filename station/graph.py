@@ -78,7 +78,8 @@ def build(name, params):
     sid = sp["node"]
     nodes[sid] = {"class_type": "KSampler", "inputs": {
         "model": list(sp["model_from"]),
-        "positive": ["6", 0], "negative": ["7", 0],
+        "positive": list(sp.get("positive_from", ["6", 0])),
+        "negative": list(sp.get("negative_from", ["7", 0])),
         "latent_image": list(sp["latent_from"]),
         "seed": int(params.get("seed", 0)),
         "steps": int(params.get("steps", 30)),
@@ -135,8 +136,17 @@ def engine_info():
         wfs.append({"name": name, "id": wf.get("id"), "requires": wf.get("requires", []),
                     "missing": [n for n in wf.get("requires", []) if n not in have]})
     out["workflows"] = wfs
+    out["custom_nodes"] = []
     try:
-        out["custom_nodes"] = sorted(os.listdir(os.path.join(os.path.dirname(HERE), "comfy", "ComfyUI", "custom_nodes")))
+        import sys
+        tools_dir = os.path.join(os.path.dirname(HERE), "tools")
+        if tools_dir not in sys.path:
+            sys.path.insert(0, tools_dir)
+        import comfy_paths
+        for d in comfy_paths.comfy_custom_nodes_dirs():
+            if os.path.isdir(d):
+                out["custom_nodes"] = sorted(os.listdir(d))
+                break
     except Exception:
         out["custom_nodes"] = []
     return out

@@ -2,7 +2,7 @@
 """SUNLOOM 看护进程：8770（工作站）/ 8188（ComfyUI）掉线自动拉起。"""
 import os, socket, subprocess, sys, time, datetime
 
-ROOT = r"A:/workflow/dsh"
+ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = r"C:/Users/A2870/AppData/Local/Programs/Python/Python310/python.exe"
 COMFY_PY = os.path.join(ROOT, "comfy", "venv", "Scripts", "python.exe")
 COMFY_WD = os.path.join(ROOT, "comfy", "ComfyUI")
@@ -25,10 +25,11 @@ def up(port):
 def start_comfy():
     os.makedirs(LOG, exist_ok=True)
     out = open(os.path.join(ROOT, "comfy", "comfy_start.log"), "ab")
+    env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     subprocess.Popen([COMFY_PY, "main.py", "--listen", "127.0.0.1", "--port", "8188",
                       "--reserve-vram", "0.6", "--disable-auto-launch",
                       "--preview-method", "none", "--dont-print-server"],
-                     cwd=COMFY_WD, stdout=out, stderr=subprocess.STDOUT,
+                     cwd=COMFY_WD, env=env, stdout=out, stderr=subprocess.STDOUT,
                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     log("started ComfyUI (8188)")
 

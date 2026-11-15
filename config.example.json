@@ -1,11 +1,12 @@
 {
+  "_comment": "Copy or run install/install.ps1 to generate station/data/config.json. Do NOT commit secrets.",
   "comfy_url": "http://127.0.0.1:8188",
-  "comfy_output": "",
+  "comfy_dir": "C:/path/to/ComfyUI",
   "model": {
-    "unet_name": "your-model.safetensors",
-    "clip_name": "your-text-encoder.safetensors",
-    "vae_name": "your-vae.safetensors",
-    "clip_type": "stable_diffusion"
+    "unet_name": "anima-base.safetensors",
+    "clip_name": "qwen_3_06b_base.safetensors",
+    "clip_type": "stable_diffusion",
+    "vae_name": "qwen_image_vae.safetensors"
   },
   "defaults": {
     "size": "1024x1536",

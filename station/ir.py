@@ -10,6 +10,13 @@
 """
 import json
 import os
+import re
+import sys
+
+_REF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ref")
+if _REF_DIR not in sys.path:
+    sys.path.insert(0, _REF_DIR)
+import prompts as _prompts
 
 ROLE_BY_PREFIX = [
     ("@SINGLE", "identity"), ("@ID", "identity"),
@@ -21,6 +28,7 @@ ROLE_BY_PREFIX = [
     ("@OUT", "garment"), ("@FAB", "garment"), ("@DRAPE", "drape"),
     ("@ROLE", "prop"), ("@PROP", "prop"), ("@OBJ", "prop"), ("@INSTR", "prop"), ("@RIDE", "prop"),
     ("@STYLE", "style"),
+    ("@STRIP", "negative"),
     ("@NEG", "negative"),
 ]
 
@@ -55,13 +63,20 @@ DRAPE_GARMENT = {
     "overalls": _WORN,
     "sundress": _WORN | {"@DRAPE_OFF"},
 }
+for _gk in ("denim_set", "hoodie_casual", "initial_fine_gala", "initial_fine_lite", "lab_coat",
+            "pajama", "sailor_winter", "school_bare", "sunbloom", "sundress_floral",
+            "apron_m", "casual_m", "coat_m", "gym_m", "hakama_m", "hoodie_m", "jersey_m",
+            "jinbei_m", "labcoat_m", "leather_m", "raincoat_m", "school_m", "suit_m", "swim_m",
+            "tracksuit_m", "tuxedo_m", "uniform_m", "vest_m", "winter_m", "yukata_m"):
+    DRAPE_GARMENT[_gk] = _WORN
+for _gk in ("cardigan_set", "initial_fine", "yukata_bare"):
+    DRAPE_GARMENT[_gk] = _WORN | {"@DRAPE_OFF", "@DRAPE_SHRUG", "@DRAPE_ELBOW", "@DRAPE_HALF", "@DRAPE_ONE_SHOULDER"}
 
 RULES_DOC = [
     "身份：正向必须包含 @ID（或含身份锁的等价文本）",
-    "服装：@OUT_SLIP 与 @OUT_INITIAL 不能同时出现",
+    "服装：@OUT_SLIP 与 @OUT_CASUAL_KNIT 不能同时出现",
     "型态：@DRAPE_* 必须与服装套装匹配（slip 用半脱系；initial/school/gym 用穿好系；gala/yukata/smock 可半脱）",
     "负向：必须含 @NEG_BASE；若有手部动作，建议加 @NEG_HAND_ART",
-    "顺序：负向里 @NEG_CUP / @NEG_HANDS 应排在最前两位",
     "场景：场景块权重 > 1.15 时会被服装吃掉，建议同时加强服装或加 @NEG_FABRIC",
 ]
 
@@ -73,12 +88,22 @@ def role_of(token):
     return "misc"
 
 
-def validate(pos_blocks, neg_blocks):
+def validate(pos_blocks, neg_blocks, view=""):
     """pos/neg: [{"token": "@ID", "weight": 1.0, "text": ""}]"""
     errors, warnings, hints = [], [], []
 
-    pos = [(b.get("token") or "", float(b.get("weight") or 1.0), b.get("text") or "") for b in pos_blocks]
-    neg = [(b.get("token") or "", float(b.get("weight") or 1.0), b.get("text") or "") for b in neg_blocks]
+    def _norm(blocks):
+        out = []
+        for b in blocks:
+            if b.get("enabled", True) is False:
+                continue
+            t = str(b.get("token") or "")
+            if t:
+                t = _prompts.resolve_token(t)[0]
+            out.append((t, float(b.get("weight") or 1.0), b.get("text") or ""))
+        return out
+
+    pos, neg = _norm(pos_blocks), _norm(neg_blocks)
     pos_tokens = [t for t, _, _ in pos if t]
     roles = {}
     for t, w, _ in pos:
@@ -86,11 +111,13 @@ def validate(pos_blocks, neg_blocks):
             roles.setdefault(role_of(t), []).append((t, w))
 
     # ① 身份
-    ID_WORDS = ("white hair", "ivory white hair", "heterochromia", "sunflower hair ornament")
-    has_id = "@ID" in pos_tokens or any(any(w in (x or "").lower() for w in ID_WORDS) for _, _, x in pos)
+    ID_WORDS = ("white hair", "shoulder-length hair", "expressive eyes", "seasonal blooms hair ornament")
+    # 身份积木：@ID_F / @ID_MALE / @ID_SOFT… 与 @SINGLE / @SINGLE_M 都算
+    has_id = bool(view) or any(t.startswith(("@ID", "@SINGLE")) for t in pos_tokens) or any(
+        any(w in (x or "").lower() for w in ID_WORDS) for _, _, x in pos)
     if not has_id:
         errors.append({"code": "NO_IDENTITY", "msg": "缺身份锁 @ID，人物会漂",
-                       "fix": "把 @ID 拖进正向，权重 1.0"})
+                       "fix": "把身份积木（@ID_F / @ID_M 之类）拖进正向，权重 1.0"})
 
     # ② 服装互斥（任意两套同时出现都算冲突）
     outfits = sorted({t for t in pos_tokens if t.startswith("@OUT_")})
@@ -116,19 +143,16 @@ def validate(pos_blocks, neg_blocks):
     if "@CAM_CLOSEUP" in pos_tokens and "@STYLE_SOFT" in pos_tokens:
         warnings.append({"code": "CLOSEUP_SOFT_WASH",
                          "msg": "特写 + 柔画风会糊成一片，二选一，或把 @STYLE_SOFT 换成 @STYLE_CEL"})
-    head = [t for t, _, _ in neg if t][:2]
-    if any(t in ("@NEG_CUP", "@NEG_HANDS") for t, _, _ in neg) and not any(t in ("@NEG_CUP", "@NEG_HANDS") for t in head):
-        warnings.append({"code": "NEG_ORDER", "msg": "杯子/手的负向没在最前，容易被稀释",
-                         "fix": "把 @NEG_CUP 或 @NEG_HANDS 拖到负向第一位"})
 
 
     # ⑥ 构图声明冲突：@SINGLE 自带“填满画面”，再叠广角会把镜头推远
     WIDE_CAMS = {"@CAM_FULL", "@CAM_MEDIUM"}
-    if "@SINGLE" in pos_tokens and any(t in WIDE_CAMS for t in pos_tokens):
+    has_single = any(t in ("@SINGLE", "@SINGLE_F", "@SINGLE_M") for t in pos_tokens)
+    if has_single and any(t in WIDE_CAMS for t in pos_tokens):
         warnings.append({"code": "FRAMING_CONFLICT",
                          "msg": "@SINGLE 与 @CAM_FULL/@CAM_MEDIUM 打架，容易出“空房间 + 小人”",
                          "fix": "去掉广角机位，或改用 @CAM_BUST / @CAM_CLOSEUP"})
-    if "@SINGLE" in pos_tokens and any(t.startswith("@SET_") for t in pos_tokens) and "@CAM_THREEQ" in pos_tokens:
+    if has_single and any(t.startswith("@SET_") for t in pos_tokens) and "@CAM_THREEQ" in pos_tokens:
         warnings.append({"code": "FRAMING_SCENE_CONFLICT",
                          "msg": "有场景时 @SINGLE + @CAM_THREEQ 会拉远，场景压过人物",
                          "fix": "去掉 @CAM_THREEQ，或用 @CAM_BUST"})
@@ -143,16 +167,16 @@ def validate(pos_blocks, neg_blocks):
                 scene_len = max(scene_len, len(_tokens.get(t, "")))
     except Exception:
         scene_len = 0
-    if scene_len > 260 or (scene_len > 200 and len(pos) > 12):
+    if scene_len > 520:
         hints.append({"code": "SCENE_HEAVY",
-                      "msg": "场景描述 %d 字，角色细节会被稀释" % scene_len,
+                      "msg": "场景描述 %d 字，明显偏长" % scene_len,
                       "fix": "搭配 @CAM_BUST/@CAM_CLOSEUP，或删掉场景里最远的元素"})
 
     # ⑦b 场景 × 机位
     NEAR = {"@CAM_CLOSEUP", "@CAM_BUST", "@CAM_PROFILE", "@CAM_HIP"}
     WIDE = {"@CAM_FULL", "@CAM_MEDIUM", "@CAM_REAR", "@CAM_BACKSIDE"}
     cams = [t for t in pos_tokens if t.startswith("@CAM_")]
-    if scene_len > 260 and any(c in NEAR for c in cams):
+    if scene_len > 480 and any(c in NEAR for c in cams):
         hints.append({"code": "SCENE_CAM_MISMATCH",
                       "msg": "大场景（%d 字）配近景，背景会被挤掉" % scene_len,
                       "fix": "换成 @CAM_MEDIUM / @CAM_FULL，或改用小场景"})
@@ -182,10 +206,10 @@ def validate(pos_blocks, neg_blocks):
 
     # ⑥ 场景强度 vs 服装
     scene_w = max([w for t, w in roles.get("scene", [])] or [0])
-    if scene_w > 1.15 and "@OUT_INITIAL" in pos_tokens:
+    if scene_w > 1.15 and "@OUT_CASUAL_KNIT" in pos_tokens:
         hints.append({"code": "SCENE_EATS_GARMENT",
                       "msg": "场景权重 %.2f，初始服装有被吃掉的风险（实测出现过白裙漂移）" % scene_w,
-                      "fix": "把场景压到 1.1 以下，或加 @NEG_FABRIC + 加强 @OUT_INITIAL 权重"})
+                      "fix": "把场景压到 1.1 以下，或加 @NEG_FABRIC + 加强 @OUT_CASUAL_KNIT 权重"})
 
     # ⑦ 构图互斥：同一张图只能有一个主构图
     def _pick(*names):
@@ -225,7 +249,7 @@ def validate(pos_blocks, neg_blocks):
                          "fix": "二选一：低地平线给人留天，高地平线给人留地"})
     if "@COMP_SILHOUETTE" in pos_tokens:
         hints.append({"code": "COMP_SILHOUETTE_FACE",
-                      "msg": "剪影会吃掉脸和异瞳，@ID 基本失效",
+                      "msg": "剪影会吃掉面部细节，@ID 基本失效",
                       "fix": "只在明确要轮廓时用；要脸就别加 @COMP_SILHOUETTE"})
     if "@COMP_STD" in pos_tokens and _pick("@COMP_TELE", "@COMP_WIDE"):
         hints.append({"code": "COMP_STD_LENS",
@@ -236,5 +260,127 @@ def validate(pos_blocks, neg_blocks):
                       "msg": "视线留白没有配 @GAZE_*，模型不知道她看哪边",
                       "fix": "加一块 @GAZE_LEFT / @GAZE_RIGHT / @GAZE_DOWN"})
 
+    # ⑨ 提示板新规则（2026-11-16），共用 ref/prompts.py 的词库与性别判定
+    try:
+        _tk2, _notes2, _meta_all, _lib2, _ch2 = _prompts.load_full_catalog()
+    except Exception:
+        _tk2, _meta_all = {}, {}
+
+    def _gender2(t):
+        return _prompts.token_gender(t, _meta_all)
+
+    camera_toks = [t for t in pos_tokens if t.startswith("@CAM_")]
+    light_toks = [t for t in pos_tokens if t.startswith("@LIGHT_")]
+    set_toks = [t for t in pos_tokens if t.startswith("@SET_")]
+    if len(camera_toks) > 1:
+        errors.append({"code": "MULTI_CAM", "msg": "同时有 %d 个机位积木，只会生效一个" % len(camera_toks),
+                       "fix": "只留一个机位"})
+    if len(light_toks) > 1:
+        warnings.append({"code": "MULTI_LIGHT", "msg": "同时有 %d 个光位积木，光会打架" % len(light_toks),
+                         "fix": "只留一个主光"})
+    if len(set_toks) > 1:
+        errors.append({"code": "MULTI_SET", "msg": "同时有 %d 个场景块" % len(set_toks),
+                       "fix": "只留一个场景"})
+    if any(t.startswith("@STYLE_") for t in pos_tokens) and set_toks:
+        warnings.append({"code": "STYLE_SET_CONFLICT", "msg": "@STYLE_ 会把场景压成白底",
+                         "fix": "场景图里去掉 @STYLE_"})
+
+    id_genders = {_gender2(t) for t in pos_tokens if t.startswith(("@ID", "@SINGLE"))} - {""}
+    if len(id_genders) > 1:
+        errors.append({"code": "GENDER_MIX", "msg": "男女身份积木同时出现", "fix": "只留当前性别的身份块"})
+    elif id_genders:
+        _g = next(iter(id_genders))
+        bad_out = [t for t in pos_tokens if t.startswith("@OUT_") and _gender2(t) and _gender2(t) != _g]
+        if bad_out:
+            errors.append({"code": "GENDER_OUTFIT", "msg": "服装性别与身份不一致：" + "、".join(bad_out),
+                           "fix": "换回同性别服装"})
+
+    _v = (view or "").upper()
+    if _v.endswith("_BACK") or _v.endswith("_TQ_BACK") or _v.endswith("_BACKSIDE"):
+        if "@LIGHT_WIN" in pos_tokens:
+            warnings.append({"code": "BACK_FRONT_LIGHT", "msg": "背影用了正面光 @LIGHT_WIN",
+                             "fix": "换成 @LIGHT_WIN_BACK"})
+        if any(re.search(r"\beye\b|expressive eyes|\bfringe\b|blush", x or "", re.I) for _t, _w, x in pos):
+            warnings.append({"code": "BACK_FACE_WORDS", "msg": "背影块里还有脸/眼词，容易转正面",
+                             "fix": "删掉眼睛/脸相关描述"})
+
+    unknown = []
+    for _t in pos_tokens + [t for t, _w, _x in neg if t]:
+        if _t in _tk2:
+            continue
+        if _prompts.resolve_token(_t)[0] in _tk2:
+            continue
+        unknown.append(_t)
+    if unknown:
+        errors.append({"code": "UNKNOWN_TOKEN", "msg": "词库里没有：" + "、".join(sorted(set(unknown))[:6]),
+                       "fix": "删掉或换成库里的积木"})
+
+    misplaced = [t for t in [x for x, _w, _x in neg if x]
+                 if not t.startswith(("@NEG_", "@CROP_", "@STRIP_"))]
+    if misplaced:
+        errors.append({"code": "NEG_POS_MIX", "msg": "正向积木被放进负向：" + "、".join(misplaced[:6]),
+                       "fix": "把它拖回正向"})
+
+    try:
+        _est = sum(len(_tk2.get(t, "")) for t in pos_tokens) + sum(len(x) for _t, _w, x in pos if not _t)
+        if _est > 1000:
+            hints.append({"code": "PROMPT_LONG", "msg": "正向约 %d 字，后半段容易被忽略" % _est,
+                          "fix": "压到 900 字以内：删重复的装饰与远景描述"})
+    except Exception:
+        pass
+
     return {"ok": not errors, "errors": errors, "warnings": warnings, "hints": hints,
             "stats": {"pos": len(pos), "neg": len(neg), "roles": {k: len(v) for k, v in roles.items()}}}
+
+
+# —— 视角 / 眼睛一致性（角色专属视角块用）——
+EYE_RED = r"\bred eye\b|\bred eyes\b"
+EYE_GREY = r"\bgrey eye\b|\bgray eye\b|\bgrey eyes\b|\bgray eyes\b"
+EYE_ANY = r"\beye\b|\beyes\b|expressive eyes|\bfringe\b|\bblush\b|\bsmile\b|\blips\b|\bface\b"
+
+
+def check_view(text, view):
+    """按视角块名检查眼睛/脸词是否矛盾。view 形如 @CAM_SIDE_R。"""
+    import re
+    v = (view or "").upper()
+    errs = []
+    has_red = bool(re.search(EYE_RED, text, re.I))
+    has_grey = bool(re.search(EYE_GREY, text, re.I))
+    has_eye = bool(re.search(EYE_ANY, text, re.I))
+    if v.endswith("_BACK"):
+        if has_eye:
+            errs.append({"code": "EYES_IN_BACK", "msg": "背影块里出现脸/眼词，会把她转正面"})
+    elif v.endswith("_SIDE_R"):
+        if has_red:
+            errs.append({"code": "EYE_COLOR_MISMATCH", "msg": "面朝画面右却写了红眼（红眼在画面左）"})
+        if not has_grey:
+            errs.append({"code": "EYE_MISSING", "msg": "面朝画面右应出现 grey eye"})
+    elif v.endswith("_SIDE_L"):
+        if has_grey:
+            errs.append({"code": "EYE_COLOR_MISMATCH", "msg": "面朝画面左却写了灰眼（灰眼在画面右）"})
+        if not has_red:
+            errs.append({"code": "EYE_MISSING", "msg": "面朝画面左应出现 red eye"})
+    elif v.endswith("_GLANCE_R"):
+        if has_red:
+            errs.append({"code": "EYE_COLOR_MISMATCH", "msg": "从右肩回眸应写 grey eye"})
+    elif v.endswith("_GLANCE_L"):
+        if has_grey:
+            errs.append({"code": "EYE_COLOR_MISMATCH", "msg": "从左肩回眸应写 red eye"})
+    return errs
+
+
+STRUCT_NOUNS = ("ladder", "bookcase", "bookshelf", "table", "chair", "shelf")
+CONTACT = ("on", "against", "in", "at", "resting", "leaning", "hanging", "standing", "beside", "under")
+
+
+def check_props(text, window=10):
+    """结构物件附近没有接触/位置词 → 悬空风险。"""
+    import re
+    words = re.findall(r"[a-z]+", (text or "").lower())
+    errs = []
+    for i, w in enumerate(words):
+        if w in STRUCT_NOUNS:
+            seg = words[max(0, i - window): i + window]
+            if not any(c in seg for c in CONTACT):
+                errs.append({"code": "PROP_NO_CONTACT", "msg": "%s 附近没有接触/位置词，可能悬空" % w})
+    return errs

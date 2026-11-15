@@ -1,0 +1,127 @@
+{
+  "id": "anima_i2i",
+  "version": 1,
+  "requires": [
+    "UNETLoader",
+    "CLIPLoader",
+    "VAELoader",
+    "CLIPTextEncode",
+    "LoadImage",
+    "ImageScale",
+    "VAEEncode",
+    "KSampler",
+    "VAEDecode",
+    "SaveImage",
+    "LoraLoaderModelOnly"
+  ],
+  "nodes": {
+    "1": {
+      "type": "UNETLoader",
+      "inputs": {
+        "unet_name": "anima-base-v1.0.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    "2": {
+      "type": "CLIPLoader",
+      "inputs": {
+        "clip_name": "qwen_3_06b_base.safetensors",
+        "type": "stable_diffusion",
+        "device": "default"
+      }
+    },
+    "3": {
+      "type": "VAELoader",
+      "inputs": {
+        "vae_name": "qwen_image_vae.safetensors"
+      }
+    },
+    "4": {
+      "type": "LoadImage",
+      "inputs": {
+        "image": "{{reference}}"
+      }
+    },
+    "6": {
+      "type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{prompt}}",
+        "clip": [
+          "2",
+          0
+        ]
+      }
+    },
+    "7": {
+      "type": "CLIPTextEncode",
+      "inputs": {
+        "text": "{{negative}}",
+        "clip": [
+          "2",
+          0
+        ]
+      }
+    },
+    "10": {
+      "type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "9",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    },
+    "11": {
+      "type": "SaveImage",
+      "inputs": {
+        "images": [
+          "10",
+          0
+        ],
+        "filename_prefix": "{{prefix}}"
+      }
+    },
+    "12": {
+      "type": "ImageScale",
+      "inputs": {
+        "image": [
+          "4",
+          0
+        ],
+        "upscale_method": "lanczos",
+        "width": "{{width}}",
+        "height": "{{height}}",
+        "crop": "center"
+      }
+    },
+    "13": {
+      "type": "VAEEncode",
+      "inputs": {
+        "pixels": [
+          "12",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      }
+    }
+  },
+  "sampler": {
+    "node": "9",
+    "model_from": [
+      "1",
+      0
+    ],
+    "latent_from": [
+      "13",
+      0
+    ]
+  },
+  "has_denoise": true
+}

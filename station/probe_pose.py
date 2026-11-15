@@ -1,13 +1,16 @@
 
-import json, time, os, urllib.request
+import json, time, os, sys, urllib.request
+ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import comfy_paths
 def post(u, d):
     req = urllib.request.Request(u, data=json.dumps(d).encode(), headers={"Content-Type":"application/json"})
     return json.loads(urllib.request.urlopen(req, timeout=60).read().decode())
 def get(u): return json.loads(urllib.request.urlopen(u, timeout=30).read().decode())
 
-C = "http://127.0.0.1:8188"
-IMG = r"A:\workflow\dsh\SD-Picture\station_out\F5_artroom_133622_s880110.png"
-INP = os.path.join(r"A:\workflow\dsh\comfy\ComfyUI\input", "pose_probe.png")
+C = comfy_paths.COMFY_URL
+IMG = os.environ.get("PROBE_IMG") or os.path.join(ROOT, "SD-Picture", "station_out", "F5_artroom_133622_s880110.png")
+INP = os.path.join(comfy_paths.comfy_in(), "pose_probe.png")
 import shutil
 shutil.copy2(IMG, INP)
 

@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
 """promptlib.py - 把 ComfyUI 提词器节点（NSFWPromptSelector）接进工作站。
 
-节点源码默认在 A:\\workflow\\ComfyUI-NSFW-PromptSelector，可用环境变量
-PROMPT_SELECTOR_DIR 覆盖。该节点只依赖标准库，可直接 import，不需要 ComfyUI。
+节点源码默认取项目内的 ComfyUI-NSFW-PromptSelector/（外部支持/ 下有同名目录时优先用那份），
+可用环境变量 PROMPT_SELECTOR_DIR 覆盖。该节点只依赖标准库，可直接 import，不需要 ComfyUI。
 """
 import importlib
 import os
 import sys
 import threading
 
-SEL_DIR = os.environ.get("PROMPT_SELECTOR_DIR") or r"A:\workflow\ComfyUI-NSFW-PromptSelector"
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SEL_CANDIDATES = [
+    os.path.join(os.path.dirname(_ROOT), "外部支持", "ComfyUI-NSFW-PromptSelector"),
+    os.path.join(_ROOT, "ComfyUI-NSFW-PromptSelector"),
+]
+SEL_DIR = (os.environ.get("PROMPT_SELECTOR_DIR")
+           or next((p for p in _SEL_CANDIDATES if os.path.isdir(p)), _SEL_CANDIDATES[1]))
 
 _LOCK = threading.Lock()
 _CLS = None

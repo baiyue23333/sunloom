@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
 """SUNLOOM 最小回归测试：python tests/run_tests.py
 
-覆盖：
-  1) 数据完整性（积木备注、模板引用、服装字段）
-  2) 展开（无残留宏、权重范围）
-  3) 校验器（缺身份、双服装、型态错配、构图互斥）
-  4) 模板全部可展开
-  5) 配方接口 + PNG 反推正负向（回归：曾经把正向认成负向）
-  6) 蒙版归一化（回归：红通道羽化）
-  7) 前端静态检查（回归：结果面板按钮绑定、配套函数、资源版本）
+覆盖：数据完整性 / 展开 / 校验器 / 模板 / 配方 / 蒙版 / 前端静态 / 存储 /
+负向联动 / 接口契约 / 服务自检；性别与角色绑定见 tests/checks_gender.py。
 """
 import os
 import re
@@ -32,11 +26,18 @@ os.chdir(os.path.join(ROOT, "station"))
 PASS, FAIL, SKIP = [], [], []
 
 
+class Skip(Exception):
+    """环境缺少可选数据（模型权重、配方图等）时跳过，不算失败。"""
+
+
 def check(name, fn):
     try:
         fn()
         PASS.append(name)
         print("  PASS  " + name)
+    except Skip as e:
+        SKIP.append(name + ("：" + str(e) if str(e) else ""))
+        print("  SKIP  " + name + ("：" + str(e) if str(e) else ""))
     except AssertionError as e:
         FAIL.append((name, str(e)))
         print("  FAIL  " + name + "  -> " + str(e))
@@ -58,6 +59,66 @@ def main():
     tokens = boot["tokens"]
     notes = boot["notes"]
     garments = boot["garments"]
+
+    section("文件大小")
+    def _sizes():
+        import subprocess as _sp
+        r = _sp.run([sys.executable, os.path.join(ROOT, "tools", "check_sizes.py")],
+                    capture_output=True, text=True, encoding="utf-8", errors="replace")
+        assert r.returncode == 0, (r.stdout or "")[-600:]
+    check("代码文件不超过 20KB", _sizes)
+
+    section("一键修正（规则）")
+    def _fix_engine():
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        import prompt_fix
+        r = prompt_fix.audit(
+            [{"token": "@ID_F"}, {"token": "@CAM_BACKSIDE"}, {"token": "@LIGHT_WIN"},
+             {"token": "@CAM_MEDIUM"}, {"token": "@CAM_BUST"}],
+            [{"token": "@NEG_BASE"}])
+        assert r["by"] == "rules" and r["issues"], r
+        toks = [i["token"] for i in r["issues"]]
+        assert "@CAM_BUST" in toks, toks
+        assert any(i["action"] == "replace" and i["replace"] == "@LIGHT_WIN_BACK" for i in r["issues"]), r["issues"]
+    check("规则引擎：多机位/背影光能被抓", _fix_engine)
+
+    def _fix_route():
+        r = c.post("/api/fix/blocks", json={"blocks": [], "negatives": []})
+        assert r.status_code == 200 and r.json()["by"] == "rules", r.text[:200]
+        r2 = c.post("/api/fix/blocks", json={
+            "blocks": [{"token": "@LIGHT_BACK"}, {"token": "@LIGHT_WIN"}], "negatives": []})
+        issues = r2.json()["issues"]
+        assert any(x["token"] == "@LIGHT_WIN" for x in issues), r2.text[:200]
+    check("/api/fix/blocks 规则审校", _fix_route)
+
+    def _light_guide():
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        import light_guide
+        r = light_guide.analyze([{"token": "@ID_F"}], [{"token": "@NEG_BASE"}], "portrait")
+        assert r["roles"] and r["ready"] is False, r
+        assert r["tips"].get("light"), r["tips"]
+        full = [{"token": x} for x in ("@ID_F", "@BODY_F", "@FACE_F", "@CAM_MEDIUM", "@LIGHT_WIN",
+                                        "@TIME_DAY", "@SET_CAFE", "@OUT_CASUAL_KNIT", "@POSE_STAND", "@MOOD_CALM",
+                                        "@GAZE_CAMERA", "@COMP_CENTER")]
+        r2 = light_guide.analyze(full, [{"token": "@NEG_BASE"}], "free")
+        assert r2["ready"] is True and not r2["missing"], r2
+    check("光引导：规则脚本", _light_guide)
+
+    def _light_route():
+        r = c.post("/api/guide/light", json={"blocks": [{"token": "@ID_F"}], "negatives": [], "mode": "scene"})
+        d = r.json()
+        assert r.status_code == 200 and d["roles"], r.text[:200]
+        assert "set" in d["missing"], d["missing"]
+    check("/api/guide/light 规则接口", _light_route)
+
+
+    def _no_llm():
+        srv = open(os.path.join(ROOT, "station", "server.py"), encoding="utf-8").read()
+        for ep in ("/api/llm/", "/api/qa", "/api/brain/", '"/api/guide"', "/api/route", "/api/audit"):
+            assert ep not in srv, "本地模型接口还在: " + ep
+        for f in ("llm_manager.py", "llm_text.py", "brain.py", "vlm_qa.py"):
+            assert not os.path.exists(os.path.join(ROOT, "tools", f)), "工具还在: " + f
+    check("本地模型功能已移除", _no_llm)
 
     section("数据完整性")
     def _notes():
@@ -88,6 +149,7 @@ def main():
                     bad.append(t["name"] + ":" + tok)
         assert not bad, "模板引用不存在的宏: %s" % bad[:6]
     check("模板引用的宏都存在", _tpl_tokens)
+    import checks_gender; checks_gender.run(c, tokens, notes, check, section)
 
     section("展开")
     def _expand_all():
@@ -129,25 +191,25 @@ def main():
     check("缺 @ID 报错", _no_identity)
 
     def _garment_conflict():
-        r = _validate(["@ID", "@OUT_SLIP", "@OUT_GALA"], ["@NEG_BASE"])
+        r = _validate(["@ID_F", "@OUT_SLIP", "@OUT_GALA"], ["@NEG_BASE"])
         codes = [e["code"] for e in r["errors"]]
         assert "GARMENT_CONFLICT" in codes, codes
     check("两套服装冲突", _garment_conflict)
 
     def _drape_mismatch():
-        r = _validate(["@ID", "@OUT_SLIP", "@DRAPE_WORN"], ["@NEG_BASE"])
+        r = _validate(["@ID_F", "@OUT_SLIP", "@DRAPE_WORN"], ["@NEG_BASE"])
         codes = [e["code"] for e in r["warnings"]]
         assert "DRAPE_GARMENT_MISMATCH" in codes, codes
     check("型态不适用于该套装", _drape_mismatch)
 
     def _comp_conflict():
-        r = _validate(["@ID", "@COMP_CENTER", "@COMP_THIRDS"], ["@NEG_BASE"])
+        r = _validate(["@ID_F", "@COMP_CENTER", "@COMP_THIRDS"], ["@NEG_BASE"])
         codes = [e["code"] for e in r["warnings"]]
         assert "COMP_CENTER_CONFLICT" in codes, codes
     check("居中 x 三分互斥", _comp_conflict)
 
     def _clean():
-        r = _validate(["@ID", "@OUT_SLIP", "@DRAPE_OFF", "@CAM_BUST"], ["@NEG_BASE", "@NEG_HANDS"])
+        r = _validate(["@ID_F", "@OUT_SLIP", "@DRAPE_OFF", "@CAM_BUST"], ["@NEG_BASE", "@NEG_HANDS"])
         assert not r["errors"], r["errors"]
     check("正常组合无 error", _clean)
 
@@ -186,14 +248,23 @@ def main():
     check("配方正向非空（抽 10）", _recipe_one)
 
     def _png_parse():
-        p = os.path.join(ROOT, "SD-Picture", "station_out", "st_230550_s459068.png")
-        if not os.path.isfile(p):
-            SKIP.append("PNG 反推（缺测试图）")
-            print("  SKIP  PNG 反推（缺测试图）")
+        d = os.path.join(ROOT, "SD-Picture", "station_out")
+        cands = []
+        if os.path.isdir(d):
+            cands = [os.path.join(d, f) for f in sorted(os.listdir(d), reverse=True)
+                     if f.lower().endswith(".png")][:80]
+        for p in cands:
+            try:
+                r = server._parse_png_recipe(p)
+            except Exception:
+                continue
+            if not r or "young woman" not in (r.get("positive") or ""):
+                continue
+            assert "young woman" not in (r.get("negative") or ""), "正负向串了: " + os.path.basename(p)
+            assert r.get("seed"), "缺少 seed: " + os.path.basename(p)
             return
-        r = server._parse_png_recipe(p)
-        assert r and "ivory white hair" in r["positive"], (r or {}).get("positive", "")[:60]
-        assert "split screen" in r["negative"], (r or {}).get("negative", "")[:60]
+        SKIP.append("PNG 反推（缺测试图）")
+        print("  SKIP  PNG 反推（缺测试图）")
     check("PNG 反推正负向不串（回归）", _png_parse)
 
     section("蒙版")
@@ -229,12 +300,13 @@ def main():
             assert k in js, "配套函数缺 %s 分支" % k
     check("配套积木函数存在", _companions)
 
-    def _guide():
-        assert 'id="view-guide"' in html or "id='view-guide'" in html, "缺向导页面"
-        assert 'id="open-guide"' in html, "拼装页缺向导入口"
-        assert "function renderGuide" in js and "function guideApply" in js, "缺向导逻辑"
-        assert "guideApply" in js and "S.pos.some(b => b.token === t)" in js, "向导应用没去重"
-    check("工作流向导（静态）", _guide)
+    def _ui_copy():
+        idx = open(os.path.join(ROOT, "station", "static", "index.html"), encoding="utf-8").read()
+        app = open(os.path.join(ROOT, "station", "static", "app.js"), encoding="utf-8").read()
+        bad = [w for w in ("润色英文", "转自然语言", "AI 质检", "高级参数", "立体书", "纸片", "VL-7B",
+                           "模型档位", "语言模型", "审图（穿模") if w in idx or w in app]
+        assert not bad, "旧功能文案还在: %s" % bad
+    check("界面文案不含已删功能", _ui_copy)
 
     def _assets():
         m = re.search(r"/app\.js\?v=(\d+)", html)
@@ -242,11 +314,44 @@ def main():
         assert os.path.isfile(os.path.join(ROOT, "station", "static", "app.js"))
     check("静态资源版本号", _assets)
 
+    def _director():
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        import director
+        st = {"coop": False, "mode": "", "positive": [{"text": "hat"}, {"text": "day"}], "negative": []}
+        got = director.finalize(director.rules("不要帽子，换成雨夜", st), st, "rule")
+        assert "hat" in got["positive_remove"] and "day" in got["positive_remove"], "没删旧项"
+        assert "night" in got["positive_add"] and "rain" in got["positive_add"], "没换新场景"
+        st2 = {"coop": False, "positive": [{"text": "golden hour"}], "negative": []}
+        got2 = director.finalize(director.rules("黄昏一点", st2), st2, "rule")
+        assert "golden hour" in got2["skipped"], "已有项没有跳过"
+        assert "ground_y" not in got2["params"] and "x" not in got2["params"], "仍有假参数"
+        got3 = director.finalize({"params": {"ratio": 0.4, "steps": 32, "ground_y": 0.9},
+                                  "mode": "layers"}, st2, "llm")
+        assert "ratio" not in got3["params"] and got3["params"].get("steps") == 32, "非合作参数未过滤"
+        assert "ground_y" not in got3["params"] and got3["mode"] == "", "假参数/无效模式没清掉"
+    check("导演 diff：状态/移除/替换", _director)
+
+    sys.path.insert(0, os.path.join(ROOT, "tests"))
+    import coop_gallery_tests
+    coop_gallery_tests.run(check, ROOT)
+
+
+
+    sys.path.insert(0, os.path.join(ROOT, "tests"))
+    import stage_tests, shot_tests, checks_matte, lineart_tests, validate_tests
+    stage_tests.run(check, ROOT)
+    checks_matte.run(check, ROOT)
+    shot_tests.run(check, ROOT)
+    lineart_tests.run(check, ROOT)
+    validate_tests.run(check, ROOT)
+
     section("存储层（SQLite）")
     import store
 
     def _store_migrated():
-        assert len(store.load_recipes()) == len(json.load(open(os.path.join(ROOT, "station", "data", "recipes.json"), encoding="utf-8"))), "配方导入数量不符"
+        rec_p = os.path.join(ROOT, "station", "data", "recipes.json")
+        if os.path.isfile(rec_p):
+            assert len(store.load_recipes()) == len(json.load(open(rec_p, encoding="utf-8"))), "配方导入数量不符"
         tpl = store.load_templates()
         assert len(tpl) >= 20, "模板只导入 %d 个" % len(tpl)
         if not store.load_registry():
@@ -311,7 +416,7 @@ def main():
 
     def _expand_contract():
         r = c.post("/api/expand", json={"positive": [{"token": "@ID"}], "negative": [{"token": "@NEG_BASE"}]}).json()
-        assert "white hair" in r["positive"], r["positive"][:80]
+        assert "young woman" in r["positive"], r["positive"][:80]
         assert "lowres" in r["negative"] or len(r["negative"]) > 10, r["negative"][:80]
     check("/api/expand 展开契约", _expand_contract)
 
@@ -332,6 +437,14 @@ def main():
             return
         assert r["ok"], [(x["name"], x["ok"]) for x in r["checks"] if not x["ok"]]
     check("/api/regress 全绿", _regress)
+
+    section("缺陷修复与数据透明度")
+    import transparency_tests
+    transparency_tests.run(check, ROOT, c, boot, store)
+
+    section("显存与内存调度")
+    import memory_tests
+    memory_tests.run(check, ROOT, c)
 
     print("\n" + "-" * 46)
     print("PASS %d  FAIL %d  SKIP %d" % (len(PASS), len(FAIL), len(SKIP)))

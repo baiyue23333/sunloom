@@ -1,0 +1,257 @@
+{
+ "version": 2,
+ "note": "物件盒 v2：特征家具定种类与硬数量，补充家具跟着走但不求相等，可添加家具完全自由。",
+ "count_types": {
+  "fixed": "恒定，缺失即不合法",
+  "range": "区间，越界只警告",
+  "linked_soft": "跟随另一物件，允许比例区间，可为 0",
+  "free": "完全自由"
+ },
+ "global": {
+  "keep_clear": "中心区必须留出人物站位，不放大件家具",
+  "severity": {
+   "ERROR": [
+    "fixed 缺失",
+    "互斥冲突",
+    "错需种类不足"
+   ],
+   "WARNING": [
+    "比例偏离",
+    "数量过多",
+    "区域偏挤"
+   ]
+  }
+ },
+ "scenes": {
+  "library": {
+   "hard_counts": [
+    {
+     "item": "bookcase",
+     "at_least": 1
+    }
+   ],
+   "required_kinds": 2,
+   "signature": [
+    {
+     "item": "bookcase",
+     "count": {
+      "type": "fixed",
+      "value": 1
+     },
+     "support": "floor",
+     "footprint": 2,
+     "prefer": "wall",
+     "prompt": "floor-to-ceiling wooden bookcase filled with old books",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "reading_table",
+     "count": {
+      "type": "range",
+      "min": 1,
+      "max": 2
+     },
+     "support": "floor",
+     "footprint": 2,
+     "prefer": "any_floor",
+     "prompt": "long wooden reading table with carved legs",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "ladder",
+     "count": {
+      "type": "range",
+      "min": 0,
+      "max": 1
+     },
+     "support": "floor",
+     "footprint": 1,
+     "prefer": "against_bookcase",
+     "prompt": "wooden library ladder leaning against the bookcase",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "door",
+     "count": {
+      "type": "range",
+      "min": 0,
+      "max": 1
+     },
+     "support": "wall",
+     "footprint": 1,
+     "prefer": "side_wall",
+     "prompt": "wooden classroom door on a side wall",
+     "prompt_style": "singular"
+    }
+   ],
+   "supporting": [
+    {
+     "item": "chair",
+     "count": {
+      "type": "linked_soft",
+      "from": "reading_table",
+      "min": 1,
+      "max": 2
+     },
+     "requires": [
+      "reading_table"
+     ],
+     "support": "floor",
+     "footprint": 0.5,
+     "prefer": "at_table",
+     "prompt": "wooden chair with a curved back",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "desk_lamp",
+     "count": {
+      "type": "linked_soft",
+      "from": "reading_table",
+      "min": 0,
+      "max": 1
+     },
+     "requires": [
+      "reading_table"
+     ],
+     "support": "table_top",
+     "footprint": 0.25,
+     "prefer": "on_table",
+     "may_be_zero": true,
+     "prompt": "brass desk lamp glowing warmly",
+     "prompt_style": "singular"
+    }
+   ],
+   "optional": [
+    "leather armchair",
+    "worn rug",
+    "potted fern",
+    "brass globe",
+    "floor lamp",
+    "...or anything the scene naturally suggests"
+   ],
+   "logic_rules": [
+    "bookcase on a wall, not floating",
+    "table leaves a walkable aisle to the shelves",
+    "ladder touches both shelf and floor",
+    "door, if present, sits on a wall and never behind the standing figure"
+   ]
+  },
+  "classroom": {
+   "hard_counts": [
+    {
+     "item": "blackboard",
+     "exactly": 1
+    },
+    {
+     "item": "teacher_desk",
+     "exactly": 1
+    }
+   ],
+   "required_kinds": 2,
+   "signature": [
+    {
+     "item": "blackboard",
+     "count": {
+      "type": "fixed",
+      "value": 1
+     },
+     "support": "wall",
+     "footprint": 3,
+     "prefer": "front_wall",
+     "prompt": "green chalkboard across the front wall",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "student_desk",
+     "count": {
+      "type": "range",
+      "min": 4,
+      "max": 12
+     },
+     "support": "floor",
+     "footprint": 1,
+     "prefer": "center_floor",
+     "arrange": "in rows facing the board",
+     "prompt": "wooden school desk in rows facing the board",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "teacher_desk",
+     "count": {
+      "type": "fixed",
+      "value": 1
+     },
+     "support": "floor",
+     "footprint": 1,
+     "prefer": "front_side",
+     "prompt": "teacher's desk at the front",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "window",
+     "count": {
+      "type": "range",
+      "min": 1,
+      "max": 3
+     },
+     "support": "wall",
+     "footprint": 1,
+     "prefer": "side_wall",
+     "prompt": "tall classroom window with afternoon light",
+     "prompt_style": "singular"
+    },
+    {
+     "item": "door",
+     "count": {
+      "type": "range",
+      "min": 0,
+      "max": 1
+     },
+     "support": "wall",
+     "footprint": 1,
+     "prefer": "side_wall",
+     "prompt": "wooden classroom door on a side wall",
+     "prompt_style": "singular"
+    }
+   ],
+   "supporting": [
+    {
+     "item": "chair",
+     "count": {
+      "type": "linked_soft",
+      "from": "student_desk",
+      "min": 1,
+      "max": 1
+     },
+     "requires": [
+      "student_desk"
+     ],
+     "support": "floor",
+     "footprint": 0.5,
+     "prefer": "at_desk",
+     "may_be_zero": true,
+     "note": "教室每桌一把；空桌留给图书馆",
+     "prompt": "wooden chair with a curved back",
+     "prompt_style": "singular"
+    }
+   ],
+   "optional": [
+    "wall clock",
+    "wall map",
+    "low bookshelf",
+    "globe on the teacher's desk",
+    "potted plant by the window",
+    "projector screen",
+    "paper notices on the board",
+    "...or anything the scene naturally suggests"
+   ],
+   "logic_rules": [
+    "no blackboard → not a classroom",
+    "chairs never exceed desks",
+    "desks face the board",
+    "door, if present, sits on a wall and never behind the standing figure"
+   ]
+  }
+ },
+ "overrides_note": "调用方可用 --set 强制物件数量，优先级高于 7B；fixed 违例会被校验器报出但不阻止。"
+}
