@@ -338,13 +338,21 @@ async function boot() {
   if (slSel) {
     renderStyleLoraOptions();
   bindArtistHover();
-    slSel.onchange = () => applyStyleLora(slSel.value);
+    slSel.onchange = () => {
+      applyStyleLora(slSel.value);
+      const cw = $('#coop-char-w');
+      if (cw && !cw.dataset.manual && typeof coopLoraDefaultWeight === 'function') {
+        cw.value = coopLoraDefaultWeight(slSel.value, 'char').toFixed(2);
+      }
+    };
   }
   const tipsOpen = () => openModal('提示卡', TIPS_HTML);
   const tipsBtn = document.querySelector('#btn-tips');
   if (tipsBtn) tipsBtn.onclick = tipsOpen;
   const tipsFab = document.querySelector('#tips-fab');
   if (tipsFab) tipsFab.onclick = tipsOpen;
+  const pDataBtn = document.querySelector('#btn-param-data');
+  if (pDataBtn) pDataBtn.onclick = () => { if (typeof showLoraDataModal === 'function') showLoraDataModal(); };
   const gm = document.querySelector('#guide-mode');
   if (gm) {
     gm.value = loadJSON('loom.glowMode', 'free') || 'free';
@@ -1975,6 +1983,20 @@ function coopFillLoras() {
     }
   }
   if (typeof renderStyleLoraOptions === 'function') renderStyleLoraOptions();
+  coopSyncWeightInputs();
+}
+
+function coopSyncWeightInputs() {
+  const envSel = document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora');
+  const charSel = $('#style-lora');
+  const ew = $('#coop-env-w');
+  const cw = $('#coop-char-w');
+  if (ew && !ew.dataset.manual && typeof coopLoraDefaultWeight === 'function') {
+    ew.value = coopLoraDefaultWeight(envSel ? envSel.value : '', 'env').toFixed(2);
+  }
+  if (cw && !cw.dataset.manual && typeof coopLoraDefaultWeight === 'function') {
+    cw.value = coopLoraDefaultWeight(charSel ? charSel.value : '', 'char').toFixed(2);
+  }
 }
 
 let coopTimer = null;
@@ -2243,7 +2265,8 @@ function coopSyncLoras(on) {
   if (on) {
     S._coopLoraBackup = JSON.parse(JSON.stringify(S.loras || []));
     if (envName && !(S.loras || []).some(l => l.coop === 'env')) {
-      (S.loras = S.loras || []).push({ name: envName, weight: 1.0, coop: 'env' });
+      const ew = (typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight(envName, 'env') : 0.70;
+      (S.loras = S.loras || []).push({ name: envName, weight: ew, coop: 'env' });
     }
   } else {
     S.loras = (S.loras || []).filter(l => l.coop !== 'env');
@@ -2388,7 +2411,7 @@ function coopComposeFromBlocks(fallbackRatio) {
   else if (has('@COMP_THIRDS')) x = 0.34;
   if (has('@COMP_FIGURE_EDGE')) x = 0.16;
   const byBlocks = toks.some(t => CT_COMP_RE.test(t));
-  if (!byBlocks) ratio = Math.max(0.30, ratio);
+  if (!byBlocks) ratio = fallbackRatio || 0.34;
   return { ratio: Math.round(ratio * 1000) / 1000, ground_y: ground, x: x,
            byBlocks: byBlocks };
 }
@@ -2414,13 +2437,19 @@ function coopPlanRender(by) {
 }
 
 async function coopApplyRoute() {
-  // 2026-11-15：本地模型已移除，构图比例用规则推算
-  const plan = coopComposeFromBlocks(0.24);
+  // 2026-11-15：本地模型已移除，构图比例用规则推算（默认环境 66% / 人物 34%，env=0.70 / char=0.85）
+  const presetRatio = Number(($('#coop-ratio') || {}).value) || 0.34;
+  const plan = coopComposeFromBlocks(presetRatio);
+  const envLora = (($('#coop-slora') || {}).value) || '';
+  const charLora = (($('#style-lora') || {}).value) || '';
+  const defEnvW = (typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight(envLora, 'env') : 0.70;
+  const defCharW = (typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight(charLora, 'char') : 0.85;
   S._coopRoute = {
     ratio: plan.ratio,
-    env_w: 0.65, char_w: 0.55,
-    env_lora: (($('#coop-slora') || {}).value) || '',
-    char_lora: (($('#style-lora') || {}).value) || '',
+    env_w: Number(($('#coop-env-w') || {}).value) || defEnvW,
+    char_w: Number(($('#coop-char-w') || {}).value) || defCharW,
+    env_lora: envLora,
+    char_lora: charLora,
     by: '规则'
   };
   try { coopPlanRender('规则'); } catch (e) {}
@@ -2439,8 +2468,8 @@ function coopStartReal() {
   coopTimer = setInterval(coopPoll, 2000);
   coopPoll();
   const c = coopEnsure();
-  const manual = !!(($('#coop-auto') || {}).checked) ? 0 : Number(($('#coop-ratio') || {}).value);
-  const CT_PLAN = coopComposeFromBlocks(manual || 0.24);
+  const manual = Number(($('#coop-ratio') || {}).value) || 0.34;
+  const CT_PLAN = coopComposeFromBlocks(manual);
   const call = (pos, neg) => api('/api/expand', { method: 'POST', body: JSON.stringify({ positive: pos, negative: neg }) });
   const merge = (a, b) => {
     const seen = new Set(), out = [];
@@ -2494,8 +2523,8 @@ function coopStartReal() {
       mode: 'reproject',
       bg_painter: ($('#coop-bg-painter') || {}).value || 'anima',
       char_painter: ($('#coop-char-painter') || {}).value || 'anima',
-      env_weight: Number(($('#coop-env-w') || {}).value) || 0.65,
-      char_weight: Number(($('#coop-char-w') || {}).value) || 0.85,
+      env_weight: Number(($('#coop-env-w') || {}).value) || ((typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight((document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora') || {}).value || '', 'env') : 0.70),
+      char_weight: Number(($('#coop-char-w') || {}).value) || ((typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight(charLoraVal, 'char') : 0.85),
       ll_strength: Number(($('#coop-ll-strength') || {}).value) || 1.0,
       ll_end: Number(($('#coop-ll-end') || {}).value) || 0.55,
       fg: ($('#coop-fg') || {}).value || '',
@@ -6058,10 +6087,16 @@ function bindUI() {
       if (!S.coopOn) return;
       S.loras = (S.loras || []).filter(l => l.coop !== 'env');
       const v = envPick.value;
-      if (v) S.loras.push({ name: v, weight: 1.0, coop: 'env' });
+      const ew = (typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight(v, 'env') : 0.70;
+      if (v) S.loras.push({ name: v, weight: ew, coop: 'env' });
+      const ewi = $('#coop-env-w'); if (ewi && !ewi.dataset.manual) ewi.value = ew.toFixed(2);
       if (typeof renderLoras === 'function') renderLoras();
     });
   }
+  ['#coop-env-w', '#coop-char-w'].forEach(sel => {
+    const el = $(sel);
+    if (el) el.addEventListener('change', () => { el.dataset.manual = '1'; });
+  });
   const replan = () => coopApplyRoute().then(() => toast('模型已重新判断')).catch(() => toast('判断失败', true));
   if ($('#coop-replan')) $('#coop-replan').onclick = replan;
   if ($('#coop-replan-inline')) $('#coop-replan-inline').onclick = replan;

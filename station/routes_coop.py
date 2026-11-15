@@ -40,16 +40,16 @@ class CoopReq(BaseModel):
     prompt_char: str = ""
     scene_lora: str = ""
     char_lora: str = ""
-    ratio: float = 0.24
-    ground_y: float = 0.72
+    ratio: float = 0.34
+    ground_y: float = 0.88
     x: float = 0.34
     light: str = "left"
     seed: int = 515501
     mode: str = "classic"
     bg_painter: str = "anima"
     char_painter: str = "anima"
-    env_weight: float = 0.7
-    char_weight: float = 0.55
+    env_weight: float = 0.70
+    char_weight: float = 0.85
     ll_strength: float = 1.0
     ll_end: float = 0.55
     fg: str = ""
@@ -108,7 +108,7 @@ class StandeeReq(BaseModel):
 
 def _heuristic_compose(prompt="", seed=0):
     p = (prompt or "").lower()
-    ratio, gy, x = 0.26, 0.76, 0.34
+    ratio, gy, x = 0.34, 0.88, 0.34
     if re.search(r"close ?up|portrait|upper body|bust|face", p):
         ratio = 0.42
     elif re.search(r"wide|landscape|distant|scenery|sky|beach|field|forest|mountain|horizon", p):
@@ -133,7 +133,7 @@ def _compose_hint(prompt="", seed=0):
         h["ratio"] = max(h["ratio"], 0.32)
     if re.search(r"station|street|room|corridor|cafe|interior|indoor", p):
         h["ratio"] = min(h["ratio"], 0.32)
-    h["ratio"] = round(min(0.45, max(0.30, h["ratio"])), 3)
+    h["ratio"] = round(min(0.48, max(0.20, h["ratio"])), 3)
     h["ground_y"] = round(min(0.92, max(0.5, h["ground_y"])), 3)
     h["x"] = round(min(0.85, max(0.15, h["x"])), 3)
     return h
@@ -220,7 +220,8 @@ def api_coop(req: CoopReq):
     hint = None
     if req.auto_compose:
         hint = _compose_hint(req.prompt_scene or req.prompt_char or req.scene, req.seed)
-        req.ratio = hint["ratio"]
+        if req.mode != "reproject" or not req.ratio or req.ratio <= 0:
+            req.ratio = hint["ratio"]
     args = ["--ratio", str(req.ratio), "--ground-y", str(req.ground_y),
             "--x", str(req.x), "--seed", str(req.seed), "--light", req.light]
     if req.mode == "reproject":

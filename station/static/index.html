@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="256x256" href="/icon_256.png?v=3">
   <link rel="apple-touch-icon" href="/icon_256.png?v=3">
 <title>SUNLOOM · 织日</title>
-<link rel="stylesheet" href="/style.css?v=149">
+<link rel="stylesheet" href="/style.css?v=150">
   <link rel="stylesheet" href="/pick.css?v=2">
   <link rel="stylesheet" href="/toolbar.css?v=5">
 <style>.build-badge{margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;color:#ffd98a;border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.12)}</style>
@@ -206,6 +206,25 @@
             </div>
             <div class="head-actions"><button class="ghost" data-coop-add="commonNeg">+ 文本</button><button class="ghost" data-coop-clear="commonNeg">清空</button></div></div>
             <div class="lane-body" id="coop-common-neg-lane"></div></div>
+          <div class="row2" style="margin-top:8px;align-items:flex-end">
+            <div class="field" style="flex:1.4">
+              <label>环境与人物默认占比</label>
+              <select id="coop-ratio" title="仅在未拖入 @COMP_FIGURE_* 构图积木时生效；数值为人物占画布高度比例">
+                <option value="0.20">环境 80% · 人物 20%（大景远人）</option>
+                <option value="0.25">环境 75% · 人物 25%（风景带人）</option>
+                <option value="0.34" selected>环境 66% · 人物 34%（默认推荐 1/3 全身）</option>
+                <option value="0.45">环境 55% · 人物 45%（人物突出中景）</option>
+              </select>
+            </div>
+            <div class="field" style="flex:0.8">
+              <label>环境 LoRA 权重</label>
+              <input id="coop-env-w" type="number" step="0.05" min="0" max="1.5" value="0.70" title="阶段1 出板环境厚涂默认 0.70">
+            </div>
+            <div class="field" style="flex:0.8">
+              <label>人物 LoRA 权重</label>
+              <input id="coop-char-w" type="number" step="0.05" min="0" max="1.5" value="0.85" title="合作模式人物重绘/精修默认 0.85，可按本地 LoRA 特性微调">
+            </div>
+          </div>
           <label class="hint" style="display:flex;align-items:center;gap:6px;margin:6px 0 2px">
             <input type="checkbox" id="coop-keep-mid" style="width:auto"> 保留重映中间件（遮罩 / 过程图 / 全量日志）
           </label>
@@ -262,7 +281,7 @@
     </section>
 
     <aside class="params card">
-      <div class="card-head"><h3>参数</h3><span class="hint" id="eta">—</span></div>
+      <div class="card-head"><h3>参数</h3><span class="hint" id="eta">—</span><button type="button" class="ghost param-data-btn" id="btn-param-data" title="查看推荐默认权重、合作模式环境/人物占比与本地 LoRA 状态">数据</button></div>
       <details class="fold" open><summary>画面</summary>
       <div class="field" id="p-model-field"><label>底模</label>
         <select id="p-model"></select>
@@ -805,9 +824,9 @@ window.addEventListener('error', function (e) {
 }, true);
 </script>
 <script src="/js/util.js"></script>
-  <script src="/js/lora.js?v=47"></script>
+  <script src="/js/lora.js?v=50"></script>
   <script src="/js/transparency.js?v=2"></script>
-  <script src="/app.js?v=413"></script>
+  <script src="/app.js?v=415"></script>
 <div id="cmdbar" class="cmdbar"><div class="cmd-box">
   <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
   <div id="cmd-list" class="cmd-list"></div>

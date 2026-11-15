@@ -186,11 +186,11 @@ def _load_cfg(a):
         "cfg": float(cfg.get("cfg") or 5.5),
         "seed": int(cfg.get("seed") or a.seed or 2026),
         "scene_lora": str(cfg.get("scene_lora") or "").strip(),
-        "env_weight": float(cfg.get("env_weight") or 0.65),
+        "env_weight": float(cfg.get("env_weight") or 0.70),
         "char_lora": str(cfg.get("char_lora") or "").strip(),
         "char_weight": float(cfg.get("char_weight") or 0.85),
         "extra_loras": cfg.get("extra_loras") or [],
-        "ratio": float(cfg.get("ratio") or 0.26),
+        "ratio": float(cfg.get("ratio") or 0.34),
         "ground_y": float(cfg.get("ground_y") or 0.88),
         "x": float(cfg.get("x") or 0.34),
         "expand_notes": cfg.get("expand_notes") or [],
@@ -233,6 +233,23 @@ def _dedup_join(*chunks):
     return ", ".join(out)
 
 
+def _proportion_cue(scene_text, char_text, ratio):
+    """根据默认/选定人物占比（ratio=人物占画高）为 01_plate 补充景别提示，避免人物放大挤占环境。"""
+    if not str(char_text or "").strip():
+        return ""
+    joined = (str(scene_text or "") + " " + str(char_text or "")).lower()
+    if any(k in joined for k in ("close-up", "portrait", "upper body", "cowboy shot", "wide shot", "very wide", "distant view")):
+        return ""
+    r = float(ratio or 0.34)
+    if r <= 0.22:
+        return "very wide shot, full body standing, distant small figure, expansive scenery surrounding character"
+    if r <= 0.29:
+        return "wide shot, full body standing, figure occupying a quarter of frame height, expansive background visible"
+    if r <= 0.38:
+        return "wide medium-long shot, full body standing, figure occupying one third of frame height, spacious environmental surroundings"
+    return "medium full shot, full body standing, clear environmental background"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="")
@@ -269,7 +286,8 @@ def main():
         [{"name": c["char_lora"], "weight": c["char_weight"]}] if c["char_lora"] else [],
     )
 
-    plate_prompt = _dedup_join(c["scene"], c["char"]) if c["char"].strip() else c["scene"]
+    prop_cue = _proportion_cue(c["scene"], c["char"], c["ratio"])
+    plate_prompt = _dedup_join(c["scene"], c["char"], prop_cue) if c["char"].strip() else c["scene"]
     base_neg = "text, watermark, lowres, blurry, bad anatomy, extra fingers, deformed"
     plate_neg = _merge_neg(c["neg_scene"], c["neg_char"]) or base_neg
     char_neg = _merge_neg(c["neg_char"], c["neg_scene"]) or base_neg
