@@ -5412,35 +5412,85 @@ async function loadPresets() {
 
 
 /* ---------- 工作流向导 ---------- */
+function guideModeValue() {
+  const m = S.guide && S.guide.picks && S.guide.picks.mode && S.guide.picks.mode[0];
+  if (m === '__mode__:coop') return 'coop';
+  if (m === '__mode__:direct') return 'direct';
+  return S.coopOn ? 'coop' : 'direct';
+}
+
+function _guideMeta(t, stKey) {
+  if (t === '__mode__:direct') return { label: '常规直出（单图）', note: 'Anima 单图 T2I · 自由度最高，推荐 1024×1536' };
+  if (t === '__mode__:coop') return { label: '合作重映（场景+人物）', note: '出板→人物重绘→修脸修手 · 默认环境 66% / 人物 34%' };
+  if (t === '__free__') return { label: '不锁角色（自由发挥）', note: '只留基础 1girl/1boy，完全交给画师 LoRA 发挥' };
+  if (t.startsWith('__card__:')) {
+    const cn = t.slice(9);
+    const card = (S.cards || []).find(c => c.name === cn);
+    return { label: '角色卡 · ' + cn, note: (card && card.persona) ? String(card.persona).split(/\n/)[0].slice(0, 30) : '绑定角色卡专属正负向与 LoRA' };
+  }
+  if (t.startsWith('__ratio__:')) {
+    const r = t.slice(10);
+    const map = { '0.20': '环境 80% / 人物 20%（大景远人）', '0.25': '环境 75% / 人物 25%（风景带人）', '0.34': '环境 66% / 人物 34%（默认 1/3 全身）', '0.45': '环境 55% / 人物 45%（人物中景）' };
+    return { label: map[r] || ('占比 ' + r), note: '合作出板默认人物占画高 ' + r };
+  }
+  if (stKey === 'artist') {
+    if (t === '__none__') return { label: '不指定（纯底模）', note: '仅使用 Anima 原生画风' };
+    const env = typeof isEnvLora === 'function' && isEnvLora(t);
+    const cw = typeof coopLoraDefaultWeight === 'function' ? coopLoraDefaultWeight(t, env ? 'env' : 'artist') : (env ? 0.70 : 0.85);
+    const bw = typeof artistDefaultWeight === 'function' ? artistDefaultWeight(t, '') : (env ? 0.70 : 0.85);
+    return {
+      label: (typeof shortLoraName === 'function' ? shortLoraName(t) : t),
+      note: (env ? '环境 LoRA · 推荐 ' + cw.toFixed(2) : '人物画师 · 单图 ' + bw.toFixed(2) + ' / 合作 ' + cw.toFixed(2))
+    };
+  }
+  return { label: t, note: (S.notes || {})[t] || '' };
+}
+
 function guideSteps() {
   const canon = t => resolveToken(t);
-  const has = t => !!(S.tokens && S.tokens[canon(t)]);
-  const pick = arr => arr.map(canon).filter(t => !!(S.tokens && S.tokens[t]));
-  const outfits = Object.keys(S.garments || {}).map(k => '@OUT_' + k.toUpperCase()).filter(t => !!(S.tokens && S.tokens[t]));
+  const pick = arr => arr.map(canon).filter(t => !!(S.tokens && S.tokens[t]) && (typeof tokenVisible !== 'function' || tokenVisible(t)));
+  const isCoop = guideModeValue() === 'coop';
+  const g = (typeof S.gender === 'string' && S.gender === 'm') ? 'm' : 'f';
+  const cards = (S.cards || []).filter(c => (c.gender || 'f') === g).map(c => '__card__:' + c.name);
+  const idPub = pick(g === 'm'
+    ? ['@SINGLE_M', '@ID_M_SOFT', '@ID_M', '@ID_M_TIGHT', '@ID_M_KAI', '@ID_M_REN', '@ID_M_TAKU']
+    : ['@SINGLE_F', '@ID_F_SOFT', '@ID_F', '@ID_F_TIGHT', '@ID_F_AYA', '@ID_F_RIN', '@ID_F_YUKI', '@ID_F_SORA', '@ID_F_HANA']);
+  const outfits = Object.keys(S.garments || {}).map(k => '@OUT_' + k.toUpperCase())
+    .filter(t => !!(S.tokens && S.tokens[t]) && (typeof tokenVisible !== 'function' || tokenVisible(t)));
   const sets = pick(['@SET_CAFE','@SET_BEDROOM','@SET_LIBRARY','@SET_ROOFTOP','@SET_BEACH','@SET_CLASSROOM',
                      '@SET_KITCHEN','@SET_CITY_STREET','@SET_GREENHOUSE','@SET_ONSEN','@SET_SCHOOL_GATE','@SET_MUSEUM']);
+  const lights = pick(['@LIGHT_WIN','@LIGHT_GOLDEN','@LIGHT_NIGHT','@LIGHT_NEON','@LIGHT_RIM','@LIGHT_STUDIO',
+                       '@TIME_MORNING','@TIME_AFTERNOON','@TIME_DUSK','@TIME_NIGHT','@TIME_DAWN']);
   const moods = pick(['@MOOD_CALM','@MOOD_AMUSED','@MOOD_SHY','@MOOD_EXCITED','@MOOD_TENDER','@MOOD_FOCUSED',
                       '@MOOD_SLEEPY','@MOOD_SURPRISED']);
   const gazes = pick(['@GAZE_CAMERA','@GAZE_ASIDE','@GAZE_DOWN','@GAZE_UP','@GAZE_FAR']);
+  const animaLoras = (S.loraFiles || []).filter(f => {
+    if (typeof loraBase === 'function' && loraBase(f) !== 'anima') return false;
+    if (/turbo|modare/i.test(f)) return false;
+    const cat = typeof loraCat === 'function' ? loraCat(f) : '';
+    if (cat === '角色' || cat === '加速' || cat === '动作') return false;
+    return isCoop ? (cat === '画师' || cat === '环境' || cat === '厚涂' || (typeof isEnvLora === 'function' && isEnvLora(f))) : cat === '画师';
+  });
+  const comps = pick(['@COMP_CENTER','@COMP_THIRDS','@COMP_FRAME','@COMP_NEGATIVE','@COMP_DIAGONAL']);
   return [
-    { cats:['id'], key:'subject', title:'主体与身份', sub:'先定是谁；出图用 1024×1536 / 30 步 / CFG 5.5', multi:2,
-      items: pick(S.gender === 'm' ? ['@SINGLE_M', '@ID_M_SOFT', '@ID_M', '@ID_M_TIGHT']
-                                      : ['@SINGLE_F', '@ID_F_SOFT', '@ID_F', '@ID_F_TIGHT']) },
-    { cats:['cam'], key:'cam', title:'机位', sub:'构图的第一刀，先选一个', multi:1,
-      items: pick(['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_THREEQ','@CAM_PROFILE','@CAM_HIGH','@CAM_TOP','@CAM_WORM']) },
-    { cats:['set'], key:'set', title:'场景', sub:'可选；没有场景也能出图', multi:1, skip:true, items: sets },
-    { cats:['light'], key:'light', title:'打光', sub:'影响最大；场景图别配 @STYLE_*（会压白底）', multi:1,
-      items: pick(['@LIGHT_WIN','@LIGHT_GOLDEN','@LIGHT_NIGHT','@LIGHT_NEON','@LIGHT_RIM','@LIGHT_STUDIO']) },
-    { cats:['time'], key:'time', title:'时间', sub:'可选；夜景记得配光', multi:1, skip:true,
-      items: pick(['@TIME_MORNING','@TIME_AFTERNOON','@TIME_DUSK','@TIME_NIGHT','@TIME_DAWN']) },
-    { cats:['outfit'], key:'outfit', title:'服装', sub:'一套就够，换衣服会自动补负向', multi:1, items: outfits },
+    { cats:[], key:'mode', title:'出图模式', sub:'先选走「常规单图直出」还是「合作重映三阶段」', multi:1,
+      items: ['__mode__:direct', '__mode__:coop'] },
+    { cats:['id'], key:'subject', title:'角色与身份', sub:'可选自由发挥、自有角色卡或公开预设（未选卡不会带出私有积木）', multi:2,
+      items: ['__free__'].concat(cards, idPub) },
+    { cats:['cam'], key:'cam', title:'机位', sub: isCoop ? '合作模式建议全身/中远景，保留足够环境空间' : '决定镜头景别与角度，先选一个', multi:1,
+      items: pick(isCoop ? ['@CAM_FULL','@CAM_THREEQ','@CAM_MEDIUM','@CAM_LOW','@CAM_HIGH','@CAM_BUST']
+                         : ['@CAM_BUST','@CAM_MEDIUM','@CAM_FULL','@CAM_CLOSEUP','@CAM_THREEQ','@CAM_PROFILE','@CAM_HIGH','@CAM_TOP','@CAM_WORM']) },
+    { cats:['set'], key:'set', title:'场景', sub: isCoop ? '合作重映会自动放进「① 环境」主场景槽' : '可选；不选场景则保留干净背景', multi:1, skip:true, items: sets },
+    { cats:['light','time'], key:'light', title:'打光与时段', sub:'先定主光源，可再补 1 块时段氛围', multi:2, skip:true, items: lights },
+    { cats:['outfit'], key:'outfit', title:'服装', sub:'按当前性别过滤，选 1 套即可（自动带出配套负向）', multi:1, skip:true, items: outfits },
     { cats:['mood','gaze','hand'], key:'mood', title:'表情与视线', sub:'可选，最多两块', multi:2, skip:true, items: moods.concat(gazes) },
-    { cats:['comp'], key:'comp', title:'构图', sub:'可选；@STYLE_* 会压掉场景，这里不再提供', multi:2, skip:true,
-      items: pick(['@COMP_CENTER','@COMP_THIRDS','@COMP_FRAME','@COMP_NEGATIVE','@COMP_DIAGONAL']) },
-    { cats:['artist'], key:'artist', title:'画师 LoRA', sub:'可选；按角色自动取权重（1.0 / v2 0.9）', multi:1, skip:true,
-      items: ['__none__'].concat((S.loraFiles || []).filter(f => typeof loraCat === 'function' && loraCat(f) === '画师')) },
-    { cats:['neg'], key:'neg', title:'负向底线', sub:'建议保持默认两块', multi:2, fixed:true,
-      items: pick(['@NEG_BASE','@NEG_HANDS']) },
+    { cats:['comp'], key:'comp', title: isCoop ? '构图与占比' : '构图', sub: isCoop ? '可设环境/人物默认占比（默认环境 66% / 人物 34%）' : '可选；按需要选构图规则', multi:2, skip:true,
+      items: isCoop ? ['__ratio__:0.20', '__ratio__:0.25', '__ratio__:0.34', '__ratio__:0.45'].concat(comps) : comps },
+    { cats:['artist'], key:'artist', title: isCoop ? '环境与画师 LoRA' : '画师 LoRA',
+      sub: isCoop ? '仅显示 Anima 底模 LoRA；可同时选 1 个环境 LoRA + 1 个画师（自动带默认权重）' : '仅显示 Anima 底模画师 LoRA，自动带出推荐权重与触发词',
+      multi: isCoop ? 2 : 1, skip:true, items: ['__none__'].concat(animaLoras) },
+    { cats:['neg'], key:'neg', title:'负向底线', sub:'建议保留默认底线', multi:2, fixed:true,
+      items: pick(g === 'm' ? ['@NEG_BASE','@NEG_HANDS','@NEG_MALE_BODY'] : ['@NEG_BASE','@NEG_HANDS']) },
   ];
 }
 
@@ -5473,21 +5523,33 @@ function renderGuide() {
   const opts = document.querySelector('#guide-options');
   if (opts) {
     opts.innerHTML = st.items.map(t => {
-      const on = chosen.includes(t);
-      const label = st.key === 'artist' ? (t === '__none__' ? '不指定' : (typeof shortLoraName === 'function' ? shortLoraName(t) : t)) : t;
-      const note = st.key === 'artist' ? (t === '__none__' ? '' : '画师 LoRA') : ((S.notes || {})[t] || '');
-      const nt = note ? note.replace(/\s+/g, ' ').slice(0, 26) : '';
-      return '<button class="guide-chip' + (on ? ' on' : '') + '" data-token="' + t + '" title="' + esc(note) + '">' +
-        '<span>' + label + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
+      const on = chosen.includes(t) || (st.key === 'mode' && !chosen.length && t === ('__mode__:' + guideModeValue()));
+      const meta = _guideMeta(t, st.key);
+      const nt = meta.note ? meta.note.replace(/\s+/g, ' ').slice(0, 30) : '';
+      return '<button class="guide-chip' + (on ? ' on' : '') + '" data-token="' + esc(t) + '" title="' + esc(meta.note) + '">' +
+        '<span>' + esc(meta.label) + '</span>' + (nt ? '<span class="nt">' + esc(nt) + '</span>' : '') + '</button>';
     }).join('') || '<span class="hint">这一步没有可选项</span>';
     opts.querySelectorAll('.guide-chip').forEach(b => b.onclick = () => {
       const t = b.dataset.token;
       let arr = (g.picks[st.key] || (st.key === 'neg' ? st.items.slice() : [])).slice();
       if (arr.includes(t)) arr = arr.filter(x => x !== t);
       else {
-        if (st.multi === 1) arr = [t];
-        else if (arr.length >= st.multi) arr.shift();
-        arr.push(t);
+        if (st.key === 'subject' && (t === '__free__' || t.startsWith('__card__:'))) arr = [t];
+        else if (st.key === 'subject') arr = arr.filter(x => x !== '__free__' && !x.startsWith('__card__:')).slice(-(st.multi - 1)).concat([t]);
+        else if (st.key === 'comp' && t.startsWith('__ratio__:')) arr = arr.filter(x => !x.startsWith('__ratio__:')).slice(-(st.multi - 1)).concat([t]);
+        else if (st.key === 'artist' && t === '__none__') arr = ['__none__'];
+        else if (st.key === 'artist') {
+          arr = arr.filter(x => x !== '__none__');
+          if (st.multi === 1) arr = [t];
+          else {
+            const isE = typeof isEnvLora === 'function' && isEnvLora(t);
+            arr = arr.filter(x => (typeof isEnvLora === 'function' && isEnvLora(x)) !== isE).concat([t]);
+          }
+        } else {
+          if (st.multi === 1) arr = [t];
+          else if (arr.length >= st.multi) arr.shift();
+          arr.push(t);
+        }
       }
       if (st.fixed) arr = arr.length ? arr : st.items.slice();
       g.picks[st.key] = arr;
@@ -5496,7 +5558,7 @@ function renderGuide() {
   }
 
   const picked = document.querySelector('#guide-picked');
-  if (picked) picked.innerHTML = chosen.length ? chosen.map(t => '<span class="chip on">' + t + '</span>').join('') : '<span class="hint">还没选</span>';
+  if (picked) picked.innerHTML = chosen.length ? chosen.map(t => '<span class="chip on">' + esc(_guideMeta(t, st.key).label) + '</span>').join('') : '<span class="hint">还没选</span>';
 
   const prev = document.querySelector('#guide-prev');
   const next = document.querySelector('#guide-next');
@@ -5512,8 +5574,12 @@ function renderGuide() {
     const posTokens = [];
     const negTokens = [];
     steps.forEach(s => {
+      if (s.key === 'mode' || s.key === 'artist') return;
       const arr = g.picks[s.key] || (s.key === 'neg' ? s.items : []);
-      (s.key === 'neg' ? negTokens : posTokens).push(...arr);
+      arr.forEach(t => {
+        if (!t || t.startsWith('__')) return;
+        (s.key === 'neg' ? negTokens : posTokens).push(t);
+      });
     });
     if (!posTokens.length) { pre.textContent = '选几块试试…'; renderGuidePalette(); scrollGuidePaletteTo(st); return; }
     api('/api/expand', { method:'POST', body: JSON.stringify({
@@ -5556,8 +5622,12 @@ function renderGuideCurrent() {
   const pos = [], neg = [];
   steps.forEach(st => {
     const arr = g.picks[st.key] || (st.key === 'neg' ? st.items : []);
-    if (st.key === 'neg') arr.forEach(t => { if (!neg.includes(t)) neg.push(t); });
-    else arr.forEach(t => { if (!pos.includes(t)) pos.push(t); });
+    if (st.key === 'mode' || st.key === 'artist') return;
+    arr.forEach(t => {
+      if (!t || t.startsWith('__')) return;
+      if (st.key === 'neg') { if (!neg.includes(t)) neg.push(t); }
+      else if (!pos.includes(t)) pos.push(t);
+    });
   });
   pos.forEach(t => companionsOf(t).forEach(c => {
     if (c.lane === 'negative') {
@@ -5642,6 +5712,7 @@ function renderGuidePalette() {
   const groups = {};
   Object.keys(S.tokens || {}).forEach(k => {
     if (hidden.has(k)) return;
+    if (typeof tokenVisible === 'function' && !tokenVisible(k)) return;
     if (q && !k.toLowerCase().includes(q)) return;
     const c = tokenCat(k);
     (groups[c] = groups[c] || []).push(k);
@@ -5696,7 +5767,10 @@ function guidePreview() {
       });
     }
   };
-  steps.forEach(s => (g.picks[s.key] || (s.key === 'neg' ? s.items : [])).forEach(t => pushTok(s.key === 'neg' ? 'negative' : 'positive', t)));
+  steps.forEach(s => (g.picks[s.key] || (s.key === 'neg' ? s.items : [])).forEach(t => {
+    if (!t || t.startsWith('__')) return;
+    pushTok(s.key === 'neg' ? 'negative' : 'positive', t);
+  }));
   const chip = b => '<span class="chip on">' + esc(b.token || b.text.slice(0, 18)) + '</span>';
   const gp = document.querySelector('#gc-pos'), gn = document.querySelector('#gc-neg');
   if (gp) gp.innerHTML = pos.length ? pos.map(chip).join('') : '<span class="hint">空</span>';
@@ -5715,48 +5789,121 @@ function guidePreview() {
 }
 
 function guideApply() {
+  pushHistory();
   const steps = guideSteps();
   const g = S.guide || { picks: {} };
+  const mode = guideModeValue();
+  const wantCoop = mode === 'coop';
   let added = 0;
-  // 先清空画布，避免旧积木残留（2026-11-08）
-  S.pos = [];
-  S.neg = [];
-  const posTokens = [];
-  steps.forEach(s => {
-    Array.from(new Set(g.picks[s.key] || (s.key === 'neg' ? s.items : []))).forEach(t => {
-      if (s.key === 'neg') return;
-      posTokens.push(t);
-    });
-  });
-  posTokens.forEach(t => {
-    if (t === '__none__' || ((S.loraFiles || []).includes(t) && typeof loraCat === 'function' && loraCat(t) === '画师')) return;
-    if (S.pos.some(b => b.token === t)) return;
-    addBlock('positive', t); added++;
-  });
-  const negTokens = g.picks['neg'] || steps.find(s => s.key === 'neg').items;
-  negTokens.forEach(t => {
-    if (S.neg.some(b => b.token === t)) return;
-    addBlock('negative', t); added++;
-  });
-  // 被压制的自动配套（用户手动删掉的）不要落进画布
-  const supPos = g.suppressPos || [];
-  const supNeg = g.suppressNeg || [];
-  if (supPos.length || supNeg.length) {
-    S.pos = S.pos.filter(b => !(b.auto && supPos.indexOf(b.token) >= 0));
-    S.neg = S.neg.filter(b => !(b.auto && supNeg.indexOf(b.token) >= 0));
-    renderLanes(); expandPreview();
-  }
+
   const b = document.querySelector('#tabs button[data-tab="build"]');
   if (b) b.click();
-  const artistPick = (g.picks['artist'] || [])[0];
-  if (artistPick && artistPick !== '__none__') {
-    S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '画师');
-    const aw = (typeof artistDefaultWeight === 'function' ? artistDefaultWeight(artistPick, currentCharLora()) : null) || 1.0;
-    S.loras.push({ name: artistPick, weight: aw });
-    if (typeof renderLoras === 'function') renderLoras();
-    added++;
+  if (!wantCoop && S.coopOn && typeof coopToggle === 'function') coopToggle();
+
+  const subjPicks = g.picks['subject'] || [];
+  const cardToken = subjPicks.find(t => t.startsWith('__card__:'));
+  const wantFree = subjPicks.includes('__free__');
+  const ratioPick = (g.picks['comp'] || []).find(t => t.startsWith('__ratio__:'));
+  const artistPicks = (g.picks['artist'] || []).filter(x => x && x !== '__none__');
+  const envLoraPick = artistPicks.find(x => typeof isEnvLora === 'function' && isEnvLora(x));
+  const charLoraPick = artistPicks.find(x => !(typeof isEnvLora === 'function' && isEnvLora(x)));
+
+  const prevRouting = S._coopRouting;
+  S._coopRouting = false;
+  try {
+    S.pos = [];
+    S.neg = [];
+    if (S.coop) S.coop = { commonPos: [], commonNeg: [], envPos: [], chrPos: [], chrNeg: [] };
+
+    const posTokens = [];
+    steps.forEach(s => {
+      if (s.key === 'mode' || s.key === 'artist' || s.key === 'neg') return;
+      Array.from(new Set(g.picks[s.key] || [])).forEach(t => {
+        if (!t || t.startsWith('__') || ((S.loraFiles || []).includes(t) && typeof loraCat === 'function' && loraCat(t) !== '角色')) return;
+        posTokens.push(t);
+      });
+    });
+
+    const cardSel = $('#card-sel');
+    const idSel = $('#identity-strength');
+    if (cardToken) {
+      const cname = cardToken.slice(9);
+      const card = (S.cards || []).find(c => c.name === cname);
+      if (cardSel) cardSel.value = cname;
+      if (card) {
+        S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '角色').concat((card.loras || []).map(l => ({ name: l.name, weight: Number(l.weight) || 1 })));
+        const lvl = idSel ? Number(idSel.value) : 0.5;
+        if (lvl >= 1) {
+          (card.tokens || []).map(resolveToken).forEach(tok => { if (!S.pos.some(x => x.token === tok)) { S.pos.push({ id: uid(), token: tok, text: '', weight: 1, enabled: true, cardIdentity: true }); added++; } });
+        } else if (lvl > 0) {
+          const wt = (card.identity_weak || '').trim() || TEXT_ID;
+          S.pos.push({ id: uid(), token: '', text: wt, weight: lvl, enabled: true, cardIdentity: true }); added++;
+        }
+        (card.neg_blocks || []).forEach(nb => {
+          const tok = (nb && nb.token) || '', txt = (nb && nb.text) || '';
+          if ((tok || txt.trim()) && (!tok || !S.neg.some(x => x.token === tok))) {
+            S.neg.push({ id: uid(), token: tok, text: tok ? '' : txt, weight: Number(nb && nb.weight) || 1, enabled: true, cardIdentity: true });
+          }
+        });
+      }
+    } else {
+      if (cardSel) cardSel.value = '';
+      S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '角色');
+      if (wantFree) {
+        if (idSel) idSel.value = '0';
+        S.pos.push({ id: uid(), token: '', text: S.gender === 'm' ? TEXT_ID_MIN_MALE : TEXT_ID_MIN, weight: 1, enabled: true, identityMin: true });
+        added++;
+      }
+    }
+
+    posTokens.forEach(t => {
+      if (S.pos.some(x => x.token === t)) return;
+      addBlock('positive', t); added++;
+    });
+    const negTokens = g.picks['neg'] || steps.find(s => s.key === 'neg').items;
+    negTokens.forEach(t => {
+      if (!t || t.startsWith('__') || S.neg.some(x => x.token === t)) return;
+      addBlock('negative', t); added++;
+    });
+
+    const supPos = g.suppressPos || [], supNeg = g.suppressNeg || [];
+    if (supPos.length || supNeg.length) {
+      S.pos = S.pos.filter(x => !(x.auto && supPos.indexOf(x.token) >= 0));
+      S.neg = S.neg.filter(x => !(x.auto && supNeg.indexOf(x.token) >= 0));
+    }
+
+    const slSel = $('#style-lora');
+    if (slSel) slSel.value = charLoraPick || '';
+    if (typeof applyStyleLora === 'function') applyStyleLora(charLoraPick || '');
+    if (charLoraPick) added++;
+  } finally {
+    S._coopRouting = prevRouting;
   }
-  toast('向导已把 ' + added + ' 块积木放进画布');
+
+  if (wantCoop) {
+    if (!S.coopOn && typeof coopToggle === 'function') coopToggle();
+    else if (typeof coopSplit === 'function') { coopSplit(); renderCoopLanes(); coopBind(); }
+    if (ratioPick) {
+      const rSel = $('#coop-ratio');
+      if (rSel) rSel.value = ratioPick.slice(10);
+    }
+    const envSel = document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora');
+    if (envLoraPick && envSel) {
+      envSel.value = envLoraPick;
+      envSel.dispatchEvent(new Event('change'));
+      added++;
+    }
+    const cwEl = $('#coop-char-w');
+    if (cwEl && charLoraPick && typeof coopLoraDefaultWeight === 'function') {
+      cwEl.value = coopLoraDefaultWeight(charLoraPick, 'char').toFixed(2);
+      delete cwEl.dataset.manual;
+    }
+  } else {
+    renderLanes();
+  }
+  if (typeof renderLoras === 'function') renderLoras();
+  expandPreview();
+  toast('向导（' + (wantCoop ? '合作重映' : '常规直出') + '）已填入 ' + added + ' 项到工作台');
 }
 
 /* ---------- 事件绑定 ---------- */
