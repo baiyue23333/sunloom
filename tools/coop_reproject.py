@@ -101,7 +101,7 @@ def _run_job(body, tag, timeout=900):
     raise TimeoutError("%s 超时" % tag)
 
 
-def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras, steps, cfg, seed, style_suffix="", mf=None):
+def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras, steps, cfg, seed, style_suffix="", mf=None, model="", denoise_override=0.0):
     im = Image.open(plate_path).convert("RGB")
     W, H = im.size
     if mask.size != (W, H):
@@ -117,6 +117,7 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     x0, y0 = max(0, bx0 - pad_x), max(0, by0 - pad_y)
     x1, y1 = min(W, bx1 + pad_x), min(H, by1 + pad_y)
     cw, ch = x1 - x0, y1 - y0
+    # 防止裁成极端窄条（如 416x1016）：横向补足背景视域到健康比例（>= 0.62），背景侧 mask 保持为 0 不改背景
     if cw < int(ch * 0.62) and W > cw:
         want_w = min(W, int(ch * 0.62))
         cx_mid = (x0 + x1) // 2
@@ -128,7 +129,7 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     crop_img = im.crop((x0, y0, x1, y1))
     crop_mask = mask.crop((x0, y0, x1, y1))
     long_side = max(cw, ch)
-    target_long = 960 if area_frac < 0.45 else min(1024, max(768, long_side))
+    target_long = 1024 if (denoise_override > 0 or area_frac < 0.45) else min(1024, max(768, long_side))
     scale = max(1.0, target_long / float(max(long_side, 1)))
     min_w = 512 if (cw < ch and W >= 512) else 256
     tw = _align8(cw * scale, min_w, 1024)
@@ -139,7 +140,7 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     else:
         crop_big, mask_big = crop_img, crop_mask
 
-    denoise = 0.50 if area_frac < 0.30 else (0.42 if area_frac < 0.55 else 0.36)
+    denoise = float(denoise_override) if denoise_override > 0 else (0.50 if area_frac < 0.30 else (0.42 if area_frac < 0.55 else 0.36))
     tag = "%s_%03d" % (time.strftime("%H%M%S"), int(time.time() * 1000) % 1000)
     big_path = os.path.join(steps_dir, "_body_crop_%s.png" % tag)
     crop_big.save(big_path)
@@ -151,12 +152,15 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     body_steps = min(24, max(18, int(steps) - 4))
     print("[body] 占比=%.1f%% 裁切=%dx%d -> 采样=%dx%d denoise=%.2f" %
           (area_frac * 100, cw, ch, tw, th, denoise), flush=True)
-    res_path = _run_job({
+    job_body = {
         "prompt": body_prompt, "negative": neg_char, "mode": "inpaint",
         "reference": big_path, "mask": mask_name, "denoise": denoise,
         "steps": body_steps, "cfg": cfg, "seed": seed + 1, "loras": char_loras,
         "prefix": "REPROJ_body", "save_to": "paper", "width": tw, "height": th,
-    }, "人物重绘")
+    }
+    if model:
+        job_body["model"] = model
+    res_path = _run_job(job_body, "人物重绘")
 
     back = Image.open(res_path).convert("RGB").resize((cw, ch), Image.LANCZOS)
     soft = crop_mask.filter(ImageFilter.GaussianBlur(max(3, int(min(cw, ch) * 0.012))))
@@ -192,6 +196,7 @@ def _load_cfg(a):
         "steps": min(36, max(18, int(cfg.get("steps") or 26))),
         "cfg": float(cfg.get("cfg") or 5.5),
         "seed": int(cfg.get("seed") or a.seed or 2026),
+        "model": str(cfg.get("model") or "").strip(),
         "scene_lora": str(cfg.get("scene_lora") or "").strip(),
         "env_weight": float(cfg.get("env_weight") or 0.70),
         "char_lora": str(cfg.get("char_lora") or "").strip(),
@@ -206,6 +211,8 @@ def _load_cfg(a):
         "face_suffix": cfg.get("face_suffix"),
         "hand_suffix": cfg.get("hand_suffix"),
         "keep_intermediates": bool(cfg.get("keep_intermediates")),
+        "light": str(cfg.get("light") or "left").strip().lower(),
+        "pipeline": str(cfg.get("pipeline") or "a").strip().lower(),
     }
 
 
@@ -240,21 +247,7 @@ def _dedup_join(*chunks):
     return ", ".join(out)
 
 
-def _proportion_cue(scene_text, char_text, ratio):
-    """根据默认/选定人物占比（ratio=人物占画高）为 01_plate 补充景别提示，避免人物放大挤占环境。"""
-    if not str(char_text or "").strip():
-        return ""
-    joined = (str(scene_text or "") + " " + str(char_text or "")).lower()
-    if any(k in joined for k in ("close-up", "portrait", "upper body", "cowboy shot", "wide shot", "very wide", "distant view")):
-        return ""
-    r = float(ratio or 0.34)
-    if r <= 0.22:
-        return "very wide shot, full body standing, distant small figure, expansive scenery surrounding character"
-    if r <= 0.29:
-        return "wide shot, full body standing, figure occupying a quarter of frame height, expansive background visible"
-    if r <= 0.38:
-        return "wide medium-long shot, full body standing, figure occupying one third of frame height, spacious environmental surroundings"
-    return "medium full shot, full body standing, clear environmental background"
+_proportion_cue = parts.proportion_cue
 
 
 def main():
@@ -284,11 +277,14 @@ def main():
         for x in (c["extra_loras"] or [])
         if isinstance(x, dict) and str(x.get("name") or "").strip() not in skip_names
     ]
-    plate_cw = min(0.65, round(c["char_weight"] * 0.72, 2)) if (c["scene_lora"] or plate_extra) else min(0.85, c["char_weight"])
+    is_b = (c["pipeline"] == "b" and bool(c["char"].strip()))
+    is_m1 = (c["pipeline"] == "m1" and bool(c["char"].strip()))
+    is_l = (c["pipeline"] in ("l", "m1") and bool(c["char"].strip()))
+    plate_cw = 0.0 if is_b else (min(0.75 if is_l else 0.65, round(c["char_weight"] * (0.85 if is_l else 0.72), 2)) if (c["scene_lora"] or plate_extra) else min(0.85, c["char_weight"]))
     plate_loras = _merge_loras(
         [{"name": c["scene_lora"], "weight": c["env_weight"]}] if c["scene_lora"] else [],
         plate_extra,
-        [{"name": c["char_lora"], "weight": plate_cw}] if c["char_lora"] else [],
+        [{"name": c["char_lora"], "weight": plate_cw}] if (c["char_lora"] and plate_cw > 0) else [],
     )
     char_loras = _merge_loras(
         c["extra_loras"],
@@ -301,22 +297,37 @@ def main():
     )
 
     prop_cue = _proportion_cue(c["scene"], c["char"], c["ratio"])
-    plate_prompt = _dedup_join(c["scene"], c["char"], prop_cue) if c["char"].strip() else c["scene"]
-    base_neg = "text, watermark, lowres, blurry, bad anatomy, extra fingers, deformed"
+    plate_prompt = ("(empty scene, no people, no humans:1.3), " + c["scene"]) if is_b else (_dedup_join(c["scene"], c["char"], prop_cue) if c["char"].strip() else c["scene"])
+    base_neg = "text, watermark, lowres, blurry, bad anatomy, extra fingers, deformed, sunflower hair ornament, sunflower hair ornament on head, sunflower in her hair, yellow petals in her hair, ai artifacts, jpeg artifacts, oversharpened, objects clipping into each other, furniture embedded in the wall, overlapping geometry"
     plate_neg = _merge_neg(c["neg_scene"], c["neg_char"]) or base_neg
+    if is_b:
+        plate_neg = _merge_neg(plate_neg, "1girl, 1boy, people, person, silhouette, figure")
     char_neg = _merge_neg(c["neg_char"], c["neg_scene"]) or base_neg
     suffixes = rp.resolve_suffixes(c)
     mf = rp.new_manifest(c, out, plate_prompt, plate_neg, char_neg, plate_loras, char_loras, detail_loras, suffixes)
     mp = mem_plan.Plan(context="coop")
 
     mp.schedule("anima", note="01_plate")
-    print("[1/3] 出板 %dx%d loras=%d" % (c["width"], c["height"], len(plate_loras)), flush=True)
+    print("[1/3] 出板 %dx%d loras=%d pipeline=%s" % (c["width"], c["height"], len(plate_loras), c["pipeline"]), flush=True)
     plate_steps = min(28, c["steps"])
-    p1 = _run_job({
-        "prompt": plate_prompt, "negative": plate_neg, "width": c["width"], "height": c["height"],
-        "steps": plate_steps, "cfg": c["cfg"], "seed": c["seed"], "loras": plate_loras,
-        "prefix": "REPROJ_plate", "mode": "t2i", "save_to": "paper",
-    }, "出板")
+    if is_l:
+        import light_draft
+        ld_path = light_draft.build_light_draft(os.path.join(steps_dir, "00_light_draft.png"),
+                                                c["width"], c["height"], c["x"], c["ground_y"], c["ratio"], c["light"], c["seed"])
+        plate_job = {
+            "prompt": plate_prompt, "negative": plate_neg, "width": c["width"], "height": c["height"],
+            "steps": plate_steps, "cfg": c["cfg"], "seed": c["seed"], "loras": plate_loras,
+            "prefix": "REPROJ_light", "mode": "i2i", "reference": ld_path, "denoise": 0.84, "save_to": "paper",
+        }
+    else:
+        plate_job = {
+            "prompt": plate_prompt, "negative": plate_neg, "width": c["width"], "height": c["height"],
+            "steps": plate_steps, "cfg": c["cfg"], "seed": c["seed"], "loras": plate_loras,
+            "prefix": "REPROJ_plate", "mode": "t2i", "save_to": "paper",
+        }
+    if c["model"]:
+        plate_job["model"] = c["model"]
+    p1 = _run_job(plate_job, "出板")
     plate_path = os.path.join(steps_dir, "01_plate.png")
     shutil.copy2(p1, plate_path)
     rp.record_step(mf, "01_plate", status="ok", prompt=plate_prompt, negative=plate_neg,
@@ -326,23 +337,32 @@ def main():
     cur = plate_path
 
     if c["char"].strip():
-        print("[2/3] 人物高分重绘 loras=%d" % len(char_loras), flush=True)
-        raw1 = parts.detect_safe(cur)
-        mask, m_strat, m_cov = parts.build_body_mask(cur, raw1.get("json"), c["width"], c["height"],
-                                                     c["x"], c["ground_y"], c["ratio"])
-        mf["mask"] = {"strategy": m_strat, "cov_pct": m_cov, "pose_json": raw1.get("json") or ""}
+        print("[2/3] 人物高分重绘 loras=%d pipeline=%s" % (len(char_loras), c["pipeline"]), flush=True)
+        if is_b:
+            cur, mask, body_txt, dn_ov = parts.run_b_stage(c, cur, steps_dir, char_loras, char_neg, mf, _run_job, _dedup_join, _merge_neg)
+            use_loras = char_loras
+        elif is_l:
+            import light_draft
+            cur, mask, body_txt, dn_ov, use_loras = light_draft.prepare_lm_body(c, cur, steps_dir, detail_loras, char_loras, mf, mp, _run_job, _dedup_join, is_m1)
+        else:
+            raw1 = parts.detect_safe(cur)
+            mask, m_strat, m_cov = parts.build_body_mask(cur, raw1.get("json"), c["width"], c["height"], c["x"], c["ground_y"], c["ratio"])
+            mf["mask"] = {"strategy": m_strat, "cov_pct": m_cov, "pose_json": raw1.get("json") or ""}
+            body_txt, dn_ov, use_loras = c["char"], 0.0, char_loras
         mp.schedule("anima", note="02_body")
-        cur = _repaint_body(cur, mask, steps_dir, c["char"], char_neg, char_loras,
-                            c["steps"], c["cfg"], c["seed"], style_suffix=suffixes["style"], mf=mf)
+        cur = _repaint_body(cur, mask, steps_dir, body_txt, char_neg, use_loras if not is_b else char_loras,
+                            c["steps"], c["cfg"], c["seed"], style_suffix=suffixes["style"], mf=mf, model=c["model"],
+                            denoise_override=dn_ov)
         mp.trim_py("02_body_done")
 
         print("[3/3] 脸部/手部精修与合成", flush=True)
+        cur_w, cur_h = Image.open(cur).size
         raw2 = parts.detect_safe(cur)
         pose2 = raw2.get("json")
 
-        face_box = parts.face_box_from_pose(pose2, c["width"], c["height"])
+        face_box = parts.face_box_from_pose(pose2, cur_w, cur_h)
         if face_box:
-            f_ratio = face_box["h"] / float(c["height"])
+            f_ratio = face_box["h"] / float(cur_h)
             f_dn = 0.40 if f_ratio < 0.08 else (0.30 if f_ratio < 0.12 else 0.22)
             face_p = rp.append_suffix(c["face_prompt"].strip() or c["char"], suffixes["face"])
             print("[face] box=%s denoise=%.2f" % (face_box, f_dn), flush=True)
@@ -350,7 +370,7 @@ def main():
                 cur, _ = hp.repaint(cur, face_box, face_p, char_neg, denoise=f_dn,
                                     scale=3.0, pad=0.45, steps=20, cfg=5.0,
                                     seed=c["seed"] + 2, loras=detail_loras,
-                                    tag="face", max_side=832, shape="ellipse")
+                                    tag="face", max_side=832, shape="ellipse", model=c["model"])
                 f_dst = os.path.join(steps_dir, "03_face.png")
                 shutil.copy2(cur, f_dst)
                 rp.record_step(mf, "03_face", status="ok", prompt=face_p, negative=char_neg,
@@ -361,16 +381,16 @@ def main():
                 rp.record_step(mf, "03_face", status="skipped", note=str(e)[:120], crop_box=face_box)
                 print("[face] 跳过:", str(e)[:90], flush=True)
 
-        hand_boxes = parts.hand_boxes_from_pose(pose2, c["width"], c["height"], face_box=face_box)
-        hand_p = rp.append_suffix(c["hand_prompt"].strip(), suffixes["hand"])
-        hand_neg = _merge_neg("extra fingers, fused fingers, missing fingers, deformed hand", char_neg)
+        hand_boxes = parts.hand_boxes_from_pose(pose2, cur_w, cur_h, face_box=face_box)
+        hand_p = rp.append_suffix(c["hand_prompt"].strip() or "masterpiece, best quality, delicate anime hand, five separate slender fingers, clean finger joints", suffixes["hand"])
+        hand_neg = _merge_neg("extra fingers, fused fingers, missing fingers, deformed hand, six fingers, mutated hands", char_neg)
         for idx, hb in enumerate(hand_boxes):
             print("[hand%d] %s %dx%d" % (idx + 1, hb.get("hand"), hb["w"], hb["h"]), flush=True)
             try:
-                cur, _ = hp.repaint(cur, hb, hand_p, hand_neg, denoise=0.48,
-                                    scale=3.5, pad=0.40, steps=20, cfg=5.0,
+                cur, _ = hp.repaint(cur, hb, hand_p, hand_neg, denoise=0.56,
+                                    scale=3.5, pad=0.55, steps=24, cfg=5.2,
                                     seed=c["seed"] + 10 + idx, loras=detail_loras,
-                                    tag="hand%d" % (idx + 1), max_side=768)
+                                    tag="hand%d" % (idx + 1), max_side=768, model=c["model"])
                 h_dst = os.path.join(steps_dir, "04_hands.png")
                 shutil.copy2(cur, h_dst)
                 rp.record_step(mf, "hand_%d" % (idx + 1), status="ok", hand=hb.get("hand"), prompt=hand_p,
@@ -382,7 +402,7 @@ def main():
                 print("[hand%d] 跳过: %s" % (idx + 1, str(e)[:90]), flush=True)
 
         img = Image.open(cur).convert("RGB")
-        img, fn = parts.apply_feet_shadow(img, pose2)
+        img, fn = parts.apply_feet_shadow(img, pose2, light=("" if is_l else c["light"]), strength=(65 if is_l else 150))
         rp.record_step(mf, "05_shadow", status="ok", feet_count=fn)
         if fn:
             print("[shadow] %d 只脚落地阴影" % fn, flush=True)

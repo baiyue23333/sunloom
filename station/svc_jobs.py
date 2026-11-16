@@ -170,6 +170,14 @@ def _submit(mode, params, jid, label, wf_name=None):
             dst = os.path.join(dst_dir, "%s_%s_s%d.png" % (label, stamp, params.get("seed", 0)))
             if os.path.exists(src_path):
                 shutil.copy2(src_path, dst)
+                if mode == "t2i" and params.get("auto_handfix"):
+                    try:
+                        import reproj_parts as _rp_hand
+                        fn_h = _rp_hand.refine_hands_on_image(dst, params.get("loras"), params.get("seed", 0), params.get("model") or "")
+                        if fn_h:
+                            rewrite_notes.append("自动手部精修：%d 处" % fn_h)
+                    except Exception as _he:
+                        job_log(jid, "handfix skip: " + str(_he)[:120])
                 saved.append(dst)
                 add_recipe(dst, {
                     "ts": time.time(),

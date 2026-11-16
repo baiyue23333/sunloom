@@ -69,6 +69,7 @@ class RunReq(BaseModel):
     model: str = ""
     expand_notes: List[str] = []
     client_meta: Dict[str, Any] = {}
+    auto_handfix: bool = False
 
 
 class MaskReq(BaseModel):
@@ -212,7 +213,8 @@ def api_run(req: RunReq):
               "steps": req.steps, "cfg": req.cfg, "seed": seed, "prefix": prefix,
               "loras": req.loras, "save_to": req.save_to, "denoise": req.denoise,
               "blocks_pos": req.blocks_pos, "blocks_neg": req.blocks_neg, "model": req.model,
-              "expand_notes": req.expand_notes, "client_meta": req.client_meta}
+              "expand_notes": req.expand_notes, "client_meta": req.client_meta,
+              "auto_handfix": bool(req.auto_handfix)}
     inp = comfy_in()
     if req.mode in ("i2i", "inpaint"):
         params["reference"] = _prepare_reference(req.reference)

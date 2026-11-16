@@ -196,7 +196,7 @@ def hand_boxes_from_pose(pose_json, W, H, face_box=None):
     return out[:2]
 
 
-def apply_feet_shadow(img, pose_json):
+def apply_feet_shadow(img, pose_json, light="", strength=150):
     if not pose_json or not os.path.isfile(pose_json):
         return img, 0
     W, H = img.size
@@ -207,4 +207,142 @@ def apply_feet_shadow(img, pose_json):
     visible_feet = [(x, y, s) for x, y, s in feet if s >= 0.2 and 4 <= x <= W - 4 and 4 <= y <= H - 4]
     if not visible_feet:
         return img, 0
-    return pd.feet_shadow(img, visible_feet)
+    out, fn = pd.feet_shadow(img, visible_feet, strength=int(strength))
+    if light in ("left", "right") and visible_feet:
+        from PIL import ImageDraw
+        fx = sum(p[0] for p in visible_feet) / len(visible_feet)
+        fy = max(p[1] for p in visible_feet)
+        dx = int(H * 0.13) * (1 if light == "left" else -1)
+        sh = Image.new("L", (W, H), 0)
+        d = ImageDraw.Draw(sh)
+        x0, x1 = sorted([fx - int(W * 0.025), fx + dx + int(W * 0.025)])
+        d.polygon([(fx - int(W * 0.022), fy - 2), (fx + int(W * 0.022), fy - 2),
+                   (fx + dx + int(W * 0.03), fy + int(H * 0.032)), (fx + dx - int(W * 0.015), fy + int(H * 0.032))], fill=140)
+        sh = sh.filter(ImageFilter.GaussianBlur(max(10, int(H * 0.02))))
+        a = np.asarray(out).astype(np.float32)
+        a *= (1.0 - np.asarray(sh, dtype=np.float32)[..., None] / 255.0 * 0.36)
+        out = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
+    return out, fn
+
+
+def compose_char_on_scene(plate_path, char_path, steps_dir, x_frac, gy_frac, ratio, scale_canvas=1.5):
+    """B 双画流水线：画布 1.5× 扩容留足人物像素 → 高分灰底人物抠图直贴 → 输出溶边遮罩。"""
+    import fusion
+    im = Image.open(plate_path).convert("RGB")
+    W, H = im.size
+    if scale_canvas > 1.01 and max(W, H) < 1600:
+        nw = max(512, (int(round(W * scale_canvas)) // 8) * 8)
+        nh = max(512, (int(round(H * scale_canvas)) // 8) * 8)
+        im = im.resize((nw, nh), Image.LANCZOS)
+        W, H = nw, nh
+    matte = cutout.make_matte(char_path, backend="birefnet", crop=True)
+    if isinstance(matte, str):
+        matte = Image.open(matte)
+    fg = matte.convert("RGBA")
+    bb = fg.split()[3].getbbox()
+    if bb:
+        fg = fg.crop(bb)
+    target_h = max(64, int(H * max(0.20, min(0.85, ratio or 0.40))))
+    target_w = max(32, int(fg.width * (target_h / float(max(fg.height, 1)))))
+    fg = fg.resize((target_w, target_h), Image.LANCZOS)
+    cx = int(W * max(0.15, min(0.85, x_frac or 0.36)))
+    feet_y = min(H, int(H * max(0.45, min(0.96, gy_frac or 0.88))))
+    px = max(0, min(W - target_w, cx - target_w // 2))
+    py = max(0, feet_y - target_h)
+    try:
+        fg, _ = fusion.lowfreq_match(fg, im, (px, py, px + target_w, py + target_h), weight=0.28)
+    except Exception:
+        pass
+    alpha_soft = fg.split()[3].filter(ImageFilter.GaussianBlur(1.2))
+    comp = im.copy()
+    comp.paste(fg.convert("RGB"), (px, py), alpha_soft)
+    pre_path = os.path.join(steps_dir, "02_pre_melt.png")
+    comp.save(pre_path)
+    mask = Image.new("L", (W, H), 0)
+    mask.paste(fg.split()[3], (px, py))
+    mask = mask.filter(ImageFilter.MaxFilter(15)).filter(ImageFilter.GaussianBlur(8))
+    return pre_path, mask
+
+
+def run_b_stage(c, cur, steps_dir, char_loras, char_neg, mf, run_job, dedup_join, merge_neg):
+    """B 双画流水线人物阶段：灰底高分人物卡 → 1.5× 画布 BiRefNet 直贴 → 返回溶边输入与 0.52 重打光提示。"""
+    p = dedup_join(c["char"], "full body standing, solid neutral mid-grey background, clean studio lighting")
+    neg = merge_neg(char_neg, "complex background, scenery, outdoors, furniture, floor shadow, white background")
+    job = {"prompt": p, "negative": neg, "width": 768, "height": 1152, "steps": min(28, c["steps"]),
+           "cfg": c["cfg"], "seed": c["seed"] + 1, "loras": char_loras, "prefix": "REPROJ_bchar", "mode": "t2i", "save_to": "paper"}
+    if c["model"]:
+        job["model"] = c["model"]
+    char_raw = run_job(job, "独立人物卡")
+    pre, mask = compose_char_on_scene(cur, char_raw, steps_dir, c["x"], c["ground_y"], c["ratio"], scale_canvas=1.5)
+    mf["mask"] = {"strategy": "standalone_birefnet_melt_1.5x", "cov_pct": 0.0, "pose_json": ""}
+    ls = "warm key light from the left, " if c["light"] == "left" else ("warm key light from the right, " if c["light"] == "right" else "")
+    btxt = dedup_join(c["char"], c["scene"], ls + "bright rim backlight wrapping hair and shoulders, ambient bounce shading, integrated into room lighting")
+    return pre, mask, btxt, 0.52
+
+
+def upscale_plate_safe(plate_path, steps_dir, scale=1.5):
+    """L 流水线出板后安全扩充画幅（先走 mem_plan 卸底模跑 AnimeSharp，失败自动退回 Lanczos 防 OOM）。"""
+    im = Image.open(plate_path).convert("RGB")
+    W, H = im.size
+    if scale <= 1.01 or max(W, H) >= 1600:
+        return plate_path, W, H
+    nw = min(2048, max(512, (int(round(W * scale)) // 8) * 8))
+    nh = min(2048, max(512, (int(round(H * scale)) // 8) * 8))
+    sr = hp.sr_upscale(im)
+    base = sr if sr is not None else im
+    up = base.resize((nw, nh), Image.LANCZOS)
+    if sr is None:
+        up = up.filter(ImageFilter.UnsharpMask(radius=1.1, percent=30, threshold=2))
+    dst = os.path.join(steps_dir, "01b_upscaled.png")
+    up.save(dst)
+    print("[upscale] %dx%d -> %dx%d (%s)" % (W, H, nw, nh, "AnimeSharp" if sr is not None else "Lanczos"), flush=True)
+    return dst, nw, nh
+
+
+def proportion_cue(scene_text, char_text, ratio):
+    """根据默认/选定人物占比（ratio=人物占画高）为 01_plate 补充景别提示。"""
+    if not str(char_text or "").strip():
+        return ""
+    joined = (str(scene_text or "") + " " + str(char_text or "")).lower()
+    if any(k in joined for k in ("close-up", "portrait", "upper body", "cowboy shot", "wide shot", "very wide", "distant view")):
+        return ""
+    r = float(ratio or 0.34)
+    if r <= 0.22:
+        return "very wide shot, full body standing, distant small figure, expansive scenery surrounding character"
+    if r <= 0.29:
+        return "wide shot, full body standing, figure occupying a quarter of frame height, expansive background visible"
+    if r <= 0.38:
+        return "wide medium-long shot, full body standing, figure occupying one third of frame height, spacious environmental surroundings"
+    return "medium full shot, full body standing, clear environmental background"
+
+
+def refine_hands_on_image(img_path, loras=None, seed=0, model=""):
+    """对单图出图结果做 SDPose 检手 + AnimeSharp 放大局部精修，返回修复手部数量。"""
+    if not os.path.isfile(img_path):
+        return 0
+    W, H = Image.open(img_path).size
+    raw = detect_safe(img_path)
+    pjson = raw.get("json")
+    if not pjson:
+        return 0
+    fb = face_box_from_pose(pjson, W, H)
+    hbs = hand_boxes_from_pose(pjson, W, H, face_box=fb)
+    if not hbs:
+        return 0
+    neg = "extra fingers, fused fingers, missing fingers, deformed hand, six fingers, mutated hands, bad anatomy, text, watermark, blurry"
+    prompt = "masterpiece, best quality, delicate anime hand, five separate slender fingers, clean finger joints, same art style"
+    cur, fixed = img_path, 0
+    with tempfile.TemporaryDirectory(prefix="t2i_hand_") as tmpd:
+        cur = os.path.join(tmpd, "src.png")
+        Image.open(img_path).convert("RGB").save(cur)
+        for idx, hb in enumerate(hbs):
+            try:
+                cur, _ = hp.repaint(cur, hb, prompt, neg, denoise=0.56, scale=3.5, pad=0.55,
+                                    steps=24, cfg=5.2, seed=(int(seed) or 1000) + 10 + idx,
+                                    loras=(loras or [])[:2], tag="t2ihand%d" % (idx + 1), max_side=768, model=model or "")
+                fixed += 1
+            except Exception as e:  # noqa: BLE001
+                print("[t2i_handfix] 跳过:", str(e)[:80], flush=True)
+        if fixed and os.path.isfile(cur):
+            Image.open(cur).convert("RGB").save(img_path)
+    return fixed

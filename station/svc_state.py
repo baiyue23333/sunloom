@@ -432,10 +432,22 @@ def expand_blocks(positive, negative):
 
     pos, pos_used = render(positive, do_strip=bool(strip_raw))
     has_scene = any((b.token or "").startswith("@SET_") for b in positive if b.enabled)
+    pos_toks_upper = {(b.token or "").upper() for b in positive if b.enabled}
+    is_tight_face = bool(pos_toks_upper & {"@CAM_CLOSEUP", "@CAM_BUST"})
+    _RIGID_ID = "oval youthful face with almond eyes and long eyelashes, heterochromia with a red eye on the left side of the image and a grey eye on the right side of the image"
+    if not is_tight_face and _RIGID_ID in pos:
+        pos = pos.replace(_RIGID_ID, "heterochromia, red right eye, grey left eye")
+        rewrites.append({"rule": "id_natural_gaze", "detail": "非特写镜头下放宽 @ID_* 对称正脸锁死，保留角色右红左灰异色瞳并允许自然转头"})
+    if has_scene:
+        pos = re.sub(r"\b(?:two|three|four|five|six)\s+(?=[a-z])", "", pos, flags=re.I)
     if has_scene and re.search(r"(?i)\b(?:clean|plain)\s+(?:white\s+)?background\b", pos):
         pos = re.sub(r"(?i)(?:,\s*)?\b(?:clean|plain)\s+(?:white\s+)?background\b", "", pos)
         pos = re.sub(r"\s*,\s*(?=,)", "", pos).strip().strip(",").strip()
         rewrites.append({"rule": "scene_strip_white_bg", "detail": "画布含 @SET_* 实景，已自动剥离影棚白底词"})
+    if pos and "masterpiece" not in pos.lower() and "best quality" not in pos.lower() and not any((b.token or "") == "@STYLE_LINE" for b in positive if b.enabled):
+        pos = "masterpiece, best quality, highres, " + pos
+    if has_scene and pos and "detailed background" not in pos.lower():
+        pos = pos + ", detailed background, atmospheric depth, unified environmental lighting and shadows"
     if strip_raw and strip_keys:
         for k, (_words, add) in getattr(pt, "STRIP_RULES", {}).items():
             if k in strips and add and add not in pos:

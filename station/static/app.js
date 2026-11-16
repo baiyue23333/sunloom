@@ -2523,7 +2523,7 @@ function coopStartReal() {
   const blocks = rawChr.length
     ? rawChr
     : [{ id: uid(), token: '', text: '1girl, solo, full body standing', weight: 1, enabled: true }];
-  const facePicked = rawChr.filter(b => /^@(ID|SINGLE|FACE|HAIR|ACC|MOOD|GAZE)/i.test(String(b.token || '')) || (!b.token && String(b.text || '').trim()));
+  const facePicked = rawChr.filter(b => /^@(ID|SINGLE|FACE|HAIR|ACC|MOOD|GAZE|POSE|INTERACT)/i.test(String(b.token || '')) || (!b.token && String(b.text || '').trim()));
   const handPicked = rawChr.concat(c.envPos || []).filter(b => /^@(HAND|HOLD|WEAPON|INSTR)/i.test(String(b.token || '')));
   const allNeg = merge(cneg, c.chrNeg);
   Promise.all([
@@ -2560,6 +2560,7 @@ function coopStartReal() {
       light: coopLightFromBlocks(),
       seed: S._coopSeed = coopSeedValue(),
       mode: 'reproject',
+      pipeline: ($('#coop-pipeline') || {}).value || 'a',
       bg_painter: ($('#coop-bg-painter') || {}).value || 'anima',
       char_painter: ($('#coop-char-painter') || {}).value || 'anima',
       env_weight: Number(($('#coop-env-w') || {}).value) || ((typeof coopLoraDefaultWeight === 'function') ? coopLoraDefaultWeight((document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora') || {}).value || '', 'env') : 0.70),
@@ -2651,6 +2652,7 @@ async function run() {
       blocks_pos: S.pos.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
       blocks_neg: S.neg.map(b => ({ token: b.token || '', text: b.text || '', weight: Number(b.weight) || 1, enabled: b.enabled !== false })),
       expand_notes: (S.lastExpanded && S.lastExpanded.notes) || [],
+      auto_handfix: Boolean(($('#p-handfix') || {}).checked),
       client_meta: (typeof window.loomClientMeta === 'function') ? window.loomClientMeta() : {}
     })});
     S.last = { job: r.job_id, seed: r.seed };

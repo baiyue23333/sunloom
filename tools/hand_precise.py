@@ -163,9 +163,10 @@ def repaint(src, box, prompt, negative="", denoise=0.6, scale=3.0, pad=0.35,
     md = ImageDraw.Draw(m)
     poly = box.get("polygon")
     if poly:
-        # 指关节凸包：比矩形贴合，不会把袖口一起重画
+        # 指关节凸包微外扩：留出指尖重分离余量，同时不误伤袖口
         pts = [((px - x0) * tw / crop.width, (py - y0) * th / crop.height) for px, py in poly]
         md.polygon([(p[0], p[1]) for p in pts], fill=255)
+        m = m.filter(ImageFilter.MaxFilter(9))
     elif shape == "ellipse":
         md.ellipse((mx0, my0, mx1, my1), fill=255)
     else:

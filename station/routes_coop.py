@@ -46,6 +46,7 @@ class CoopReq(BaseModel):
     light: str = "left"
     seed: int = 515501
     mode: str = "classic"
+    pipeline: str = "a"
     bg_painter: str = "anima"
     char_painter: str = "anima"
     env_weight: float = 0.70
@@ -238,7 +239,7 @@ def api_coop(req: CoopReq):
             "scene_lora": req.scene_lora or "", "env_weight": req.env_weight,
             "char_lora": req.char_lora or "", "char_weight": req.char_weight,
             "extra_loras": req.extra_loras or [], "ratio": req.ratio,
-            "ground_y": req.ground_y, "x": req.x,
+            "ground_y": req.ground_y, "x": req.x, "light": req.light or "left", "pipeline": req.pipeline or "a",
             "keep_intermediates": bool(req.keep_intermediates),
             "expand_notes": req.expand_notes or [],
             "client_meta": req.client_meta or {},

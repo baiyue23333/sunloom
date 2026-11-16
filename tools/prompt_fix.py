@@ -127,6 +127,12 @@ def audit(blocks, negatives=None):
     keep_first(_STYLE, "画风")
     comp_fig = keep_first(_COMP_FIG, "构图")
 
+    # 半身/特写镜头与全身坐卧姿态冲突
+    if any(c in ("@CAM_BUST", "@CAM_CLOSEUP") for c in cam):
+        _FULL_POSES = ("_SIT", "_CROUCH", "_KNEEL", "_LIE")
+        for t in [t for t in toks if _POSE.match(t) and any(s in t for s in _FULL_POSES)]:
+            add(t, "positive", "warn", "半身/特写镜头与全身坐卧姿态冲突，容易画成悬浮头像+全身", "remove")
+
     # 画风 + 场景
     if any(_STYLE.match(t) for t in toks) and scenes:
         for t in [t for t in toks if _STYLE.match(t)]:

@@ -225,6 +225,15 @@
               <input id="coop-char-w" type="number" step="0.05" min="0" max="1.5" value="0.85" title="合作模式人物重绘/精修默认 0.85，可按本地 LoRA 特性微调">
             </div>
           </div>
+          <div class="field" style="margin-top:6px">
+            <label>合作流水线</label>
+            <select id="coop-pipeline" title="A 成熟混绘；L 光影构图（正常）；M1 光影双底片（激进）；B 双画原型">
+              <option value="a" selected>A · 成熟混绘（默认，光影统一）</option>
+              <option value="l">L · 光影构图（正常 · 快速一体）</option>
+              <option value="m1">M1 · 光影双底片（激进 · 2×2 背景切片+纯人物）</option>
+              <option value="b">B · 双画原型（纯空景 + 独立植入）</option>
+            </select>
+          </div>
           <label class="hint" style="display:flex;align-items:center;gap:6px;margin:6px 0 2px">
             <input type="checkbox" id="coop-keep-mid" style="width:auto"> 保留重映中间件（遮罩 / 过程图 / 全量日志）
           </label>
@@ -360,6 +369,9 @@
         <div class="field"><label>种子</label><input id="p-seed" type="number" placeholder="随机"></div>
         <div class="field"><label>前缀</label><input id="p-prefix" value="st"></div>
       </div>
+      <label class="hint" style="display:flex;align-items:center;gap:6px;margin:6px 0 2px">
+        <input type="checkbox" id="p-handfix" checked style="width:auto"> 自动手部精修（SDPose 检手 + 局部放大重绘）
+      </label>
       </details>
 
       <details class="fold" open><summary>LoRA</summary>
@@ -826,7 +838,7 @@ window.addEventListener('error', function (e) {
 <script src="/js/util.js"></script>
   <script src="/js/lora.js?v=50"></script>
   <script src="/js/transparency.js?v=2"></script>
-  <script src="/app.js?v=420"></script>
+  <script src="/app.js?v=421"></script>
 <div id="cmdbar" class="cmdbar"><div class="cmd-box">
   <input id="cmd-input" placeholder="输入积木名 / 分类 / 关键词，回车加入正向   (Ctrl/⌘ + K)">
   <div id="cmd-list" class="cmd-list"></div>
