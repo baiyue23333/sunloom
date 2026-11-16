@@ -5978,15 +5978,31 @@ function bindUI() {
       renderPalette();
     };
   }
-  // 性别开关：切女/男，只影响积木库、服装页与随机一套
-  const gbox = $('#pal-gender');
-  if (gbox) {
+  // 性别开关：切女/男，同步更新主积木库、向导、角色卡与服装页
+  const genderBtns = () => $$('#pal-gender button, #guide-gender button');
+  if (genderBtns().length) {
     S.gender = loadJSON('loom.gender', 'f') === 'm' ? 'm' : 'f';
     const syncGender = () => {
-      $$('#pal-gender button').forEach(b => b.classList.toggle('on', b.dataset.g === S.gender));
+      genderBtns().forEach(b => b.classList.toggle('on', b.dataset.g === S.gender));
+    };
+    const pruneGuideGender = () => {
+      if (!S.guide || !S.guide.picks) return;
+      ['subject', 'outfit', 'neg'].forEach(k => {
+        const arr = S.guide.picks[k];
+        if (!Array.isArray(arr)) return;
+        S.guide.picks[k] = arr.filter(t => {
+          if (!t || t === '__free__') return true;
+          if (t.startsWith('__card__:')) {
+            const card = (S.cards || []).find(c => c.name === t.slice(9));
+            return !card || (card.gender || 'f') === S.gender;
+          }
+          if (t.startsWith('__')) return true;
+          return typeof tokenVisible !== 'function' || tokenVisible(t);
+        });
+      });
     };
     syncGender();
-    $$('#pal-gender button').forEach(b => b.onclick = () => {
+    genderBtns().forEach(b => b.onclick = () => {
       if (b.dataset.g === S.gender) return;
       S.gender = b.dataset.g;
       saveJSON('loom.gender', S.gender);
@@ -5994,11 +6010,13 @@ function bindUI() {
       renderPalette();
       try { loadCards(); } catch (e) {}
       try { if (typeof renderGarmentList === 'function') renderGarmentList(); } catch (e) {}
+      pruneGuideGender();
+      try { renderGuide(); } catch (e) {}
       if (S.gender === 'm' && currentCardName()) {
         const card = (S.cards || []).find(x => x.name === currentCardName());
         if (card && (card.gender || 'f') !== 'm') toast('男性模式：' + card.name + ' 是女性角色卡，专属积木已隐藏', true);
       }
-      toast('积木库：' + (S.gender === 'm' ? '男性' : '女性'));
+      toast('已切换：' + (S.gender === 'm' ? '男性版' : '女性版'));
     });
   }
   $('#lib-search').oninput = e => loadLibrary(e.target.value);
