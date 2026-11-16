@@ -2515,10 +2515,11 @@ function coopStartReal() {
     handPicked.length ? call(handPicked, allNeg) : Promise.resolve({ positive: '' })
   ]).then(([env, chr, faceExp, handExp]) => {
     const sz = (typeof size === 'function') ? size() : { w: 1216, h: 832 };
-    const extraLoras = (S.loras || [])
-      .filter(l => l && l.name && !l.coop)
-      .map(l => ({ name: l.name, weight: Number(l.weight) || 1.0 }));
     const charLoraVal = ($('#style-lora') || {}).value || '';
+    const sceneLoraVal = (document.querySelector('#coop-slora-row #coop-slora') || $('#coop-slora') || {}).value || '';
+    const extraLoras = (S.loras || [])
+      .filter(l => l && l.name && !l.coop && l.name !== charLoraVal && l.name !== sceneLoraVal)
+      .map(l => ({ name: l.name, weight: Number(l.weight) || 1.0 }));
     const charTrig = artistTrigger(charLoraVal);
     const withTrig = (t) => (charTrig && t && !t.toLowerCase().includes(charTrig.toLowerCase())) ? (t + ', ' + charTrig) : t;
     const body = {

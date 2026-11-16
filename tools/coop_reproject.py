@@ -117,6 +117,12 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     x0, y0 = max(0, bx0 - pad_x), max(0, by0 - pad_y)
     x1, y1 = min(W, bx1 + pad_x), min(H, by1 + pad_y)
     cw, ch = x1 - x0, y1 - y0
+    if cw < int(ch * 0.62) and W > cw:
+        want_w = min(W, int(ch * 0.62))
+        cx_mid = (x0 + x1) // 2
+        x0 = max(0, min(W - want_w, cx_mid - want_w // 2))
+        x1 = x0 + want_w
+        cw = x1 - x0
     area_frac = (cw * ch) / float(W * H)
 
     crop_img = im.crop((x0, y0, x1, y1))
@@ -124,7 +130,8 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     long_side = max(cw, ch)
     target_long = 960 if area_frac < 0.45 else min(1024, max(768, long_side))
     scale = max(1.0, target_long / float(max(long_side, 1)))
-    tw = _align8(cw * scale, 256, 1024)
+    min_w = 512 if (cw < ch and W >= 512) else 256
+    tw = _align8(cw * scale, min_w, 1024)
     th = _align8(ch * scale, 256, 1024)
     if tw != cw or th != ch:
         crop_big = crop_img.resize((tw, th), Image.LANCZOS)
@@ -132,7 +139,7 @@ def _repaint_body(plate_path, mask, steps_dir, char_prompt, neg_char, char_loras
     else:
         crop_big, mask_big = crop_img, crop_mask
 
-    denoise = 0.56 if area_frac < 0.30 else (0.48 if area_frac < 0.55 else 0.40)
+    denoise = 0.50 if area_frac < 0.30 else (0.42 if area_frac < 0.55 else 0.36)
     tag = "%s_%03d" % (time.strftime("%H%M%S"), int(time.time() * 1000) % 1000)
     big_path = os.path.join(steps_dir, "_body_crop_%s.png" % tag)
     crop_big.save(big_path)
@@ -271,10 +278,17 @@ def main():
     with open(os.path.join(out, "plan.json"), "w", encoding="utf-8") as pf:
         json.dump(c, pf, ensure_ascii=False, indent=2)
 
+    skip_names = {c["scene_lora"], c["char_lora"]} - {""}
+    plate_extra = [
+        {"name": x["name"], "weight": min(0.75, round(float(x.get("weight", 1.0)) * 0.80, 2))}
+        for x in (c["extra_loras"] or [])
+        if isinstance(x, dict) and str(x.get("name") or "").strip() not in skip_names
+    ]
+    plate_cw = min(0.65, round(c["char_weight"] * 0.72, 2)) if (c["scene_lora"] or plate_extra) else min(0.85, c["char_weight"])
     plate_loras = _merge_loras(
         [{"name": c["scene_lora"], "weight": c["env_weight"]}] if c["scene_lora"] else [],
-        c["extra_loras"],
-        [{"name": c["char_lora"], "weight": min(0.85, c["char_weight"])}] if c["char_lora"] else [],
+        plate_extra,
+        [{"name": c["char_lora"], "weight": plate_cw}] if c["char_lora"] else [],
     )
     char_loras = _merge_loras(
         c["extra_loras"],

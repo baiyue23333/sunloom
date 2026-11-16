@@ -3,9 +3,10 @@
 import json
 import math
 import os
+import tempfile
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageChops, ImageFilter
 
 import cutout
 import hand_precise as hp
@@ -21,12 +22,56 @@ def detect_safe(img_path):
         return {}
 
 
+def _roi_birefnet_union(plate_path, sdp_m, W, H):
+    """按 SDPose 人体框裁剪局部做 BiRefNet 轮廓合并，包住礼服裙摆与垂落外套而不误抓远处背景。"""
+    bb = sdp_m.getbbox()
+    if not bb:
+        return None
+    bx0, by0, bx1, by1 = bb
+    bw, bh = bx1 - bx0, by1 - by0
+    px, pt, pb = max(48, int(bw * 0.45)), max(32, int(bh * 0.16)), max(24, int(bh * 0.12))
+    rx0, ry0 = max(0, bx0 - px), max(0, by0 - pt)
+    rx1, ry1 = min(W, bx1 + px), min(H, by1 + pb)
+    rw, rh = rx1 - rx0, ry1 - ry0
+    if rw < 64 or rh < 64:
+        return None
+    fd, tmp_roi = tempfile.mkstemp(suffix=".png", prefix="reproj_roi_")
+    os.close(fd)
+    try:
+        Image.open(plate_path).convert("RGB").crop((rx0, ry0, rx1, ry1)).save(tmp_roi)
+        matte = cutout.make_matte(tmp_roi, backend="birefnet", crop=False)
+        if isinstance(matte, str):
+            matte = Image.open(matte)
+        a = matte.convert("RGBA").split()[3]
+        if a.size != (rw, rh):
+            a = a.resize((rw, rh), Image.LANCZOS)
+        fg_pct = float((np.asarray(a) >= 96).mean()) * 100.0
+        if not (6.0 <= fg_pct <= 78.0):
+            return None
+        a = a.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.GaussianBlur(max(3, int(min(W, H) * 0.006))))
+        canvas = Image.new("L", (W, H), 0)
+        canvas.paste(a, (rx0, ry0))
+        return ImageChops.lighter(sdp_m, canvas)
+    except Exception:
+        return None
+    finally:
+        try:
+            os.remove(tmp_roi)
+        except OSError:
+            pass
+
+
 def build_body_mask(plate_path, pose_json, W, H, cx_frac, gy_frac, ratio):
     sdp_fb = None
     if pose_json and os.path.isfile(pose_json):
         try:
-            m, cov = sbm.body_mask(pose_json, W, H, grow=1.18)
+            m, cov = sbm.body_mask(pose_json, W, H, grow=1.22)
             if m is not None and 1.0 <= cov <= 78.0:
+                merged = _roi_birefnet_union(plate_path, m, W, H)
+                if merged is not None:
+                    mcov = float(np.asarray(merged).mean()) / 255.0 * 100.0
+                    print("[mask] BiRefNet+SDPose %.1f%%" % mcov, flush=True)
+                    return merged, "birefnet+sdpose", round(mcov, 2)
                 print("[mask] SDPose 骨架 %.1f%%" % cov, flush=True)
                 return m, "sdpose", round(cov, 2)
             if m is not None and 0.25 <= cov < 1.0:
