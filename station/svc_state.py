@@ -431,6 +431,11 @@ def expand_blocks(positive, negative):
         return ", ".join([p for p in parts if p]), sorted(set(used))
 
     pos, pos_used = render(positive, do_strip=bool(strip_raw))
+    has_scene = any((b.token or "").startswith("@SET_") for b in positive if b.enabled)
+    if has_scene and re.search(r"(?i)\b(?:clean|plain)\s+(?:white\s+)?background\b", pos):
+        pos = re.sub(r"(?i)(?:,\s*)?\b(?:clean|plain)\s+(?:white\s+)?background\b", "", pos)
+        pos = re.sub(r"\s*,\s*(?=,)", "", pos).strip().strip(",").strip()
+        rewrites.append({"rule": "scene_strip_white_bg", "detail": "画布含 @SET_* 实景，已自动剥离影棚白底词"})
     if strip_raw and strip_keys:
         for k, (_words, add) in getattr(pt, "STRIP_RULES", {}).items():
             if k in strips and add and add not in pos:

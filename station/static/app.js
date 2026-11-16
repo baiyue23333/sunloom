@@ -1133,6 +1133,15 @@ function addBlock(lane, tokenOrObj) {
     const target = coopBucketFor({ token: tok }, isNeg);
     const SINGLE = /^@(ID|SINGLE|BODY_|FACE_|STYLE_|LIGHT_|CAM_|SET_|OUT_|TIME_|COMP_|POSE_|MOOD_|GAZE_)/;
     const arr = S.coop[target] = S.coop[target] || [];
+    if (tok && /^@ID_/.test(tok)) {
+      for (let i = arr.length - 1; i >= 0; i--) { if (/^@ID_/.test(arr[i].token || '')) arr.splice(i, 1); }
+      if (tok.endsWith('_ADULT')) {
+        for (let i = arr.length - 1; i >= 0; i--) { if (/_PETITE$/.test(arr[i].token || '')) arr.splice(i, 1); }
+      }
+    }
+    if (tok && /^@BODY_/.test(tok)) {
+      for (let i = arr.length - 1; i >= 0; i--) { if (/^@BODY_/.test(arr[i].token || '')) arr.splice(i, 1); }
+    }
     if (tok && SINGLE.test(tok) && arr.some(b => b.token === tok)) { toast('已有 ' + tok + '，不重复添加', true); return; }
     arr.push({ id: uid(), token: tok, text: txt, weight: 1, enabled: true });
     renderCoopLanes(); coopBind(); expandPreview();
@@ -1149,6 +1158,15 @@ function addBlock(lane, tokenOrObj) {
   pushHistory();
   const arr = lane === 'positive' ? S.pos : S.neg;
   const token = typeof tokenOrObj === 'string' ? tokenOrObj : (tokenOrObj && tokenOrObj.token) || '';
+  if (lane === 'positive' && token && /^@ID_/.test(token)) {
+    for (let i = arr.length - 1; i >= 0; i--) { if (/^@ID_/.test(arr[i].token || '')) arr.splice(i, 1); }
+    if (token.endsWith('_ADULT')) {
+      for (let i = arr.length - 1; i >= 0; i--) { if (/_PETITE$/.test(arr[i].token || '')) arr.splice(i, 1); }
+    }
+  }
+  if (lane === 'positive' && token && /^@BODY_/.test(token)) {
+    for (let i = arr.length - 1; i >= 0; i--) { if (/^@BODY_/.test(arr[i].token || '')) arr.splice(i, 1); }
+  }
   const SINGLE = /^@(ID|SINGLE|BODY_|FACE_|STYLE_|LIGHT_|CAM_|SET_|OUT_|TIME_|COMP_|POSE_|MOOD_|GAZE_)/;
   if (token && SINGLE.test(token) && arr.some(b => b.token === token)) { toast('已有 ' + token + '，不重复添加', true); return; }
   if (typeof tokenOrObj === 'string') {
@@ -1857,11 +1875,11 @@ const STYLE_TEXT = {
   line: 'clean lineart, crisp outlines',
 };
 
-const TEXT_ID = '1girl, solo, upper body, short dark hair, straight fringe, warm brown eyes, calm expression';
+const TEXT_ID = '1girl, solo, short dark hair, straight fringe, warm brown eyes, calm expression';
 // 不锁身份时用的最小身份词：保证还是"一个人"，但不锁 OC 特征
 const TEXT_ID_MIN = '1girl, solo, woman';
 // 男性版文本身份（通用男性，不含澪的特征）
-const TEXT_ID_MALE = '1boy, solo, upper body, short black hair, dark brown eyes';
+const TEXT_ID_MALE = '1boy, solo, short black hair, dark brown eyes';
 const TEXT_ID_MIN_MALE = '1boy, solo, man';
 // 只补画师模型训练 metadata 里的真实触发词，不额外注入互相打架的形容词
 const ARTIST_TRIGGERS = {};

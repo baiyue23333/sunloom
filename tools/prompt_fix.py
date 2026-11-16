@@ -112,12 +112,18 @@ def audit(blocks, negatives=None):
             add(t, "positive", level, "同时有 %d 个%s积木，只用第一个" % (len(arr), label), "remove")
         return arr
 
+    _BODY = re.compile(r"^@BODY_")
     cam = keep_first(_CAM, "机位")
     keep_first(_LIGHT, "光位")
     scenes = keep_first(_SCENE, "场景", "error")
     outfits = keep_first(_OUT, "服装", "error")
     keep_first(_POSE, "姿态")
     keep_first(_MOOD, "情绪")
+    keep_first(_ID, "身份特征")
+    bodies = keep_first(_BODY, "体型")
+    if any(t.endswith("_ADULT") for t in toks if _ID.match(t)) and any(t.endswith("_PETITE") for t in bodies):
+        for t in [b for b in bodies if b.endswith("_PETITE")]:
+            add(t, "positive", "warn", "成年身份与娇小体型冲突", "remove")
     keep_first(_STYLE, "画风")
     comp_fig = keep_first(_COMP_FIG, "构图")
 
