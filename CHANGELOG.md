@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1 (2026-11-17) - Wavy Bangs Hairstyle Block
+
+- Add `@HAIR_F_WAVY_BANGS` (female): long wavy hair, wispy see-through bangs, face-framing strands,
+  sidelocks, fluffy volume, and hair covering one eye. Shape-only block — no hair ornaments
+  (sunflower/ribbon/hairband) and no fixed hair color, so it composes with any identity block.
+- Library is now **670** blocks, matching the count stated in the README.
+
 ## 2.1.0 (2026-11-17) - Light-Guided Pipelines & Reproduction Quality
 
 ### New
