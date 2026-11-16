@@ -1579,14 +1579,23 @@ function identityLevel() {
   return Number.isFinite(v) ? v : 0.5;
 }
 
-// 身份档位落地：0=最小身份词（一个人/女人）、0.5=弱身份文本、1=专有身份积木
+function selectedCharCard() {
+  const name = (($('#card-sel') || {}).value) || '';
+  return (S.cards || []).find(x => x.name === name) || null;
+}
+
+// 身份档位落地：0=最小身份词（一个人/女人）、0.5=弱身份文本、1=专有身份积木（未选角色卡时仅保留无 owner 的公开身份积木）
 function applyIdentityLevel(silent) {
   if (!S.pos) S.pos = [];
   const lvl = identityLevel();
-  const card = (S.cards || []).find(x => x.name === ((($('#card-sel') || {}).value) || ''));
+  const card = selectedCharCard();
   const weakText = (card && card.identity_weak) || (S.gender === 'm' ? TEXT_ID_MALE : TEXT_ID);
   const before = S.pos.length;
   const IDENT_RE = /short dark hair|shoulder-length hair|warm brown eyes/i;
+
+  const keptPublic = !card
+    ? S.pos.filter(b => b && !b.cardIdentity && isIdentityToken(b.token) && !tokenOwner(b.token) && !/^@SINGLE/i.test(b.token || '')).map(b => b.token)
+    : [];
 
   // 先把所有"身份痕迹"摘掉：身份积木、身份文本、角色卡特征块、上一次的最小身份词
   S.pos = S.pos.filter(b => {
@@ -1598,15 +1607,22 @@ function applyIdentityLevel(silent) {
   });
 
   if (lvl >= 1) {
-    const toks = (card && (card.tokens || []).length) ? card.tokens.map(resolveToken)
-      : (S.gender === 'm' ? ['@SINGLE_M', '@ID_M'] : ['@SINGLE_F', '@ID_F']);
+    let toks;
+    if (card && (card.tokens || []).length) {
+      toks = card.tokens.map(resolveToken);
+    } else if (card) {
+      toks = S.gender === 'm' ? ['@SINGLE_M', '@ID_M'] : ['@SINGLE_F', '@ID_F'];
+    } else {
+      const baseSolo = S.gender === 'm' ? '@SINGLE_M' : '@SINGLE_F';
+      toks = keptPublic.length ? [baseSolo].concat(keptPublic) : (S.gender === 'm' ? ['@SINGLE_M', '@ID_M'] : ['@SINGLE_F']);
+    }
     toks.forEach(t => {
       if (t && !S.pos.some(b => b.token === t)) {
-        S.pos.unshift({ id: uid(), token: t, text: '', weight: 1, enabled: true, cardIdentity: true });
+        S.pos.unshift({ id: uid(), token: t, text: '', weight: 1, enabled: true, cardIdentity: !!card });
       }
     });
   } else if (lvl > 0) {
-    S.pos.unshift({ id: uid(), token: '', text: weakText, weight: lvl, enabled: true, cardIdentity: true });
+    S.pos.unshift({ id: uid(), token: '', text: weakText, weight: lvl, enabled: true, cardIdentity: !!card });
   } else {
     S.pos.unshift({ id: uid(), token: '', text: S.gender === 'm' ? TEXT_ID_MIN_MALE : TEXT_ID_MIN, weight: 1, enabled: true, identityMin: true });
   }
@@ -1614,7 +1630,11 @@ function applyIdentityLevel(silent) {
   const changed = before !== S.pos.length ? 1 : 0;
   if (!silent) {
     try { renderLanes(); expandPreview(); } catch (e) {}
-    toast('身份档位：' + (lvl >= 1 ? '强身份（专有积木）' : lvl > 0 ? '弱身份（文本描述）' : '不锁（最小身份词）'));
+    if (lvl >= 1 && !card && S.gender !== 'm' && !keptPublic.length) {
+      toast('未选角色卡：仅保留通用 @SINGLE_F（不加载私有身份积木；如需锁角色请先在「角色卡」中选择）');
+    } else {
+      toast('身份档位：' + (lvl >= 1 ? (card ? '强身份（角色卡专有积木）' : '强身份（公开通用积木）') : lvl > 0 ? '弱身份（文本描述）' : '不锁（最小身份词）'));
+    }
   }
   return changed;
 }
@@ -6417,15 +6437,21 @@ async function loadCards() {
     sel.onchange = () => {
       try { renderPalette(); } catch (e) {}
       if (sel.value) return;
-      // 没选角色：把她的特征积木从正向与负向一起摘掉
-      const hadPos = (S.pos || []).some(b => b && b.cardIdentity);
-      const hadNeg = (S.neg || []).some(b => b && b.cardIdentity);
-      if (!hadPos && !hadNeg) return;
-      S.pos = (S.pos || []).filter(b => !(b && b.cardIdentity));
-      S.neg = (S.neg || []).filter(b => !(b && b.cardIdentity));
+      // 没选角色：把私有/角色卡特征积木、角色 LoRA 一并摘掉
+      const isCardPrivate = b => b && (b.cardIdentity || !!tokenOwner(b.token));
+      const hadPos = (S.pos || []).some(isCardPrivate);
+      const hadNeg = (S.neg || []).some(isCardPrivate);
+      const hadRoleLora = (S.loras || []).some(l => loraCat(l.name) === '角色');
+      if (hadPos) S.pos = (S.pos || []).filter(b => !isCardPrivate(b));
+      if (hadNeg) S.neg = (S.neg || []).filter(b => !isCardPrivate(b));
+      if (hadRoleLora) {
+        S.loras = (S.loras || []).filter(l => loraCat(l.name) !== '角色');
+        try { if (typeof renderLoras === 'function') renderLoras(); } catch (e) {}
+      }
+      if (!hadPos && !hadNeg && !hadRoleLora) return;
       try { if (S.coopOn && typeof renderCoopLanes === 'function') renderCoopLanes(); else renderLanes(); } catch (e) {}
       try { expandPreview(); } catch (e) {}
-      toast('未选角色卡：已移除特征积木（正/负向）');
+      toast('未选角色卡：已移除私有特征积木与角色 LoRA');
     };
   }
 }
