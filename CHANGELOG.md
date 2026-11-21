@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.2.0 (2026-11-21) - B-line Lens-first Pipeline
+
+### New
+- **B-line lens-first pipeline (`b_lens`, new default)**: camera / composition / bokeh tokens are
+  lifted ahead of long scene blocks on the plate, then carried into `02_body` with depth protection;
+  when no lens tokens exist, the plate runs `ratio_mode=auto` and lets the model decide framing.
+- `tools/lens_policy.py` + `tools/coop_lens_first.py`: five-class lens planner and the 3-step
+  lens-first executor (plate → 1.5× AnimeSharp + orientation-aware in-place body → adaptive face/hands).
+- `tools/scale_probe.py`: SDPose head-orientation estimation (6 directions) with eye-word adaptation.
+- `tools/depth_occlude.py`: removes pixels nearer than the figure's ground plane from the body mask.
+- `tools/pose2d.py` / `pose3d.py` / `pose_fit.py` and `station/routes_pose.py`: 2D/3D pose editor.
+- `station/static/js/coop_launch.js`: coop launch guard (dedupe, epoch, concrete 422 errors).
+- `station/svc_batch.py` / `svc_tasks.py` / `svc_paths.py` / `svc_validation.py`, `station/job_models.py`.
+- New blocks: body / pose presets, scene rules, 20+ male poses, accessory & weather tokens (901 total).
+
+### Fixes
+- Coop launch: no stale-poll overwrite, full submit Promise, errors preserved in the status bar.
+- Reprojection: orientation-aware face prompt, foreground depth protection, multi-LoRA cap on plate.
+- Prompt trimming stage 2 + auto-clear lanes before coop runs.
+
+### Docs
+- README: pipeline selector, lens-first behaviour, new tools and pose editor.
 ## 2.1.1 (2026-11-17) - Wavy Bangs Hairstyle Block
 
 - Add `@HAIR_F_WAVY_BANGS` (female): long wavy hair, wispy see-through bangs, face-framing strands,
@@ -22,7 +44,7 @@
 - **Prompt quality baseline**: scene prompts get `masterpiece, best quality, highres` and a
   `detailed background / atmospheric depth / unified environmental lighting` suffix when a
   `@SET_*` block is present; non-closeup shots relax the rigid symmetric face lock while keeping
-  the red-right / grey-left heterochromia.
+  the distinctive two-tone eyes.
 - **Parameter data modal** in the params card: shows the local Anima LoRA recommendation table and
   the environment/character ratio reference.
 

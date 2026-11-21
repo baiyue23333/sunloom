@@ -11,6 +11,7 @@ from fastapi import HTTPException
 import store
 from svc_obs import warn
 from svc_state import comfy_in, load_tokens
+from svc_paths import IMAGE_EXTS, image_ok
 
 
 def _prepare_reference(path):
@@ -22,6 +23,8 @@ def _prepare_reference(path):
         src = cand if os.path.exists(cand) else src
     if not os.path.isfile(src):
         raise HTTPException(400, "找不到底图: " + path)
+    if os.path.splitext(src)[1].lower() not in IMAGE_EXTS or not image_ok(src):
+        raise HTTPException(400, "底图必须是有效图片")
     os.makedirs(inp, exist_ok=True)
     base = "ref_" + re.sub(r"[^A-Za-z0-9_.-]", "_", os.path.basename(src))
     dst = os.path.join(inp, base)

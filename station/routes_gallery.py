@@ -15,6 +15,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+from svc_paths import EXPORTS, IMAGE_EXTS, require_file, within
+
 import store
 from svc_recipes import _parse_png_recipe, add_recipe, mirror_score, recipe_from_png
 from svc_state import (
@@ -132,6 +134,8 @@ def _gallery_entries(dir):
                  if os.path.isdir(OUT_DIR) else [])
         return _coop_finals() + extra
     base = OUT_DIR if dir == "station_out" else os.path.join(ROOT, "SD-Picture", dir)
+    if not within(base, (os.path.join(ROOT, "SD-Picture"),)):
+        raise HTTPException(403, "画廊目录越界")
     if not os.path.isdir(base):
         return []
     return [(os.path.getmtime(os.path.join(base, n)), os.path.join(base, n))
@@ -158,6 +162,8 @@ def api_gallery(dir: str = "station_out", limit: int = 60, offset: int = 0):
 def api_glitch(req: GlitchReq):
     import glitchify
     src = req.path
+    if not img_allowed(src):
+        raise HTTPException(403, "图片不在允许目录内")
     if not os.path.isfile(src):
         raise HTTPException(404, "图片不存在")
     base, _ext = os.path.splitext(src)
@@ -215,14 +221,21 @@ def api_qc(path: str):
 def api_export(req: ExportReq):
     if not req.paths:
         raise HTTPException(400, "没有选图")
+    paths = []
+    for path in req.paths:
+        if not img_allowed(path):
+            raise HTTPException(403, "导出图片不在允许目录内")
+        paths.append(require_file(path, [os.path.dirname(os.path.realpath(path))], IMAGE_EXTS))
     out_dir = os.path.join(ROOT, "SD-Picture", "exports")
+    if not within(out_dir, (os.path.join(ROOT, "SD-Picture"),)):
+        raise HTTPException(403, "导出目录越界")
     os.makedirs(out_dir, exist_ok=True)
     ts = time.strftime("%Y%m%d_%H%M%S")
     zip_path = os.path.join(out_dir, "export_%s.zip" % ts)
     rp = store.load_recipes()
     lines, n = [], 0
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for p in req.paths:
+        for p in paths:
             if not os.path.isfile(p):
                 continue
             z.write(p, os.path.basename(p))
@@ -246,8 +259,7 @@ def api_export(req: ExportReq):
 
 @router.get("/api/download")
 def api_download(path: str):
-    if not os.path.isfile(path):
-        raise HTTPException(404, "文件不存在")
+    path = require_file(path, (EXPORTS,), (".zip",))
     return FileResponse(path, filename=os.path.basename(path))
 
 
@@ -329,6 +341,16 @@ def api_recipe(path: str):
                 r["blocks_guess"] = True
             if r.get("blocks_guess"):
                 store.upsert_recipe(path, r)
+    if "hand_boxes" not in r and os.path.isfile(path):
+        try:
+            import reproj_provenance as _rprov
+            pm = _rprov.read_hand_boxes_png(path)
+            if pm is not None:
+                r["hand_boxes"] = pm["boxes"]
+                if pm["hand_prompt"] and not r.get("hand_prompt"):
+                    r["hand_prompt"] = pm["hand_prompt"]
+        except Exception:
+            pass
     r["path"] = path
     return r
 

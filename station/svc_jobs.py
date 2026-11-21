@@ -13,6 +13,10 @@ import graph as gf
 import store
 import svc_mem
 from svc_recipes import _prepare_reference, add_recipe, mirror_score
+from job_models import AutoPipeReq, BatchQReq
+from svc_paths import IMAGE_EXTS, image_ok, output_dir, require_file, safe_prefix
+from svc_tasks import bind_prompt, cancelled, finish
+from svc_validation import validate_params
 from svc_state import (
     JOBS,
     LAST_GRAPH,
@@ -39,40 +43,23 @@ class ExpandReq(BaseModel):
     negative: List[Block] = []
 
 
-class BatchQReq(BaseModel):
-    count: int = 4
-    refine: bool = True
-    denoise: float = 0.3
-    steps: int = 0
-    cfg: float = 0.0
-    model: str = ""
-    templates: List[str] = []
-    loras: List[Dict[str, Any]] = []
-
-
-class AutoPipeReq(BaseModel):
-    count: int = 4
-    refine: bool = True
-    denoise: float = 0.3
-    glitch: float = 0.0
-    keep: int = 2
-    templates: List[str] = []
-    loras: List[Dict[str, Any]] = []
-
-
 def _node_class(node):
     return (node or {}).get("class_type") or (node or {}).get("type") or ""
 
 
 def _save_result(im, label, seed):
     """把 ComfyUI 输出图片复制到站点的 station_out，返回本地路径。"""
-    src_path = os.path.join(comfy_out(), im.get("subfolder", ""), im["filename"])
-    os.makedirs(OUT_DIR, exist_ok=True)
+    source_root = comfy_out()
+    src_path = os.path.join(source_root, im.get("subfolder", ""), im["filename"])
+    src_path = require_file(src_path, (source_root,), IMAGE_EXTS)
+    if not image_ok(src_path):
+        raise RuntimeError("ComfyUI 输出不是有效图片")
+    destination_root = output_dir("station_out")
     stamp = time.strftime("%H%M%S")
-    dst = os.path.join(OUT_DIR, "%s_%s_s%d.png" % (label, stamp, seed))
+    dst = os.path.join(destination_root, "%s_%s_s%d.png" % (safe_prefix(label), stamp, seed))
     if os.path.exists(src_path):
         if os.path.exists(dst):
-            dst = os.path.join(OUT_DIR, "%s_%s_s%d_%s.png" % (label, stamp, seed, str(int(time.time() % 1000))))
+            dst = os.path.join(destination_root, "%s_%s_s%d_%s.png" % (safe_prefix(label), stamp, seed, time.time_ns()))
         shutil.copy2(src_path, dst)
         return dst
     return ""
@@ -90,9 +77,16 @@ def _wf_unet(wf, fallback=""):
 def _wait_with_oom_retry(wf, jid, expect, reason, context="base", timeout=1800):
     """提交工作流并在首次 CUDA OOM 时强制清模恢复后自动重试一次。"""
     for attempt in range(2):
+        if jid and cancelled(jid):
+            return None, {"ok": False, "cancelled": True, "error": "任务已取消"}
         pid = gf.submit(wf)
+        bind_prompt(jid, pid)
+        if jid and cancelled(jid):
+            return pid, {"ok": False, "cancelled": True, "error": "任务已取消"}
         if jid:
             def tick(elapsed):
+                if cancelled(jid):
+                    raise RuntimeError("任务已取消")
                 _pg = cf.progress_of(pid) if hasattr(cf, "progress_of") else None
                 if _pg and _pg[1]:
                     JOBS[jid]["progress"] = min(0.99, 0.03 + 0.95 * (_pg[0] / _pg[1]))
@@ -101,6 +95,8 @@ def _wait_with_oom_retry(wf, jid, expect, reason, context="base", timeout=1800):
             res = cf.wait(pid, timeout=timeout, on_tick=tick)
         else:
             res = cf.wait(pid, timeout=timeout)
+        if jid and cancelled(jid):
+            return pid, {"ok": False, "cancelled": True, "error": "任务已取消"}
         if res.get("ok") or attempt == 1 or not cf.is_oom_error(res.get("error", "")):
             return pid, res
         svc_mem.recover_oom(reason, context=context)
@@ -111,21 +107,24 @@ def _wait_with_oom_retry(wf, jid, expect, reason, context="base", timeout=1800):
 
 def _submit(mode, params, jid, label, wf_name=None):
     """编译图 -> 显存调度 -> 提交 -> 轮询（OOM 自动恢复重试） -> 落盘。"""
+    if cancelled(jid):
+        finish(jid, "cancelled")
+        return
     if not cf.system_stats()["up"]:
-        JOBS[jid].update(status="error", result={"error": "ComfyUI 未启动"})
-        job_save(jid)
+        finish(jid, "error", result={"error": "ComfyUI 未启动"})
         return
     wf_map = {"t2i": "anima_t2i", "i2i": "anima_i2i", "inpaint": "anima_inpaint"}
     if wf_name is None:
         if mode not in wf_map:
-            JOBS[jid].update(status="error", result={"error": "不支持的模式: %s" % mode})
-            job_save(jid)
+            finish(jid, "error", result={"error": "不支持的模式: %s" % mode})
             return
         wf_name = wf_map[mode]
     try:
+        params = validate_params(params)
+        label = safe_prefix(label)
         wf, meta = gf.build(wf_name, params)
     except Exception as e:
-        JOBS[jid].update(status="error", result={"error": "编译工作流失败: %s" % e})
+        finish(jid, "error", result={"error": "编译工作流失败: %s" % getattr(e, "detail", e)})
         job_log(jid, "COMPILE ERROR " + str(e)[:200])
         job_save(jid)
         return
@@ -136,12 +135,13 @@ def _submit(mode, params, jid, label, wf_name=None):
                 _n.setdefault("inputs", {})["unet_name"] = _model
     if meta["missing"]:
         msg = "ComfyUI 缺少节点: " + ", ".join(meta["missing"])
-        JOBS[jid].update(status="error", result={"error": msg, "missing": meta["missing"]})
+        finish(jid, "error", result={"error": msg, "missing": meta["missing"]})
         job_log(jid, msg)
         job_save(jid)
         return
     try:
         unet_name = _wf_unet(wf, _model)
+        params["model"] = unet_name
         sched = svc_mem.prepare_stage("anima", unet=unet_name, reason="%s:%s" % (mode, label), context="base")
         if sched.get("action") not in ("keep", "skip_offline"):
             job_log(jid, "[memory] %s (vram_free=%sMB)" % (sched.get("action"), sched.get("vram_free_mb")))
@@ -153,21 +153,28 @@ def _submit(mode, params, jid, label, wf_name=None):
         pid, res = _wait_with_oom_retry(wf, jid, expect, "%s:%s" % (mode, label), context="base", timeout=1800)
         job_log(jid, "queued %s (workflow=%s, denoise=%.2f)" % (pid, meta["workflow"], meta["denoise"]))
         if not res["ok"]:
-            JOBS[jid].update(status="error", result={"error": res.get("error", "")})
+            finish(jid, "error", result={"error": res.get("error", "")})
             job_log(jid, "ERROR " + str(res.get("error", ""))[:300])
             job_save(jid)
             return
-        saved = []
+        saved, all_boxes = [], []
+        if not res.get("images"):
+            raise RuntimeError("ComfyUI 未返回图片")
         cout = comfy_out()
         rewrite_notes = list(params.get("expand_notes") or [])
         client_meta = params.get("client_meta") or {}
-        for im in res["images"]:
+        should_detect = mode in ("t2i", "i2i") and not str(params.get("prefix") or "").startswith(("handfix", "HAND_", "repaint", "SRHAND", "M1_"))
+        for image_index, im in enumerate(res["images"]):
+            if cancelled(jid):
+                finish(jid, "cancelled")
+                return
             src_path = os.path.join(cout, im.get("subfolder", ""), im["filename"])
-            dst_dir = OUT_DIR if params.get("save_to", "station_out") == "station_out" else os.path.join(
-                ROOT, "SD-Picture", params.get("save_to"))
-            os.makedirs(dst_dir, exist_ok=True)
+            src_path = require_file(src_path, (cout,), IMAGE_EXTS)
+            if not image_ok(src_path):
+                raise RuntimeError("ComfyUI 输出不是有效图片")
+            dst_dir = output_dir(params.get("save_to", "station_out"))
             stamp = time.strftime("%H%M%S")
-            dst = os.path.join(dst_dir, "%s_%s_s%d.png" % (label, stamp, params.get("seed", 0)))
+            dst = os.path.join(dst_dir, "%s_%s_s%d_%s_%02d.png" % (label, stamp, params.get("seed", 0), jid, image_index))
             if os.path.exists(src_path):
                 shutil.copy2(src_path, dst)
                 if mode == "t2i" and params.get("auto_handfix"):
@@ -178,8 +185,18 @@ def _submit(mode, params, jid, label, wf_name=None):
                             rewrite_notes.append("自动手部精修：%d 处" % fn_h)
                     except Exception as _he:
                         job_log(jid, "handfix skip: " + str(_he)[:120])
+                img_boxes = None
+                if should_detect:
+                    try:
+                        import routes_hand as _rh
+                        hb_r = _rh.ensure_image_hand_boxes(dst, force=bool(params.get("auto_handfix")), allow_skin_fallback=False)
+                        img_boxes = hb_r.get("boxes") or []
+                        all_boxes.append(img_boxes)
+                        job_log(jid, "hand boxes recorded: %d" % len(img_boxes))
+                    except Exception as _be:
+                        job_log(jid, "hand detect skip: " + str(_be)[:120])
                 saved.append(dst)
-                add_recipe(dst, {
+                recorded = add_recipe(dst, {
                     "ts": time.time(),
                     "mode": mode,
                     "workflow": meta.get("workflow"),
@@ -198,17 +215,23 @@ def _submit(mode, params, jid, label, wf_name=None):
                     "mask": params.get("mask", ""),
                     "rewrite_notes": rewrite_notes,
                     "client_meta": client_meta,
+                    **({"hand_boxes": img_boxes} if img_boxes is not None else {}),
                 })
+                if not recorded:
+                    raise RuntimeError("图片已生成，但配方写入失败: " + os.path.basename(dst))
             job_log(jid, "saved " + os.path.basename(dst))
+        if not saved:
+            raise RuntimeError("ComfyUI 输出文件不存在")
         score = mirror_score(saved[0]) if saved else 0.0
-        JOBS[jid].update(status="done", progress=1.0,
+        finish(jid, "done", progress=1.0,
                          result={"images": saved, "seed": params.get("seed"), "workflow": meta["workflow"],
                                  "denoise": meta["denoise"], "elapsed": round(time.time() - t0, 1),
                                  "mirror": score, "split_suspect": score >= 0.86,
+                                 "hand_boxes": all_boxes[0] if all_boxes else [],
                                  "rewrite_notes": rewrite_notes})
         job_save(jid)
     except Exception as e:
-        JOBS[jid].update(status="error", result={"error": str(e)})
+        finish(jid, "error", result={"error": str(getattr(e, "detail", e))})
         job_log(jid, "EXC " + str(e)[:300])
         job_save(jid)
     finally:
@@ -225,16 +248,15 @@ def _tpl_pool(want_names):
 
 
 def _default_loras(req_loras):
-    """Use explicitly requested LoRAs without hardcoded personal weights."""
-    return list(req_loras or [])
-
+    return req_loras or [{"name": "local_char_lora_h4.safetensors", "weight": 0.65},
+                         {"name": "style_lora_a5E585B6E4B889.YDAV.safetensors", "weight": 0.66}]
 
 
 def _dump_blocks(raw):
     return [(b.model_dump() if hasattr(b, "model_dump") else b) for b in (raw or [])]
 
 
-def _make_refine(exp, w, h, steps, cfg, seed, loras, label, model, first, denoise):
+def _make_refine(exp, w, h, steps, cfg, seed, loras, label, model, first, denoise, jid=None):
     ref = _prepare_reference(first)
     wf2 = cf.build_wf(exp["positive"], exp["negative"], w, h, max(12, steps - 4), cfg, seed,
                       loras, label + "_ref", unet=(model or None))
@@ -247,13 +269,22 @@ def _make_refine(exp, w, h, steps, cfg, seed, loras, label, model, first, denois
     wf2["9"]["inputs"]["denoise"] = max(0.15, min(0.5, float(denoise)))
     svc_mem.prepare_stage("anima", unet=(model or "anima-base-v1.0.safetensors"),
                           reason="refine:" + label, context="base")
-    _, res2 = _wait_with_oom_retry(wf2, None, 30.0, "refine:" + label, context="base", timeout=1800)
+    _, res2 = _wait_with_oom_retry(wf2, jid, 30.0, "refine:" + label, context="base", timeout=1800)
     if res2.get("ok") and res2.get("images"):
-        return _save_result(res2["images"][0], label + "_ref", seed)
+        saved = _save_result(res2["images"][0], label + "_ref", seed)
+        if not saved or not add_recipe(saved, {
+            "ts": time.time(), "mode": "i2i", "workflow": "batch_refine",
+            "positive": exp["positive"], "negative": exp["negative"], "size": [w, h],
+            "steps": max(12, steps - 4), "cfg": cfg, "seed": seed,
+            "denoise": wf2["9"]["inputs"]["denoise"], "reference": first,
+            "loras": loras, "model": model or "anima-base-v1.0.safetensors",
+        }):
+            raise RuntimeError("精修图或配方保存失败")
+        return saved
     return ""
 
 
-def _sample_from_pool(pool, loras, workflow_tag, label_prefix, i, model_override="", steps_override=0, cfg_override=0.0):
+def _sample_from_pool(pool, loras, workflow_tag, label_prefix, i, model_override="", steps_override=0, cfg_override=0.0, jid=None):
     tpl = _rnd.choice(pool)
     params = tpl.get("params") or {}
     size = str(params.get("size") or "1024x1536")
@@ -266,102 +297,42 @@ def _sample_from_pool(pool, loras, workflow_tag, label_prefix, i, model_override
     model = model_override or str(params.get("model") or "")
     pos_b = [Block(**b) if isinstance(b, dict) else b for b in (tpl.get("positive") or [])]
     neg_b = [Block(**b) if isinstance(b, dict) else b for b in (tpl.get("negative") or [])]
+    existing_neg = {getattr(b, "token", "") for b in neg_b}
+    want_neg = ["@NEG_PLANT", "@NEG_HANDS", "@NEG_AI"]
+    if any(str(getattr(b, "token", "") or "").startswith("@SET_") for b in pos_b):
+        want_neg.append("@NEG_NO_CLIP")
+    for tok in want_neg:
+        if tok not in existing_neg:
+            neg_b.append(Block(token=tok))
     exp = expand_blocks(pos_b, neg_b)
     seed = 100000 + _rnd.randint(0, 899999)
     label = "%s_%02d" % (label_prefix, i + 1)
+    validated = validate_params({"width": w, "height": h, "steps": steps, "cfg": cfg, "model": model, "loras": loras})
+    model, loras = validated["model"], validated["loras"]
     wf = cf.build_wf(exp["positive"], exp["negative"], w, h, steps, cfg, seed, loras, label, unet=(model or None))
     svc_mem.prepare_stage("anima", unet=(model or "anima-base-v1.0.safetensors"),
                           reason="batch:" + label, context="base")
-    _, res = _wait_with_oom_retry(wf, None, 30.0, "batch:" + label, context="base", timeout=1800)
+    _, res = _wait_with_oom_retry(wf, jid, 30.0, "batch:" + label, context="base", timeout=1800)
     if not res.get("ok") or not res.get("images"):
         return None, exp, w, h, steps, cfg, seed, label, model, res.get("error", "")
     first = _save_result(res["images"][0], label, seed)
     if first:
-        add_recipe(first, {"ts": time.time(), "mode": "t2i", "workflow": workflow_tag,
+        recorded = add_recipe(first, {"ts": time.time(), "mode": "t2i", "workflow": workflow_tag,
                            "positive": exp["positive"], "negative": exp["negative"],
                            "blocks_pos": _dump_blocks(tpl.get("positive")),
                            "blocks_neg": _dump_blocks(tpl.get("negative")),
                            "size": [w, h], "steps": steps, "cfg": cfg, "seed": seed,
-                           "loras": loras, "model": model})
+                            "loras": loras, "model": model})
+        if not recorded:
+            raise RuntimeError("批量配方写入失败")
     return first, exp, w, h, steps, cfg, seed, label, model, ""
 
 
 def _run_batchq(req: BatchQReq, jid):
-    try:
-        pool = _tpl_pool(req.templates)
-        if not pool:
-            JOBS[jid].update(status="error", result={"error": "没有可用模板"})
-            return
-        loras = _default_loras(req.loras)
-        saved_all, n = [], max(1, min(24, req.count))
-        for i in range(n):
-            first, exp, w, h, steps, cfg, seed, label, model, err = _sample_from_pool(
-                pool, loras, "batchq", "bq", i, req.model, req.steps, req.cfg)
-            if not first:
-                job_log(jid, "第 %d 张失败：%s" % (i + 1, err)[:200])
-                continue
-            saved_all.append(first)
-            if req.refine:
-                second = _make_refine(exp, w, h, steps, cfg, seed, loras, label, model, first, req.denoise)
-                if second:
-                    saved_all.append(second)
-            JOBS[jid]["progress"] = (i + 1) / n
-            job_log(jid, "完成 %d/%d：%s" % (i + 1, n, os.path.basename(first)))
-        JOBS[jid].update(status="done", progress=1.0, result={"images": saved_all, "count": len(saved_all)})
-        job_save(jid)
-    except Exception as e:
-        JOBS[jid].update(status="error", result={"error": str(e)[:300]})
-        job_log(jid, "ERROR " + str(e)[:300])
-        job_save(jid)
-    finally:
-        svc_mem.release_stage(context="batch", reason="batchq", soft=(svc_mem.get_policy().get("profile") == "aggressive"))
+    from svc_batch import run_batchq
+    return run_batchq(req, jid)
 
 
 def _run_autopipe(req: AutoPipeReq, jid):
-    try:
-        pool = _tpl_pool(req.templates)
-        if not pool:
-            JOBS[jid].update(status="error", result={"error": "没有可用模板"})
-            return
-        loras = _default_loras(req.loras)
-        made, n = [], max(1, min(16, req.count))
-        for i in range(n):
-            first, exp, w, h, steps, cfg, seed, label, model, _ = _sample_from_pool(
-                pool, loras, "autopipe", "ap", i)
-            if not first:
-                job_log(jid, "第 %d 张失败" % (i + 1))
-                continue
-            best = first
-            if req.refine:
-                second = _make_refine(exp, w, h, steps, cfg, seed, loras, label, model, first, req.denoise)
-                if second:
-                    best = second
-            try:
-                score = float(mirror_score(best))
-            except Exception:
-                score = 0.0
-            made.append({"path": best, "score": round(score, 3)})
-            JOBS[jid]["progress"] = (i + 1) / n * 0.9
-            job_log(jid, "完成 %d/%d 评分 %.1f" % (i + 1, n, score))
-        made.sort(key=lambda x: -x["score"])
-        kept = made[:max(1, min(len(made), req.keep))]
-        out = []
-        for item in kept:
-            p = item["path"]
-            if req.glitch and req.glitch > 0:
-                try:
-                    import glitchify
-                    dst = os.path.splitext(p)[0] + "_glitch.png"
-                    glitchify.glitchify(p, dst, max(0.1, min(2.0, req.glitch)))
-                    p = dst
-                except Exception as e:
-                    job_log(jid, "故障失败：" + str(e)[:120])
-            out.append({"path": p, "score": item["score"]})
-        JOBS[jid].update(status="done", progress=1.0, result={"kept": out, "all": made})
-        job_save(jid)
-    except Exception as e:
-        JOBS[jid].update(status="error", result={"error": str(e)[:300]})
-        job_log(jid, "ERROR " + str(e)[:300])
-        job_save(jid)
-    finally:
-        svc_mem.release_stage(context="batch", reason="autopipe", soft=(svc_mem.get_policy().get("profile") == "aggressive"))
+    from svc_batch import run_autopipe
+    return run_autopipe(req, jid)

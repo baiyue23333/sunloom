@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "default": "slender",
+  "profiles": {
+    "slender": {
+      "name": "纤细匀称（头身比 7.5，头不过小）",
+      "aliases": [
+        "纤细",
+        "标准",
+        "balanced"
+      ],
+      "tags": "slender, slim waist, balanced proportions, natural head size, seven and a half heads tall, medium bust",
+      "negative": "chubby, thick waist, oversized head, child, extremely long legs, tiny head, eight heads tall",
+      "targets": {
+        "head_ratio": 0.145,
+        "shoulder_ratio": 0.225,
+        "waist_ratio": 0.145,
+        "hip_ratio": 0.18,
+        "leg_ratio": 0.45
+      },
+      "notes": "头高约 1/7.5 身长。旧版写 small head/long legs 导致头过小、腿过长，已修正。"
+    },
+    "petite": {
+      "name": "娇小（7 头身）",
+      "aliases": [
+        "娇小",
+        "矮"
+      ],
+      "tags": "petite, slim, youthful, natural head size, seven heads tall, short stature",
+      "negative": "tall, extremely long legs, oversized head, chubby",
+      "targets": {
+        "head_ratio": 0.155,
+        "shoulder_ratio": 0.21,
+        "waist_ratio": 0.14,
+        "hip_ratio": 0.175,
+        "leg_ratio": 0.43
+      },
+      "notes": "头身比约 7 头身，腿稍短。"
+    },
+    "youthful": {
+      "name": "少年感（约 6.5 头身，头略大）",
+      "aliases": [
+        "少年感",
+        "youth"
+      ],
+      "tags": "slender, youthful, six and a half heads tall, natural head size, slightly larger head, slim waist",
+      "negative": "tiny head, extremely long legs, eight heads tall, mature build, chubby",
+      "targets": {
+        "head_ratio": 0.155,
+        "shoulder_ratio": 0.215,
+        "waist_ratio": 0.14,
+        "hip_ratio": 0.175,
+        "leg_ratio": 0.43
+      },
+      "notes": "依据用户偏好图调整：头更大、腿更短，整体年轻。"
+    }
+  }
+}

@@ -25,8 +25,8 @@ SCENES = [
 
 BASE = {
     "mode": "regional",
-    "scene_lora": "painterly_env.safetensors",
-    "char_lora": "soft_style.safetensors",
+    "scene_lora": "anima-base-1-env_lora_a.safetensors",
+    "char_lora": "@style_lora_b_anima_ver20.safetensors",
     "ratio": 0.42, "ground_y": 0.90, "x": 0.40,
     "env_weight": 0.70, "char_weight": 0.60, "ll_strength": 1.0, "ll_end": 0.55,
 }

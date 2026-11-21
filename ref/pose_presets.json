@@ -1,0 +1,256 @@
+{
+  "profiles": {
+    "petite": {
+      "label": "娇小少女 (6.3头身)",
+      "head_r": [0.064, 0.078, 0.068],
+      "neck_r": 0.025,
+      "shoulder_w": 0.198,
+      "chest_r": [0.070, 0.068, 0.056],
+      "waist_r": 0.056,
+      "hip_w": 0.142,
+      "pelvis_r": [0.082, 0.060, 0.056],
+      "upper_arm": [0.142, 0.028, 0.022],
+      "forearm": [0.132, 0.023, 0.018],
+      "hand": [0.064, 0.021, 0.011],
+      "thigh": [0.215, 0.047, 0.035],
+      "calf": [0.215, 0.035, 0.022],
+      "foot_len": 0.104,
+      "foot_r": 0.025
+    },
+    "standard": {
+      "label": "标准比例 (7.5头身)",
+      "head_r": [0.058, 0.072, 0.064],
+      "neck_r": 0.026,
+      "shoulder_w": 0.226,
+      "chest_r": [0.082, 0.076, 0.060],
+      "waist_r": 0.064,
+      "hip_w": 0.154,
+      "pelvis_r": [0.088, 0.064, 0.058],
+      "upper_arm": [0.158, 0.031, 0.024],
+      "forearm": [0.144, 0.025, 0.020],
+      "hand": [0.070, 0.023, 0.012],
+      "thigh": [0.235, 0.050, 0.037],
+      "calf": [0.230, 0.037, 0.023],
+      "foot_len": 0.114,
+      "foot_r": 0.026
+    }
+  },
+  "presets": {
+    "walk_turn": {
+      "label": "回眸漫步", "cat": "walk", "facing": "front",
+      "pelvis_yaw": -18, "pelvis_tilt": [4, 0, -4],
+      "spine": [-4, 16, 4], "chest": [-6, 22, 4], "neck": [4, 24, -4], "head": [-4, 18, -5],
+      "l_shoulder": [12, 8, -14], "l_elbow": [28, 0, 0],
+      "r_shoulder": [-16, -6, 16], "r_elbow": [34, 0, 0],
+      "l_hip": [-22, 4, -4], "l_knee": [18, 0, 0], "l_ankle": [8, 0, 0],
+      "r_hip": [18, -4, 4], "r_knee": [26, 0, 0], "r_ankle": [-10, 0, 0]
+    },
+    "dynamic_lean": {
+      "label": "夸张前倾飞奔", "cat": "action", "facing": "side",
+      "pelvis_yaw": 20, "pelvis_tilt": [16, 0, 6],
+      "spine": [12, -10, -4], "chest": [10, -14, -4], "neck": [-12, 10, 2], "head": [-10, 14, 4],
+      "l_shoulder": [-38, 12, -42], "l_elbow": [62, 0, 0],
+      "r_shoulder": [48, -14, 28], "r_elbow": [78, 0, 0],
+      "l_hip": [-52, 8, -8], "l_knee": [58, 0, 0], "l_ankle": [14, 0, 0],
+      "r_hip": [42, -6, 8], "r_knee": [64, 0, 0], "r_ankle": [-18, 0, 0]
+    },
+    "rooftop_cheer": {
+      "label": "天台举手跃姿", "cat": "action", "facing": "front",
+      "pelvis_yaw": -12, "pelvis_tilt": [-6, 0, 5],
+      "spine": [-6, 10, -6], "chest": [-8, 12, -6], "neck": [4, 6, 4], "head": [-6, 8, 6],
+      "l_shoulder": [-135, 16, -24], "l_elbow": [26, 0, 0],
+      "r_shoulder": [18, -8, 28], "r_elbow": [48, 0, 0],
+      "l_hip": [-14, 4, -9], "l_knee": [24, 0, 0], "l_ankle": [8, 0, 0],
+      "r_hip": [12, -6, 9], "r_knee": [10, 0, 0], "r_ankle": [-4, 0, 0]
+    },
+    "cool_pocket": {
+      "label": "插兜侧站", "cat": "stand", "facing": "front",
+      "pelvis_yaw": 24, "pelvis_tilt": [-4, 0, -5],
+      "spine": [2, -10, 4], "chest": [4, -12, 4], "neck": [0, 14, -2], "head": [2, 16, -4],
+      "l_shoulder": [14, 12, -14], "l_elbow": [52, 0, 0],
+      "r_shoulder": [12, -12, 14], "r_elbow": [48, 0, 0],
+      "l_hip": [-6, 8, -5], "l_knee": [6, 0, 0], "l_ankle": [0, 0, 0],
+      "r_hip": [8, -6, 7], "r_knee": [16, 0, 0], "r_ankle": [-6, 0, 0]
+    },
+    "sit_edge": {
+      "label": "坐姿翘腿", "cat": "sit", "facing": "front",
+      "pelvis_yaw": -16, "pelvis_tilt": [-10, 0, 2],
+      "spine": [8, 8, -2], "chest": [6, 10, -2], "neck": [-4, 8, 4], "head": [-4, 10, 4],
+      "l_shoulder": [18, 6, -16], "l_elbow": [34, 0, 0],
+      "r_shoulder": [-12, -8, 22], "r_elbow": [64, 0, 0],
+      "l_hip": [-88, 10, -8], "l_knee": [86, 0, 0], "l_ankle": [10, 0, 0],
+      "r_hip": [-78, -8, 10], "r_knee": [64, 0, 0], "r_ankle": [12, 0, 0]
+    },
+    "look_back_lean": {
+      "label": "倚栏回望", "cat": "sit", "facing": "side",
+      "pelvis_yaw": 42, "pelvis_tilt": [10, 0, -6],
+      "spine": [6, -18, 6], "chest": [4, -24, 6], "neck": [-6, -24, -4], "head": [-4, -20, -6],
+      "l_shoulder": [22, 10, -18], "l_elbow": [44, 0, 0],
+      "r_shoulder": [16, -8, 18], "r_elbow": [38, 0, 0],
+      "l_hip": [-12, 4, -5], "l_knee": [14, 0, 0], "l_ankle": [4, 0, 0],
+      "r_hip": [10, -6, 6], "r_knee": [22, 0, 0], "r_ankle": [-8, 0, 0]
+    },
+    "jump_joy": {
+      "label": "腾空跃起", "cat": "action", "facing": "front",
+      "pelvis_yaw": -10, "pelvis_tilt": [-12, 0, 6],
+      "spine": [-10, 8, -5], "chest": [-12, 10, -5], "neck": [6, 4, 4], "head": [-6, 6, 8],
+      "l_shoulder": [-142, 18, -32], "l_elbow": [22, 0, 0],
+      "r_shoulder": [-118, -16, 36], "r_elbow": [34, 0, 0],
+      "l_hip": [-36, 10, -16], "l_knee": [74, 0, 0], "l_ankle": [24, 0, 0],
+      "r_hip": [14, -8, 14], "r_knee": [42, 0, 0], "r_ankle": [18, 0, 0]
+    },
+    "kneel_crouch": {
+      "label": "半蹲仰视", "cat": "crouch", "facing": "front",
+      "pelvis_yaw": 14, "pelvis_tilt": [18, 0, 0],
+      "spine": [10, -8, 0], "chest": [6, -10, 0], "neck": [-16, 8, -2], "head": [-14, 10, 4],
+      "l_shoulder": [-24, 10, -18], "l_elbow": [72, 0, 0],
+      "r_shoulder": [20, -10, 22], "r_elbow": [66, 0, 0],
+      "l_hip": [-92, 12, -10], "l_knee": [108, 0, 0], "l_ankle": [-16, 0, 0],
+      "r_hip": [-68, -10, 12], "r_knee": [96, 0, 0], "r_ankle": [-12, 0, 0]
+    },
+    "hero_stride": {
+      "label": "大步张力跨步", "cat": "walk", "facing": "front",
+      "pelvis_yaw": -28, "pelvis_tilt": [6, 0, 4],
+      "spine": [-4, 18, -4], "chest": [-8, 22, -4], "neck": [4, 14, 2], "head": [-2, 12, 4],
+      "l_shoulder": [-52, 14, -36], "l_elbow": [36, 0, 0],
+      "r_shoulder": [34, -12, 26], "r_elbow": [42, 0, 0],
+      "l_hip": [-42, 8, -10], "l_knee": [28, 0, 0], "l_ankle": [12, 0, 0],
+      "r_hip": [36, -6, 10], "r_knee": [18, 0, 0], "r_ankle": [-14, 0, 0]
+    },
+    "stand_contrapposto": {
+      "label": "重心偏站·优雅", "cat": "stand", "facing": "front",
+      "pelvis_yaw": -14, "pelvis_tilt": [-2, 0, 7],
+      "spine": [2, 6, -5], "chest": [0, 8, -4], "neck": [2, 6, -2], "head": [-4, 8, -4],
+      "l_shoulder": [6, 6, -12], "l_elbow": [22, 0, 0],
+      "r_shoulder": [-8, -6, 16], "r_elbow": [42, 0, 0],
+      "l_hip": [-6, 4, -8], "l_knee": [6, 0, 0], "l_ankle": [0, 0, 0],
+      "r_hip": [10, -6, 4], "r_knee": [18, 0, 0], "r_ankle": [-4, 0, 0]
+    },
+    "stand_wave": {
+      "label": "挥手打招呼", "cat": "stand", "facing": "front",
+      "pelvis_yaw": 12, "pelvis_tilt": [-2, 0, -4],
+      "spine": [-2, -6, 4], "chest": [-4, -8, 4], "neck": [2, -4, 0], "head": [-4, 4, 6],
+      "l_shoulder": [8, 6, -14], "l_elbow": [24, 0, 0],
+      "r_shoulder": [-128, -18, 34], "r_elbow": [68, 0, 0],
+      "l_hip": [-4, 4, -5], "l_knee": [6, 0, 0], "l_ankle": [0, 0, 0],
+      "r_hip": [8, -4, 6], "r_knee": [12, 0, 0], "r_ankle": [0, 0, 0]
+    },
+    "stand_hands_back": {
+      "label": "背手前倾微仰", "cat": "stand", "facing": "front",
+      "pelvis_yaw": -16, "pelvis_tilt": [8, 0, 3],
+      "spine": [6, 8, -3], "chest": [8, 10, -2], "neck": [-10, 6, 2], "head": [-12, 8, 4],
+      "l_shoulder": [28, -12, -16], "l_elbow": [68, 0, 0],
+      "r_shoulder": [28, 12, 16], "r_elbow": [68, 0, 0],
+      "l_hip": [-8, 4, -5], "l_knee": [8, 0, 0], "l_ankle": [0, 0, 0],
+      "r_hip": [6, -4, 5], "r_knee": [12, 0, 0], "r_ankle": [0, 0, 0]
+    },
+    "arms_crossed": {
+      "label": "抱臂酷立", "cat": "stand", "facing": "front",
+      "pelvis_yaw": 18, "pelvis_tilt": [-3, 0, -4],
+      "spine": [0, -8, 3], "chest": [-2, -10, 3], "neck": [2, 10, -2], "head": [4, 12, -3],
+      "l_shoulder": [-28, -28, -22], "l_elbow": [96, 0, 0],
+      "r_shoulder": [-24, 28, 22], "r_elbow": [92, 0, 0],
+      "l_hip": [-6, 6, -6], "l_knee": [6, 0, 0], "l_ankle": [0, 0, 0],
+      "r_hip": [10, -6, 8], "r_knee": [16, 0, 0], "r_ankle": [0, 0, 0]
+    },
+    "back_glance": {
+      "label": "背影回眸", "cat": "stand", "facing": "back",
+      "pelvis_yaw": 165, "pelvis_tilt": [2, 0, -3],
+      "spine": [0, -14, 3], "chest": [-4, -18, 4], "neck": [4, -28, -2], "head": [-2, -34, -4],
+      "l_shoulder": [10, 6, -12], "l_elbow": [20, 0, 0],
+      "r_shoulder": [-14, -10, 18], "r_elbow": [36, 0, 0],
+      "l_hip": [-10, 4, -5], "l_knee": [12, 0, 0], "l_ankle": [0, 0, 0],
+      "r_hip": [12, -4, 5], "r_knee": [10, 0, 0], "r_ankle": [0, 0, 0]
+    },
+    "walk_casual": {
+      "label": "正面轻快步行", "cat": "walk", "facing": "front",
+      "pelvis_yaw": 8, "pelvis_tilt": [3, 0, -2],
+      "spine": [2, -6, 2], "chest": [0, -8, 2], "neck": [-2, 4, 0], "head": [-2, 4, 2],
+      "l_shoulder": [-18, 4, -12], "l_elbow": [24, 0, 0],
+      "r_shoulder": [22, -4, 12], "r_elbow": [26, 0, 0],
+      "l_hip": [24, 2, -4], "l_knee": [16, 0, 0], "l_ankle": [-8, 0, 0],
+      "r_hip": [-28, -2, 4], "r_knee": [22, 0, 0], "r_ankle": [8, 0, 0]
+    },
+    "run_sprint": {
+      "label": "疾风冲刺", "cat": "action", "facing": "side",
+      "pelvis_yaw": -36, "pelvis_tilt": [22, 0, -4],
+      "spine": [12, 12, 4], "chest": [8, 16, 4], "neck": [-16, -8, -2], "head": [-14, -12, -2],
+      "l_shoulder": [56, 8, -16], "l_elbow": [88, 0, 0],
+      "r_shoulder": [-62, -10, 18], "r_elbow": [84, 0, 0],
+      "l_hip": [-68, 4, -6], "l_knee": [64, 0, 0], "l_ankle": [12, 0, 0],
+      "r_hip": [48, -4, 6], "r_knee": [82, 0, 0], "r_ankle": [-18, 0, 0]
+    },
+    "twirl_skirt": {
+      "label": "提裙旋转", "cat": "action", "facing": "front",
+      "pelvis_yaw": -24, "pelvis_tilt": [-4, 0, 6],
+      "spine": [-4, 14, -6], "chest": [-6, 18, -6], "neck": [4, 12, 4], "head": [-6, 14, 6],
+      "l_shoulder": [-24, 14, -44], "l_elbow": [42, 0, 0],
+      "r_shoulder": [-20, -14, 46], "r_elbow": [46, 0, 0],
+      "l_hip": [-18, 8, -10], "l_knee": [28, 0, 0], "l_ankle": [14, 0, 0],
+      "r_hip": [16, -6, 12], "r_knee": [38, 0, 0], "r_ankle": [16, 0, 0]
+    },
+    "sit_chair_relaxed": {
+      "label": "座椅松弛坐姿", "cat": "sit", "facing": "front",
+      "pelvis_yaw": 18, "pelvis_tilt": [-12, 0, -4],
+      "spine": [6, -6, 3], "chest": [4, -8, 3], "neck": [-2, 8, -2], "head": [2, 10, -4],
+      "l_shoulder": [-18, 12, -20], "l_elbow": [56, 0, 0],
+      "r_shoulder": [10, -8, 18], "r_elbow": [48, 0, 0],
+      "l_hip": [-82, 8, -12], "l_knee": [82, 0, 0], "l_ankle": [6, 0, 0],
+      "r_hip": [-84, -8, 10], "r_knee": [88, 0, 0], "r_ankle": [4, 0, 0]
+    },
+    "sit_floor_hug": {
+      "label": "席地抱膝坐", "cat": "sit", "facing": "front",
+      "pelvis_yaw": -22, "pelvis_tilt": [-14, 0, 2],
+      "spine": [14, 6, -2], "chest": [12, 8, -2], "neck": [-10, 12, 2], "head": [-8, 14, 4],
+      "l_shoulder": [-46, -16, -14], "l_elbow": [78, 0, 0],
+      "r_shoulder": [-42, 16, 14], "r_elbow": [76, 0, 0],
+      "l_hip": [-104, 8, -12], "l_knee": [112, 0, 0], "l_ankle": [14, 0, 0],
+      "r_hip": [-96, -8, 14], "r_knee": [104, 0, 0], "r_ankle": [14, 0, 0]
+    },
+    "crouch_low": {
+      "label": "低姿蹲伏观察", "cat": "crouch", "facing": "front",
+      "pelvis_yaw": -16, "pelvis_tilt": [22, 0, 0],
+      "spine": [12, 6, 0], "chest": [8, 8, 0], "neck": [-20, 8, 0], "head": [-16, 10, 2],
+      "l_shoulder": [-34, 8, -16], "l_elbow": [84, 0, 0],
+      "r_shoulder": [-28, -8, 16], "r_elbow": [78, 0, 0],
+      "l_hip": [-108, 10, -14], "l_knee": [124, 0, 0], "l_ankle": [-18, 0, 0],
+      "r_hip": [-98, -10, 14], "r_knee": [118, 0, 0], "r_ankle": [-16, 0, 0]
+    },
+    "kneel_prayer": {
+      "label": "双膝跪姿祈祷", "cat": "crouch", "facing": "front",
+      "pelvis_yaw": 12, "pelvis_tilt": [-6, 0, 0],
+      "spine": [6, -4, 0], "chest": [6, -6, 0], "neck": [-8, 6, 0], "head": [-10, 8, 4],
+      "l_shoulder": [-48, -24, -14], "l_elbow": [92, 0, 0],
+      "r_shoulder": [-48, 24, 14], "r_elbow": [92, 0, 0],
+      "l_hip": [-12, 6, -8], "l_knee": [122, 0, 0], "l_ankle": [28, 0, 0],
+      "r_hip": [-8, -6, 8], "r_knee": [122, 0, 0], "r_ankle": [28, 0, 0]
+    },
+    "combat_sword": {
+      "label": "持剑警戒架势", "cat": "combat", "facing": "front",
+      "pelvis_yaw": -34, "pelvis_tilt": [10, 0, 4],
+      "spine": [4, 14, -4], "chest": [6, 18, -4], "neck": [-6, 18, 2], "head": [-6, 16, 4],
+      "l_shoulder": [-52, -16, -24], "l_elbow": [74, 0, 0],
+      "r_shoulder": [-38, 18, 28], "r_elbow": [66, 0, 0],
+      "l_hip": [-46, 8, -14], "l_knee": [54, 0, 0], "l_ankle": [8, 0, 0],
+      "r_hip": [32, -8, 14], "r_knee": [34, 0, 0], "r_ankle": [-10, 0, 0]
+    },
+    "combat_cast": {
+      "label": "单手施法/指尖瞄准", "cat": "combat", "facing": "front",
+      "pelvis_yaw": 26, "pelvis_tilt": [-4, 0, -5],
+      "spine": [-4, -12, 4], "chest": [-4, -14, 4], "neck": [2, -10, -2], "head": [-2, -8, 4],
+      "l_shoulder": [18, 10, -18], "l_elbow": [46, 0, 0],
+      "r_shoulder": [-86, -12, 16], "r_elbow": [12, 0, 0],
+      "l_hip": [-16, 6, -8], "l_knee": [22, 0, 0], "l_ankle": [4, 0, 0],
+      "r_hip": [18, -6, 10], "r_knee": [14, 0, 0], "r_ankle": [-4, 0, 0]
+    },
+    "combat_hold_pole": {
+      "label": "双手持长杖/长枪", "cat": "combat", "facing": "front",
+      "pelvis_yaw": -22, "pelvis_tilt": [6, 0, 3],
+      "spine": [2, 10, -3], "chest": [4, 12, -3], "neck": [-2, 10, 2], "head": [-4, 10, 4],
+      "l_shoulder": [-46, -10, -26], "l_elbow": [64, 0, 0],
+      "r_shoulder": [16, 14, 24], "r_elbow": [78, 0, 0],
+      "l_hip": [-26, 8, -10], "l_knee": [28, 0, 0], "l_ankle": [4, 0, 0],
+      "r_hip": [22, -8, 10], "r_knee": [22, 0, 0], "r_ankle": [-6, 0, 0]
+    }
+  }
+}

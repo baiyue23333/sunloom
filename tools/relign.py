@@ -57,8 +57,8 @@ def redraw(ref_path, size, denoise=0.30, seed=0, steps=24, cfg=4.5):
     body = {"mode": "keep_image", "reference": ref_path, "prompt": PROMPT, "negative": NEG,
             "denoise": float(denoise), "width": int(size[0]), "height": int(size[1]),
             "steps": int(steps), "cfg": float(cfg), "seed": int(seed),
-            "prefix": "relign", "loras": [{"name": "character_lora.safetensors", "weight": 0.8},
-                                          {"name": "artist_style.safetensors", "weight": 0.85}]}
+            "prefix": "relign", "loras": [{"name": "local_char_lora_h2.safetensors", "weight": 0.8},
+                                          {"name": "style_lora_a5E585B6E4B889.YDAV.safetensors", "weight": 0.85}]}
     r = _post("/api/reproduce", body)
     jid = r["job_id"]
     for _ in range(400):

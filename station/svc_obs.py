@@ -8,12 +8,12 @@ import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-for _d in (os.path.join(_ROOT, "core"), os.path.join(_ROOT, "tools")):
+for _d in (_ROOT, os.path.join(_ROOT, "tools")):
     if _d not in sys.path:
         sys.path.insert(0, _d)
 
 import comfy_paths
-import store
+from core import store
 
 _LOCK = threading.RLock()
 _WARNINGS = []

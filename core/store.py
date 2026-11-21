@@ -12,7 +12,7 @@ import sys
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DB = os.environ.get("STATION_DB") or os.path.join(HERE, "data", "station.db")
+DB = os.environ.get("STATION_DB") or os.path.join(os.path.dirname(HERE), "station", "data", "station.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS recipes (path TEXT PRIMARY KEY, ts REAL, data TEXT NOT NULL);

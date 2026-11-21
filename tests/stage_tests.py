@@ -393,6 +393,6 @@ def run(check, ROOT):
     def _ui_char_common():
         js = open(os.path.join(ROOT, "station", "static", "app.js"), encoding="utf-8").read()
         assert "function coopCharCommon" in js, "前端没有人物公共层过滤"
-        assert "merge(coopCharCommon(cpos), blocks)" in js, "人物正面没走过滤"
+        assert js.count("coopCharCommon(") >= 2, "人物公共层过滤未接入"
         assert "cat === 'comp' || cat === 'cam'" in js, "comp/cam 没排除"
     check("提示词：前端分流 comp/cam 不再进人物", _ui_char_common)

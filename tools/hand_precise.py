@@ -25,7 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 API = os.environ.get("SUNLOOM_API", "http://127.0.0.1:8770")
 from comfy_paths import COMFY_IN as CI
 from comfy_paths import COMFY_OUT as OUT
-CF = os.environ.get("COMFY_API", "http://127.0.0.1:8188")
+CF = os.environ.get("STATION_COMFY", os.environ.get("COMFY_API", "http://127.0.0.1:8188"))
 
 
 def _post(url, body):
@@ -48,7 +48,7 @@ def detect(path):
 SR_MODEL = "4x-AnimeSharp.safetensors"
 
 
-def sr_upscale(img):
+def sr_upscale(img, on_prompt=None, check_cancel=None):
     """用 AnimeSharp 4x 超分；失败返回 None（调用方回退 Lanczos）。"""
     try:
         try:
@@ -63,8 +63,12 @@ def sr_upscale(img):
              "3": {"class_type": "ImageUpscaleWithModel", "inputs": {"upscale_model": ["2", 0], "image": ["1", 0]}},
              "4": {"class_type": "SaveImage", "inputs": {"images": ["3", 0], "filename_prefix": "SRHAND"}}}
         jid = _post(CF + "/prompt", {"prompt": g})["prompt_id"]
+        if on_prompt:
+            on_prompt(jid)
         t0 = time.time()
         while time.time() - t0 < 300:
+            if check_cancel:
+                check_cancel()
             time.sleep(2)
             h = _get(CF + "/history/" + jid)
             if jid in h:
@@ -122,7 +126,8 @@ def hand_polygon(pose_json, hand="right", expand=0.12):
 
 
 def repaint(src, box, prompt, negative="", denoise=0.6, scale=3.0, pad=0.35,
-            steps=26, cfg=5.2, seed=0, loras=None, tag="hand", max_side=1024, shape="rect"):
+            steps=26, cfg=5.2, seed=0, loras=None, tag="hand", max_side=1024, shape="rect", model="",
+            parent_job_id="", on_prompt=None, check_cancel=None):
     """裁切放大后重绘，贴回原图。返回 (新图路径, 调试信息)。"""
     im = Image.open(src).convert("RGB")
     W, H = im.size
@@ -132,7 +137,11 @@ def repaint(src, box, prompt, negative="", denoise=0.6, scale=3.0, pad=0.35,
     x1, y1 = min(W, x + w + px), min(H, y + h + py)
     crop = im.crop((x0, y0, x1, y1))
 
-    sr = sr_upscale(crop) if scale > 0 else None
+    if check_cancel:
+        check_cancel()
+    sr = sr_upscale(crop, on_prompt=on_prompt, check_cancel=check_cancel) if scale > 0 else None
+    if check_cancel:
+        check_cancel()
     if sr is not None:
         big = sr
         tw, th = big.width, big.height
@@ -192,13 +201,19 @@ def repaint(src, box, prompt, negative="", denoise=0.6, scale=3.0, pad=0.35,
             "seed": seed or int(time.time()) % 1000000,
             "loras": loras or [], "prefix": "HAND_" + tag, "save_to": "paper",
             "width": tw, "height": th}
+    if model:
+        body["model"] = model
+    if parent_job_id:
+        body["parent_job_id"] = parent_job_id
     jid = _post(API + "/api/run", body)["job_id"]
     t0 = time.time()
     res = None
     while time.time() - t0 < 600:
+        if check_cancel:
+            check_cancel()
         time.sleep(2)
         st = _get(API + "/api/job/" + jid)
-        if st.get("status") in ("done", "error"):
+        if st.get("status") in ("done", "error", "cancelled", "interrupted"):
             imgs = (st.get("result") or {}).get("images") or []
             if imgs:
                 res = imgs[0]

@@ -22,6 +22,7 @@ STRIP_RULES = {
     "@STRIP_GLOVES": (["glove", "gloves", "mittens"], "bare hands"),
     "@STRIP_COAT": (["coat", "jacket", "parka", "overcoat", "cloak", "cape"], ""),
     "@STRIP_HAT": (["hat", "cap", "beret", "hood", "headband"], ""),
+    "@STRIP_PLANT": (["sunflower"], ""),
 }
 STRIP_KEYS = set(STRIP_RULES)
 
@@ -71,25 +72,75 @@ ALIASES = {
     '@ID_SOFT': '@ID_F_SOFT',
     '@ID_TIGHT': '@ID_F_TIGHT',
     '@ID_ADULT': '@ID_F_ADULT',
-    '@BODY': '@BODY_MIO',
-    '@BODY_B': '@BODY_MIO_B',
+    '@BODY': '@BODY_F',
+    '@BODY_B': '@BODY_F_B',
     '@CUSTOM_DUTCH': '@CAM_DUTCH',
     '@CUSTOM_FRAMEINFRAME': '@COMP_FRAMEINFRAME',
     '@CUSTOM_MULTIEXPO': '@FX_MULTIEXPO',
-    '@CUSTOM_ZOOMBLUR': '@CAM_ZOOMBLUR',
+    '@CUSTOM_ZOOMBLUR': '@COMP_DIAGONAL',
     '@CUSTOM_SURREAL': '@STYLE_SURREAL',
-    '@CUSTOM_FLOAT': '@POSE_FLOAT',
+    '@CUSTOM_FLOAT': '@POSE_F_JUMP',
     '@CUSTOM_GRAPHIC': '@COMP_GRAPHIC',
-    '@CUSTOM_ORBIT': '@CAM_ORBIT',
+    '@CUSTOM_ORBIT': '@COMP_CURVE',
     '@CUSTOM_LIGHTRAY': '@LIGHT_RAY',
     '@CUSTOM_TILTSHIFT': '@COMP_TILTSHIFT',
     '@CUSTOM_SPOTCOLOR': '@FX_SPOTCOLOR',
     '@CUSTOM_REFLECTION': '@FX_REFLECTION',
-    '@Customize': '@PROP_KEY',
+    '@Customize': '@PROP_LETTER',
 }
 # 性别拆分后：老名指向的新名若又被改名，再补一跳
 ALIASES.update(GENDER_ALIASES)
 ALIASES = {k: GENDER_ALIASES.get(v, v) for k, v in ALIASES.items()}
+
+# 2026-11-16：词库审计淘汰的伪积木块向后兼容别名
+AUDIT_ALIASES = {
+    '@CAM_REAR': '@CAM_BACKSIDE',
+    '@CAM_FISHEYE': '@CAM_WIDE',
+    '@CAM_ORBIT': '@COMP_CURVE',
+    '@CAM_ZOOMBLUR': '@COMP_DIAGONAL',
+    '@DRAPE_HALF': '@DRAPE_OFF',
+    '@DRAPE_SHRUG': '@DRAPE_OFF',
+    '@DRAPE_TUCK': '@DRAPE_WAIST',
+    '@WEATHER_FOG': '@ATMO_FOG',
+    '@PROP_KEY': '@PROP_LETTER',
+    '@OUT_TIGHTS': '@FAB_SHEERHOSE',
+    '@COMP_LOW': '@CAM_KNEE',
+    '@COMP_OVERHEAD': '@CAM_OVERHEAD',
+    '@COMP_OVER_SHOULDER': '@CAM_SHOULDER',
+    '@COMP_DOF': '@BG_BOKEH',
+    '@COMP_FIGURE_1_5': '@COMP_FIGURE_SMALL',
+    '@GAZE_CLOSED': '@GAZE_BLINK',
+    '@HAIR_M_COLOR_BLACK': '@HAIR_M_SHORT',
+    '@HAIR_M_COLOR_BLONDE': '@ID_M_SOFT',
+    '@HAIR_M_COLOR_BROWN': '@HAIR_M_MEDIUM',
+    '@HAIR_M_COLOR_SILVER': '@HAIR_M_SLICK_BACK',
+    '@POSE_F_PIGGYBACK_WAVE': '@POSE_F_HANDS_UP_CHEER',
+    '@POSE_F_FLOAT': '@POSE_F_JUMP',
+    '@POSE_F_HOLD_HEM': '@POSE_F_STAND',
+    '@POSE_F_CHIN_REST': '@HAND_F_CHIN',
+    '@POSE_F_TUCK_HAIR': '@HAND_F_HAIR',
+    '@POSE_F_WAVE': '@HAND_F_WAVE',
+    '@POSE_F_PEACE': '@HAND_F_PEACE',
+    '@POSE_F_HANDS_FOLDED': '@HAND_F_FOLD',
+    '@POSE_F_READ_BOOK': '@HAND_F_BOOK',
+    '@POSE_F_KNEEL_ONE': '@POSE_F_KNEEL',
+    '@POSE_F_LIE_SIDE': '@POSE_F_LIE',
+    '@POSE_F_STRETCH_UP': '@POSE_F_STRETCH',
+    '@POSE_M_KNEEL_ONE': '@POSE_M_KNEEL',
+    '@POSE_M_STRETCH_UP': '@POSE_M_STRETCH',
+    '@POSE_M_HAND_HAIR': '@HAND_M_HAIR',
+    '@POSE_M_ADJUST_TIE': '@HAND_M_TIE',
+    '@STYLE_DATAMOSH': '@FX_BLACK_BLOCKS',
+    '@STYLE_WATER': '@STYLE_WATERCOLOR',
+    '@STYLE_FLAT': '@STYLE_CEL',
+    '@NEG_CEL': '@NEG_HARDCEL',
+    '@NEG_OVEREXP': '@NEG_EXPO',
+    '@NEG_BASE_A': '@NEG_BASE',
+    '@NEG_BASE_B': '@NEG_BASE',
+    '@CUSTOM_FORESHORTEN': '@CAM_WIDE',
+}
+ALIASES.update(AUDIT_ALIASES)
+ALIASES = {k: AUDIT_ALIASES.get(v, v) for k, v in ALIASES.items()}
 
 
 
@@ -134,11 +185,6 @@ def load_tokens():
             if len(parts) == 2:
                 tokens.setdefault("@OUTFIT_A", parts[0])
                 tokens.setdefault("@OUTFIT_B", parts[1])
-        if tokens.get("@NEG_BASE"):
-            parts = split_clauses(tokens["@NEG_BASE"], 2)
-            if len(parts) == 2:
-                tokens.setdefault("@NEG_BASE_A", parts[0])
-                tokens.setdefault("@NEG_BASE_B", parts[1])
     except Exception:
         pass
     return tokens, lib, ch

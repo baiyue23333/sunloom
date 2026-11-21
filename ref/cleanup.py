@@ -3,7 +3,7 @@
 """cleanup.py — 清理明显错误/多图合并/碎片图片，保留登记与成品"""
 import json, os, glob, shutil
 
-ROOT = r"A:\workflow\dsh"
+ROOT = r"A:\project\dsh"
 REG = os.path.join(ROOT, "ref", "registry.jsonl")
 DRY = os.environ.get("CLEAN_DRY", "0") == "1"
 

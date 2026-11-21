@@ -28,10 +28,10 @@ import paper_lineart as pl
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 API = pl.API
 CI = pl.CI
-CHAR_LORA = "artist_style.safetensors"
-MIO_LORAS = [{"name": "artist_style.safetensors", "weight": 1.0},
-             {"name": "character_lora.safetensors", "weight": 1.0}]
-ENV_LORA = "env_style.safetensors"
+CHAR_LORA = "style_lora_a5E585B6E4B889.YDAV.safetensors"
+MIO_LORAS = [{"name": "style_lora_a5E585B6E4B889.YDAV.safetensors", "weight": 1.0},
+             {"name": "local_char_lora_h2.safetensors", "weight": 1.0}]
+ENV_LORA = "style_lora_c  Anima Style LoRA_Bstyle_v1_anima_sun.safetensors"
 W, H = 1344, 768
 
 

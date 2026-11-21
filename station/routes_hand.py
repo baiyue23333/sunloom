@@ -2,6 +2,9 @@
 """手部/姿态区域检测路由（SDPose 优先，失败时肤色启发式兜底）。"""
 import os
 import re
+import shutil
+import sys
+import tempfile
 import threading
 import time
 
@@ -9,9 +12,14 @@ from fastapi import APIRouter, HTTPException
 
 import comfy as cf
 import graph as gf
+import store
 import svc_mem
 from svc_recipes import _prepare_reference
-from svc_state import DATA_DIR, comfy_out, read_json, write_json
+from svc_state import DATA_DIR, ROOT, comfy_out, read_json, write_json
+
+_TOOLS_DIR = os.path.join(ROOT, "tools")
+if _TOOLS_DIR not in sys.path:
+    sys.path.insert(0, _TOOLS_DIR)
 
 router = APIRouter()
 
@@ -143,15 +151,39 @@ def _pose_run(ref_name, tag):
     raise HTTPException(500, "没有生成姿态 JSON")
 
 
-def _hand_boxes_from_pose(path):
+def _img_size(img_path):
+    try:
+        from PIL import Image
+        with Image.open(img_path) as im:
+            return im.size
+    except Exception:
+        return None
+
+
+def _hand_boxes_from_pose(path, img_path=""):
     data = read_json(path, [])
     if isinstance(data, dict):
         data = [data]
     if not data:
         return []
     person = (data[0].get("people") or [{}])[0]
-    w = int(data[0].get("canvas_width") or 1024)
-    h = int(data[0].get("canvas_height") or 1536)
+    wh = _img_size(img_path) if img_path else None
+    w = int((wh[0] if wh else 0) or data[0].get("canvas_width") or 1024)
+    h = int((wh[1] if wh else 0) or data[0].get("canvas_height") or 1536)
+    try:
+        import reproj_parts as _rp
+        fb = _rp.face_box_from_pose(path, w, h)
+        boxes = _rp.hand_boxes_from_pose(path, w, h, face_box=fb)
+        out = []
+        for b in boxes:
+            item = {"x": int(b["x"]), "y": int(b["y"]), "w": int(b["w"]), "h": int(b["h"]),
+                    "hand": b.get("hand", ""), "score": round(float(b.get("score") or 0), 3), "source": "pose"}
+            if b.get("polygon"):
+                item["polygon"] = b["polygon"]
+            out.append(item)
+        return out
+    except Exception:
+        pass
     out = []
     for key, label in (("hand_left_keypoints_2d", "left"), ("hand_right_keypoints_2d", "right")):
         arr = person.get(key) or []
@@ -187,29 +219,191 @@ def api_detect_hand_pose(path: str):
     with _POSE_LOCK:
         hit = cache.get(key)
         if hit and os.path.isfile(hit):
-            return {"source": "pose(cache)", "json": hit, "boxes": _hand_boxes_from_pose(hit)}
+            return {"source": "pose(cache)", "json": hit, "boxes": _hand_boxes_from_pose(hit, path)}
         ref = _prepare_reference(path)
         tag = "p_" + re.sub(r"[^A-Za-z0-9]", "", os.path.splitext(os.path.basename(path))[0])[:18]
         svc_mem.prepare_stage("sdpose", unet="sdpose_wholebody_fp16.safetensors", reason="pose:" + tag, context="coop")
         js = _pose_run(ref, tag)
         cache[key] = js
         write_json(_POSE_CACHE_PATH, cache)
-    return {"source": "pose", "json": js, "boxes": _hand_boxes_from_pose(js)}
+    return {"source": "pose", "json": js, "boxes": _hand_boxes_from_pose(js, path)}
+
+
+def _read_saved_hand_boxes(path):
+    rec = store.get_recipe(path) if path else None
+    if isinstance(rec, dict) and "hand_boxes" in rec:
+        return {
+            "source": "saved(recipe)",
+            "boxes": list(rec.get("hand_boxes") or []),
+            "hand_prompt": str(rec.get("hand_prompt") or ""),
+            "cached": True,
+        }
+    try:
+        import reproj_provenance as _rprov
+        png_meta = _rprov.read_hand_boxes_png(path)
+        if png_meta is not None:
+            return {
+                "source": "saved(png)",
+                "boxes": png_meta["boxes"],
+                "hand_prompt": png_meta["hand_prompt"],
+                "cached": True,
+            }
+    except Exception:
+        pass
+    return None
+
+
+def _persist_hand_boxes(path, boxes, hand_prompt=""):
+    try:
+        import reproj_provenance as _rprov
+        _rprov.embed_hand_boxes(path, boxes, hand_prompt)
+    except Exception:
+        pass
+    try:
+        rec = store.get_recipe(path)
+        if isinstance(rec, dict):
+            upd = dict(rec)
+            upd["hand_boxes"] = list(boxes or [])
+            if hand_prompt and not upd.get("hand_prompt"):
+                upd["hand_prompt"] = hand_prompt
+            store.upsert_recipe(path, upd)
+    except Exception:
+        pass
+
+
+def ensure_image_hand_boxes(path, hand_prompt="", force=False, allow_skin_fallback=False):
+    """确保图片附带手部坐标元数据（PNG + recipe）；默认只读取或用 SDPose 检出，不修改画面像素。"""
+    if not path or not os.path.isfile(path):
+        return {"source": "missing", "boxes": [], "hand_prompt": hand_prompt, "cached": False}
+    if not force:
+        saved = _read_saved_hand_boxes(path)
+        if saved is not None:
+            return saved
+    src, boxes = "pose", []
+    try:
+        r = api_detect_hand_pose(path)
+        src = r.get("source") or "pose"
+        boxes = list(r.get("boxes") or [])
+    except Exception as e:
+        if not allow_skin_fallback:
+            raise
+        fallback = api_detect_hand(path)
+        src = "skin(pose-fail)"
+        boxes = list(fallback.get("boxes") or [])
+        fallback["pose_error"] = str(e)[:200]
+    _persist_hand_boxes(path, boxes, hand_prompt)
+    return {"source": src, "boxes": boxes, "hand_prompt": hand_prompt, "cached": False}
+
+
+@router.get("/api/hand-boxes")
+def api_hand_boxes(path: str, detect: int = 0, force: int = 0):
+    if not os.path.isfile(path):
+        raise HTTPException(404, "图片不存在")
+    if not force:
+        saved = _read_saved_hand_boxes(path)
+        if saved is not None:
+            return saved
+        if not detect:
+            return {"source": "none", "boxes": [], "hand_prompt": "", "cached": False}
+    try:
+        return ensure_image_hand_boxes(path, force=bool(force), allow_skin_fallback=True)
+    except Exception as e:
+        raise HTTPException(500, "检测手部坐标失败: %s" % str(e)[:200])
 
 
 @router.get("/api/detect-hand-auto")
-def api_detect_hand_auto(path: str):
-    """姿态模型优先；失败时才用肤色兜底。"""
+def api_detect_hand_auto(path: str, force: int = 0):
+    """优先返回已保存的手部坐标；必要时姿态模型检测，失败时才用肤色兜底并写回图片与配方。"""
+    if not force:
+        saved = _read_saved_hand_boxes(path)
+        if saved is not None:
+            return saved
     try:
         r = api_detect_hand_pose(path)
-        if r["boxes"]:
-            return r
-        return {"source": "pose-empty", "json": r.get("json"), "boxes": []}
+        boxes = list(r.get("boxes") or [])
+        _persist_hand_boxes(path, boxes)
+        return {"source": r.get("source") or ("pose" if boxes else "pose-empty"),
+                "json": r.get("json"), "boxes": boxes, "cached": False}
     except Exception as e:
         try:
             fallback = api_detect_hand(path)
             fallback["source"] = "skin(pose-fail)"
             fallback["pose_error"] = str(e)[:200]
+            _persist_hand_boxes(path, fallback.get("boxes") or [])
             return fallback
         except Exception as e2:
             raise HTTPException(500, "自动找手失败: %s / %s" % (e, e2))
+
+
+def run_precise_handfix(req, jid, jobs_dict, job_log_fn, job_save_fn, add_recipe_fn, out_dir):
+    """按人眼确认的手部坐标做局部超分放大精修，产出图保存至 station_out 并附带新坐标与配方。"""
+    t0 = time.time()
+    from svc_tasks import bind_prompt, cancelled, finish
+    from svc_validation import validate_loras, validate_model
+
+    def check_cancel():
+        if cancelled(jid):
+            raise RuntimeError("任务已取消")
+
+    try:
+        check_cancel()
+        parts = [int(float(v.strip())) for v in str(req.box or "").split(",") if v.strip()]
+        if len(parts) != 4 or parts[2] < 4 or parts[3] < 4:
+            raise ValueError("box 格式应为 x,y,w,h")
+        box = {"x": parts[0], "y": parts[1], "w": parts[2], "h": parts[3]}
+        if req.polygon and len(req.polygon) >= 3:
+            box["polygon"] = req.polygon
+        rec = (store.get_recipe(req.image) or {}) if req.image else {}
+        use_loras = validate_loras(list(req.loras or rec.get("detail_loras") or rec.get("loras") or []))
+        use_model = validate_model(str(req.model or rec.get("model") or "").strip())
+        prompt = (req.prompt or rec.get("hand_prompt")
+                  or "delicate anime hand, five natural fingers, clean hand anatomy, same art style")
+        negative = (req.negative or rec.get("negative")
+                    or "extra fingers, fused fingers, missing fingers, deformed hands, bad anatomy, watermark, text, lowres")
+        seed = int(req.seed or (int(time.time()) % 1000000))
+        import hand_precise as _hp
+        with tempfile.TemporaryDirectory(prefix="handfix_") as tmpd:
+            tmp_src = os.path.join(tmpd, os.path.basename(req.image))
+            shutil.copy2(req.image, tmp_src)
+            patched, meta = _hp.repaint(
+                tmp_src, box, prompt, negative,
+                denoise=float(req.denoise), scale=3.5, pad=0.50,
+                steps=int(req.steps), cfg=float(req.cfg),
+                seed=seed, loras=use_loras, tag="handfix", max_side=768,
+                shape=("rect" if box.get("polygon") else "ellipse"), model=use_model,
+                parent_job_id=jid, on_prompt=lambda pid: bind_prompt(jid, pid), check_cancel=check_cancel,
+            )
+            check_cancel()
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, "%s_%s_s%d_%s.png" % (req.prefix or "handfix", time.strftime("%H%M%S"), seed, jid))
+            shutil.copy2(patched, out_path)
+        try:
+            hb_res = ensure_image_hand_boxes(out_path, hand_prompt=prompt, force=True, allow_skin_fallback=False)
+            out_boxes = hb_res.get("boxes") or []
+        except Exception:
+            out_boxes = []
+        if not add_recipe_fn(out_path, {
+            "ts": time.time(), "mode": "handfix", "workflow": "hand_precise",
+            "positive": prompt, "negative": negative,
+            "blocks_pos": rec.get("blocks_pos") or [], "blocks_neg": rec.get("blocks_neg") or [],
+            "size": list(_img_size(out_path) or rec.get("size") or [1024, 1536]),
+            "steps": int(req.steps), "cfg": float(req.cfg), "seed": seed,
+            "denoise": float(req.denoise), "loras": use_loras,
+            "detail_loras": rec.get("detail_loras") or use_loras,
+            "model": use_model, "reference": req.image,
+            "manifest_path": rec.get("manifest_path") or "",
+            "hand_prompt": prompt, "hand_boxes": out_boxes, "handfix_box": box,
+        }):
+            raise RuntimeError("精修图已生成，但配方写入失败")
+        check_cancel()
+        finish(jid, "done", progress=1.0, result={
+            "images": [out_path], "seed": seed, "workflow": "hand_precise",
+            "denoise": float(req.denoise), "elapsed": round(time.time() - t0, 1),
+            "hand_boxes": out_boxes, "meta": meta,
+        })
+        job_log_fn(jid, "handfix precise done: " + os.path.basename(out_path))
+        job_save_fn(jid)
+    except Exception as e:
+        finish(jid, "error", result={"error": str(e)})
+        job_log_fn(jid, "handfix EXC " + str(e)[:240])
+        job_save_fn(jid)

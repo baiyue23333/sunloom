@@ -1,3 +1,4 @@
 {
- "_note": "手动指定 LoRA 底模：键=文件名，值=anima/unknown。用于没有元数据、名字也看不出来的文件。"
+ "_note": "手动指定 LoRA 底模：键=文件名，值=anima/sd15/moss/krea2/unknown。用于没有元数据、名字也看不出来的文件。",
+ "houtei9_style_8000.safetensors": ""
 }

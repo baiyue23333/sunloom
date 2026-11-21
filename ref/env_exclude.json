@@ -1,4 +1,8 @@
 {
- "note": "环境样张异常或过曝的画师，环境位不列出",
- "names": []
+ "note": "环境样张过曝的画师（0.6 档均值>185），环境位不列出",
+ "names": [
+  "local_char_lora_gpu.safetensors",
+  "local_char_lora_v2.safetensors",
+  "local_char_lora_v3.safetensors"
+ ]
 }

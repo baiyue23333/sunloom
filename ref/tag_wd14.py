@@ -4,7 +4,7 @@
 
 用法:
   python ref\tag_wd14.py --dir "comfy/ComfyUI/input/lora_face" --preview 3
-  python ref\tag_wd14.py --dir ... --write --trigger my_character --char-threshold 1.1
+  python ref\tag_wd14.py --dir ... --write --trigger local_char_lora --char-threshold 1.1
 """
 import argparse
 import csv
@@ -88,7 +88,7 @@ def main():
     ap.add_argument("--drop-appearance", action="store_true",
                     help="角色 LoRA 专用：删掉外观类标签（发/眼/饰/服），让身份并进触发词")
     ap.add_argument("--appearance-words",
-                    default="hair,eye,iris,ornament,flower,ahoge,twintails,dress,pantyhose,"
+                    default="hair,eye,iris,two-tone eyes,ornament,flower,ahoge,twintails,dress,pantyhose,"
                             "background,general,transparent,skirt,uniform,ribbon",
                     help="外观类关键词（子串匹配）")
     a = ap.parse_args()

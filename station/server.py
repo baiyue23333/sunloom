@@ -32,6 +32,7 @@ import routes_jobs  # noqa: E402
 import routes_library  # noqa: E402
 import routes_maint  # noqa: E402
 import routes_mem  # noqa: E402
+import routes_pose  # noqa: E402
 import routes_promptlib  # noqa: E402
 from svc_recipes import (  # noqa: E402, F401
     _fit_mask_to_reference,
@@ -72,6 +73,7 @@ for _mod in (
     routes_library,
     routes_maint,
     routes_mem,
+    routes_pose,
 ):
     app.include_router(_mod.router)
 

@@ -24,18 +24,18 @@ PRIORITY = {
 }
 # 每类的候选（按常用度），只保留词库里存在的
 CANDIDATES = {
-    "id": ["@ID_F", "@ID_F_AYA", "@ID_F_RIN", "@ID_F_YUKI", "@ID_M_KAI", "@ID_M_REN"],
+    "id": ["@ID_F", "@ID_F_AYA", "@ID_F_RIN", "@ID_F_YUKI", "@ID_F_NANA", "@ID_M_KAI", "@ID_M_REN", "@ID_M_SHUN"],
     "body": ["@BODY_F", "@BODY_F_SLIM", "@BODY_F_SOFT", "@BODY_M_SLIM", "@BODY_M_ATHLETIC"],
-    "face": ["@FACE_F", "@FACE_F_SOFT", "@FACE_F_SHARP", "@FACE_M", "@FACE_M_SHARP"],
-    "cam": ["@CAM_MEDIUM", "@CAM_BUST", "@CAM_FULL", "@CAM_THREEQ", "@CAM_LOW", "@CAM_HIGH"],
-    "light": ["@LIGHT_WIN", "@LIGHT_GOLDEN", "@LIGHT_SOFT", "@LIGHT_NIGHT", "@LIGHT_CANDLE", "@LIGHT_BACK"],
-    "time": ["@TIME_DAY", "@TIME_GOLDEN", "@TIME_DUSK", "@TIME_NIGHT", "@TIME_MORNING"],
+    "face": ["@FACE_F", "@FACE_F_SOFT", "@FACE_F_SHARP", "@FACE_F_COOL", "@FACE_M", "@FACE_M_SHARP"],
+    "cam": ["@CAM_MEDIUM", "@CAM_BUST", "@CAM_FULL", "@CAM_THREEQ", "@CAM_COWBOY", "@CAM_KNEE", "@CAM_HIGH"],
+    "light": ["@LIGHT_WIN", "@LIGHT_GOLDEN", "@LIGHT_SOFT", "@LIGHT_NIGHT", "@LIGHT_CANDLE", "@LIGHT_BACK", "@LIGHT_SPLIT"],
+    "time": ["@TIME_AFTERNOON", "@TIME_DUSK", "@TIME_TWILIGHT", "@TIME_NIGHT", "@TIME_MORNING"],
     "set": ["@SET_LIBRARY", "@SET_CAFE", "@SET_BEDROOM", "@SET_CLASSROOM", "@SET_GREENHOUSE", "@SET_ALLEY"],
-    "outfit": ["@OUT_CASUAL_KNIT", "@OUT_SCHOOL", "@OUT_SLIP", "@OUT_HOODIE", "@OUT_COAT"],
-    "pose": ["@POSE_STAND", "@POSE_SIT", "@POSE_LEAN", "@POSE_WALK", "@POSE_LOOK_BACK"],
-    "mood": ["@MOOD_CALM", "@MOOD_SOFT", "@MOOD_SHY", "@MOOD_AMUSED", "@MOOD_FOCUSED"],
+    "outfit": ["@OUT_CASUAL_KNIT", "@OUT_SCHOOL", "@OUT_SLIP", "@OUT_HOODIE_CASUAL", "@OUT_WINTER"],
+    "pose": ["@POSE_F_STAND", "@POSE_F_SIT", "@POSE_F_LEAN", "@POSE_F_WALK", "@POSE_F_LOOK_BACK", "@POSE_M_SIT_BENCH"],
+    "mood": ["@MOOD_CALM", "@MOOD_TENDER", "@MOOD_SHY", "@MOOD_AMUSED", "@MOOD_FOCUSED"],
     "gaze": ["@GAZE_CAMERA", "@GAZE_ASIDE", "@GAZE_DOWN", "@GAZE_WINDOW", "@GAZE_FAR"],
-    "comp": ["@COMP_CENTER", "@COMP_THIRDS", "@COMP_FIGURE_EDGE", "@COMP_FIGURE_BOTTOM", "@COMP_CU"],
+    "comp": ["@COMP_CENTER", "@COMP_THIRDS", "@COMP_FIGURE_EDGE", "@COMP_FIGURE_BOTTOM", "@COMP_MACRO"],
     "neg": ["@NEG_BASE", "@NEG_ANATOMY", "@NEG_HAND_ART", "@NEG_LETTERBOX"],
 }
 PREFIX = {"id": ("@ID", "@SINGLE"), "body": ("@BODY_",), "face": ("@FACE_",), "cam": ("@CAM_",),
@@ -82,7 +82,7 @@ def analyze(blocks, negatives=None, mode="free"):
     covered["neg"] = any(t.startswith(("@NEG_BASE",)) for t in neg_t)
     # 文本兜底：弱身份/散文也能算
     if not covered["id"]:
-        covered["id"] = _has_text(pos, ["shoulder-length hair", "expressive eyes", "seasonal blooms hair ornament"])
+        covered["id"] = _has_text(pos, ["silver hair", "two-tone eyes", "long hair ornament"])
     if not covered["light"]:
         covered["light"] = _has_text(pos, ["window light", "sunlight", "backlight", "golden hour"])
     if not covered["set"]:

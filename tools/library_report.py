@@ -10,17 +10,17 @@ def cat(k):
            ('@ATMO','氛围'),('@TIME','时间'),('@SET','场景'),('@PROP','道具'),('@COMP','构图'),
            ('@STYLE','风格'),('@CAM','机位'),('@LIGHT','打光'),('@OBJ','道具'),('@INSTR','道具'),
            ('@RIDE','道具'),('@ROLE','道具'),('@STRIP','负向'),('@WEATHER','氛围'),('@SEASON','时间'),
-           ('@BODY','体型'),('@FACE','脸型'),('@MAKEUP','脸型'),('@PIN','头发'),('@CLIP','头发'),
-           ('@HAIRPIN','头发'),('@BERET','头发'),('@MINI','头发'),('@HEADBAND','头发'),('@RIBBON','头发'),
-           ('@FLOWER','头发'),('@FX','风格'),('@CROP','构图'),('@BARE','体型'),('@SKIN','脸型'),
-           ('@BG','构图'),('@CUSTOM','构图'),('@HOSE','服装'),('@ID','身份')]
+           ('@BODY','体型'),('@FACE','脸型'),('@MAKEUP','脸型'),('@PIN','配饰'),('@CLIP','配饰'),
+           ('@HAIRPIN','配饰'),('@BERET','配饰'),('@MINI','配饰'),('@HEADBAND','配饰'),('@RIBBON','配饰'),
+           ('@FLOWER','配饰'),('@FX','风格'),('@CROP','构图'),('@BARE','体型'),('@SKIN','脸型'),
+           ('@BG','构图'),('@CUSTOM','自定义'),('@HOSE','服装'),('@NSFW','NSFW'),('@ACC','配饰'),('@ID','身份')]
     for pre,label in order:
         if n.startswith(pre): return label
     if n=='@SINGLE': return '身份'
     return '自定义'
 groups={}
 for k,v in toks.items(): groups.setdefault(cat(k),[]).append((k,v))
-order=['身份','体型','脸型','头发','情绪','视线','手部','手持','武器','姿势','机位','构图','打光','氛围','时间','场景','道具','服装','材质','型态','风格','负向']
+order=['身份','体型','脸型','头发','配饰','情绪','视线','手部','手持','武器','姿势','机位','构图','打光','氛围','时间','场景','道具','服装','材质','型态','风格','负向','NSFW','自定义']
 out=['# SUNLOOM 积木总表','','共 %d 块，按分类整理。' % len(toks),'']
 for g in order:
     if g not in groups: continue

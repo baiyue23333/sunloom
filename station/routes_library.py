@@ -57,7 +57,7 @@ class TokenReq(BaseModel):
     category: str = "custom"
     subgroup: str = ""
     color: str = ""
-    gender: str = ""
+    gender: Optional[str] = None
     owner: str = ""
 
 
@@ -66,10 +66,17 @@ class GarmentReq(BaseModel):
     prompt: str = ""
     negative: str = ""
     drape: str = ""
+    drape_state: Optional[str] = None
     label: str = ""
-    use_for: str = ""
-    hands_left: str = ""
-    hands_right: str = ""
+    use_for: Optional[str] = None
+    parts: Optional[List[str]] = None
+    pos_blocks: Optional[List[Dict[str, Any]]] = None
+    neg_blocks: Optional[List[Dict[str, Any]]] = None
+    bind_enabled: Optional[bool] = None
+    drape_blocks: Optional[List[Dict[str, Any]]] = None
+    fabric_blocks: Optional[List[Dict[str, Any]]] = None
+    hands_left: Optional[str] = None
+    hands_right: Optional[str] = None
     note: str = ""
     gender: str = "f"
 
@@ -211,8 +218,6 @@ def bootstrap():
         notes.setdefault("@NEG_" + key.upper(), meta + " 的配套负向" + neg_txt + "（服装页可改）")
     notes.setdefault("@OUTFIT_A", "默认套装上半段（拆分版，便于单独调权重）")
     notes.setdefault("@OUTFIT_B", "默认套装下半段（拆分版）")
-    notes.setdefault("@NEG_BASE_A", "基础负向上半段：画质与结构")
-    notes.setdefault("@NEG_BASE_B", "基础负向下半段：伪影与文字")
     notes.setdefault("@OUTFIT", "当前默认套装的正向（由服装页 garment_default 决定）")
     notes.setdefault("@NEG_GARMENT", "当前默认套装的配套负向")
     return {
@@ -228,7 +233,7 @@ def bootstrap():
         "datasets": list_datasets(),
         "loras": list_loras(),
         "lora_meta": _lora_base_map(),
-        "alt_models": [],
+        "sd15_models": [],
         "lora_roles": _load_json(LORA_ROLES, {}),
         "env_exclude": (_load_json(ENV_EXCLUDE, {}) or {}).get("names", []),
         "models": list_models(),
@@ -288,12 +293,17 @@ def api_token_save(req: TokenReq):
         subs[name] = {"label": req.subgroup.strip(), "color": req.color.strip() or "#7aa2d6"}
     else:
         subs.pop(name, None)
-    if req.gender.strip():
-        meta.setdefault("gender", {})[name] = req.gender.strip()
+    if req.gender is not None:
+        g_val = req.gender.strip()
+        gmap = meta.setdefault("gender", {})
+        if g_val in ("f", "m"):
+            gmap[name] = g_val
+        else:
+            gmap.pop(name, None)
     if req.owner.strip():
         meta.setdefault("owner", {})[name] = req.owner.strip()
     write_json(LIB, lib)
-    return {"ok": True, "name": name, "tokens": toks, "subgroups": subs}
+    return {"ok": True, "name": name, "tokens": toks, "subgroups": subs, "gender": meta.get("gender", {})}
 
 
 @router.post("/api/token/delete")
@@ -326,13 +336,38 @@ def api_garment_save(req: GarmentReq):
     g["negative"] = req.negative
     if req.label:
         g["label"] = req.label
-    if req.use_for:
+    if req.use_for is not None:
         g["use_for"] = req.use_for
-    if req.hands_left:
-        g["hands_left"] = req.hands_left
-    if req.hands_right:
-        g["hands_right"] = req.hands_right
-    if req.drape:
+    if req.parts is not None:
+        g["parts"] = [str(p).strip() for p in req.parts if str(p).strip()]
+    if req.pos_blocks is not None:
+        g["pos_blocks"] = req.pos_blocks
+    if req.neg_blocks is not None:
+        g["neg_blocks"] = req.neg_blocks
+    if req.bind_enabled is not None:
+        g["bind_enabled"] = bool(req.bind_enabled)
+    if req.drape_blocks is not None:
+        g["drape_blocks"] = req.drape_blocks
+    if req.fabric_blocks is not None:
+        g["fabric_blocks"] = req.fabric_blocks
+    if req.hands_left is not None:
+        if req.hands_left.strip():
+            g["hands_left"] = req.hands_left
+        else:
+            g.pop("hands_left", None)
+    if req.hands_right is not None:
+        if req.hands_right.strip():
+            g["hands_right"] = req.hands_right
+        else:
+            g.pop("hands_right", None)
+    if req.drape_state is not None:
+        st = req.drape_state.strip()
+        if st:
+            old_terms = g["drape"].get("terms", []) if isinstance(g.get("drape"), dict) else []
+            g["drape"] = {"state": st, "terms": old_terms}
+        else:
+            g.pop("drape", None)
+    elif req.drape:
         g["drape"] = {"state": req.drape, "terms": []}
     if req.note is not None:
         g["note"] = req.note

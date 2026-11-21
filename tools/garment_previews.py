@@ -85,8 +85,8 @@ def main():
                 "prompt": prompt, "negative": neg, "width": w, "height": h,
                 "steps": a.steps, "cfg": 5.5, "seed": 0,
                 "prefix": "gv_" + str(key).replace(" ", "_"),
-                # 只用画风增强 LoRA（artist_style），不挂任何人物 LoRA
-                "loras": [],
+                # 只用画风增强 LoRA（style_lora_a），不挂任何人物 LoRA
+                "loras": [{"name": "style_lora_a5E585B6E4B889.YDAV.safetensors", "weight": 0.66}],
                 "model": "anima-base-v1.0.safetensors",
                 "blocks_pos": [], "blocks_neg": [],
             })

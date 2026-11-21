@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-COMFY = "http://127.0.0.1:8188"
+COMFY = os.environ.get("STATION_COMFY", os.environ.get("COMFY_API", "http://127.0.0.1:8188")).rstrip("/")
 
 
 class CutoutError(RuntimeError):

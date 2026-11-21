@@ -8,6 +8,7 @@ import time
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+from svc_paths import require_file
 
 import comfy as cf
 from svc_state import (
@@ -41,9 +42,9 @@ FEATURES = [
         "参数：尺寸预设、步数、CFG、种子、前缀、任意多个 LoRA 与权重",
         "出图：进度条 + 预计耗时 + 完成后可直接登记 A/B/C"]},
     {"group": "画师 LoRA · 弱 3D", "items": [
-        "弱 3D / 立体风格怎么写：选定风格 LoRA 权重 1.2~1.3，只挂单个主风格",
+        "弱 3D 风格怎么写：@style_lora_b 权重 1.3（1.0 偏弱），只挂它一个 LoRA",
         "不要再叠 h2 / modare / Lucent —— 风格会互相抢，3D 感消失",
-        "身份用文本（short dark hair, calm gaze…），别用 @ID 积木",
+        "身份用文本（silver hair, two-tone eyes…），别用 @ID 积木",
         "场景/服装/光各留 1 块，块越多 LoRA 越被稀释",
         "参数 1024×1536 / 28 步 / CFG 5.5；灰底或浅景深都行",
         "词库→组合推荐里有现成模板：弱 3D 人像、弱 3D · 场景版"]},
@@ -61,7 +62,7 @@ FEATURES = [
         "顶栏实时显示登记总数"]},
     {"group": "训练", "items": [
         "数据集列表与样本数、已建缓存列表",
-        "档位选择（auto/local/gpu_24g/t4/gpu_40g）、steps/rank/lr/保留数",
+        "档位选择（auto/local/gpu/t4/gpu）、steps/rank/lr/保留数",
         "建缓存 / 用缓存训练，续训已有 LoRA",
         "只预演（dry-run）看实际参数，不占用显卡",
         "实时日志与进度解析"]},
@@ -297,8 +298,7 @@ def api_docs():
 
 @router.get("/api/doc")
 def api_doc(path: str):
-    if not os.path.isfile(path):
-        raise HTTPException(404, "not found")
+    path = require_file(path, DOC_DIRS, (".md",))
     with open(path, encoding="utf-8", errors="replace") as f:
         return {"text": f.read()}
 

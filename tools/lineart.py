@@ -3,7 +3,7 @@
 
 为什么要从抠图结果抽线，而不是单独生成一张线稿：
     我们的底模是 Qwen-Image，没有可用的 ControlNet（models/controlnet 里只有一个
-    legacy_xl 专用的 union 模型；comfyui_controlnet_aux 处于 .disabled）。
+    SD15 专用的 union 模型；comfyui_controlnet_aux 处于 .disabled）。
     两次独立生成无法保证姿势一致，线稿就叠不上。从同一张图抽线，对齐是 1:1 的。
 
 为什么在**白底**重画：

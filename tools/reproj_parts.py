@@ -14,12 +14,24 @@ import plate_detail as pd
 import sdp_body_mask as sbm
 
 
+def align8(v, lo=256, hi=2048):
+    v = max(lo, min(hi, int(round(v))))
+    return max(lo, v - (v % 8))
+
+
 def detect_safe(img_path):
     try:
         return hp.detect_raw(img_path)
     except Exception as e:  # noqa: BLE001
         print("[pose] 检测跳过:", str(e)[:80], flush=True)
         return {}
+
+
+def _dilate_alpha(a, W, H):
+    """二值稳固核心后外扩并轻量羽化，防止 02_body 发丝/饰品微移回贴时透出底板重影。"""
+    core = a.point(lambda v: 255 if v >= 96 else (0 if v <= 16 else v))
+    core = core.filter(ImageFilter.MaxFilter(17)).filter(ImageFilter.MaxFilter(11))
+    return core.filter(ImageFilter.GaussianBlur(max(3, int(min(W, H) * 0.005))))
 
 
 def _roi_birefnet_union(plate_path, sdp_m, W, H):
@@ -48,7 +60,7 @@ def _roi_birefnet_union(plate_path, sdp_m, W, H):
         fg_pct = float((np.asarray(a) >= 96).mean()) * 100.0
         if not (6.0 <= fg_pct <= 78.0):
             return None
-        a = a.filter(ImageFilter.MaxFilter(7)).filter(ImageFilter.GaussianBlur(max(3, int(min(W, H) * 0.006))))
+        a = _dilate_alpha(a, W, H)
         canvas = Image.new("L", (W, H), 0)
         canvas.paste(a, (rx0, ry0))
         return ImageChops.lighter(sdp_m, canvas)
@@ -89,9 +101,7 @@ def build_body_mask(plate_path, pose_json, W, H, cx_frac, gy_frac, ratio):
         cov = float(np.asarray(a).mean()) / 255.0 * 100.0
         if (0.5 if sdp_fb is None else 1.8) <= cov <= 72.0:
             print("[mask] BiRefNet %.1f%%" % cov, flush=True)
-            return a.filter(ImageFilter.MaxFilter(7)).filter(
-                ImageFilter.GaussianBlur(max(4, int(min(W, H) * 0.008)))
-            ), "birefnet", round(cov, 2)
+            return _dilate_alpha(a, W, H), "birefnet", round(cov, 2)
     except Exception as e:  # noqa: BLE001
         print("[mask] BiRefNet 跳过:", str(e)[:70], flush=True)
 
@@ -300,20 +310,28 @@ def upscale_plate_safe(plate_path, steps_dir, scale=1.5):
 
 
 def proportion_cue(scene_text, char_text, ratio):
-    """根据默认/选定人物占比（ratio=人物占画高）为 01_plate 补充景别提示。"""
-    if not str(char_text or "").strip():
+    """根据默认/选定人物占比（ratio=人物占画高）为 01_plate 补充景别提示；auto / <=0 时由模型自定，不注入。"""
+    if not str(char_text or "").strip() or ratio is None or str(ratio).strip().lower() == "auto":
+        return ""
+    r = float(ratio)
+    if r <= 0:
         return ""
     joined = (str(scene_text or "") + " " + str(char_text or "")).lower()
     if any(k in joined for k in ("close-up", "portrait", "upper body", "cowboy shot", "wide shot", "very wide", "distant view")):
         return ""
-    r = float(ratio or 0.34)
     if r <= 0.22:
-        return "very wide shot, full body standing, distant small figure, expansive scenery surrounding character"
-    if r <= 0.29:
-        return "wide shot, full body standing, figure occupying a quarter of frame height, expansive background visible"
-    if r <= 0.38:
-        return "wide medium-long shot, full body standing, figure occupying one third of frame height, spacious environmental surroundings"
-    return "medium full shot, full body standing, clear environmental background"
+        cue = "very wide shot, full body standing, distant small figure, expansive scenery surrounding character"
+    elif r <= 0.29:
+        cue = "wide shot, full body standing, figure occupying a quarter of frame height, expansive background visible"
+    elif r <= 0.38:
+        cue = "wide medium-long shot, full body standing, figure occupying one third of frame height, spacious environmental surroundings"
+    else:
+        cue = "medium full shot, full body standing, clear environmental background"
+    # 已有显式全身/中景景别词时只保留占比与留白描述，不再叠第二套景别词
+    if any(k in joined for k in ("full body", "full-body", "medium shot", "medium full", "long shot", "head-to-toe",
+                                 "waist-up", "knee-up", "three-quarter", "bust shot", "chest up")):
+        cue = ", ".join(s for s in cue.split(", ") if "shot" not in s and "full body" not in s)
+    return cue
 
 
 def refine_hands_on_image(img_path, loras=None, seed=0, model=""):

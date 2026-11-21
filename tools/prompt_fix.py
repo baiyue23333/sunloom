@@ -29,10 +29,10 @@ _MOOD = re.compile(r"^@MOOD_")
 _COMP_FIG = re.compile(r"^@COMP_FIGURE_")
 _NEG = re.compile(r"^@NEG_")
 
-BACK_VIEW_RE = re.compile(r"(^@(?:CAM_BACKSIDE|CAM_BACK_FAR|CAM_REAR|POSE_[FM]_BACK|POSE_M_WALK_AWAY)$|\bBACK VIEW\b|\bFROM BEHIND\b)", re.I)
-FACE_WORDS = re.compile(r"\beye\b|\beyes\b|expressive eyes|blush|\bsmile\b|\blips\b|\bfringe\b|\bface\b", re.I)
-TWIN_FLOWER_RE = re.compile(r"\b(twin|two|multiple|extra|duplicate)\s+seasonal blooms?\b", re.I)
-FRONT_LIGHT = {"@LIGHT_WIN", "@LIGHT_SOFT", "@LIGHT_GOLDEN", "@LIGHT_FRONT"}
+BACK_VIEW_RE = re.compile(r"(^@(?:CHAR_BACK|MIO_TQ_BACK|CAM_BACKSIDE|CAM_BACK_FAR|POSE_[FM]_BACK|POSE_M_WALK_AWAY)$|\bBACK VIEW\b|\bFROM BEHIND\b)", re.I)
+FACE_WORDS = re.compile(r"\beye\b|\beyes\b|two-tone eyes|blush|\bsmile\b|\blips\b|\bfringe\b|\bface\b", re.I)
+TWIN_FLOWER_RE = re.compile(r"\b(twin|two|multiple|extra|duplicate)\s+sunflowers?\b", re.I)
+FRONT_LIGHT = {"@LIGHT_WIN", "@LIGHT_SOFT", "@LIGHT_GOLDEN", "@LIGHT_BOUNCE_COOL"}
 
 
 def _load():
@@ -218,10 +218,39 @@ def audit(blocks, negatives=None):
         else:
             pos_words = " ".join(str(tokens.get(t, "")) for t in toks)
             low_txt = TWIN_FLOWER_RE.sub("", txt.lower())
-            for w in ("white hair", "shoulder-length hair", "seasonal blooms"):
+            for w in ("white hair", "silver hair", "sunflower"):
                 if w in low_txt and w in pos_words.lower():
                     add("", "negative", "warn", "负向里出现正向身份词「%s」" % w, "remove")
                     break
+
+    # 正负互反规则（避免负向直接吞掉正向）
+    pos_set = set(toks)
+    drape_tok = next((t for t in toks if _DRAPE.match(t)), "")
+    worn_drapes = {"@DRAPE_WORN", "@DRAPE_ARMS", "@DRAPE_WAIST", "@DRAPE_BELT",
+                   "@DRAPE_SLEEVES_ROLLED", "@DRAPE_CARDIGAN_TIED",
+                   "@DRAPE_M_BELTED", "@DRAPE_M_TUCKED", "@DRAPE_M_SCARF_WRAP", "@DRAPE_M_CUFF",
+                   "@DRAPE_M_COLLAR_POPPED"}
+    if "@NEG_PORTRAIT" in seen_neg and (pos_set & {"@CAM_BUST", "@CAM_CLOSEUP", "@CAM_PROFILE", "@CAM_HIP", "@CAM_SHOULDER"}):
+        add("@NEG_PORTRAIT", "negative", "warn", "近景/半身镜头搭配 @NEG_PORTRAIT 会把主体压小甚至裁畸形", "remove")
+    if drape_tok:
+        if drape_tok in worn_drapes and "@NEG_DRAPE_ON" in seen_neg:
+            add("@NEG_DRAPE_ON", "negative", "warn", "穿好型态配了 @NEG_DRAPE_ON 自相矛盾", "replace", "@NEG_DRAPE_OFF" if "@NEG_DRAPE_OFF" in tokens else "")
+        elif drape_tok not in worn_drapes and "@NEG_DRAPE_OFF" in seen_neg:
+            add("@NEG_DRAPE_OFF", "negative", "warn", "敞开/半脱型态配了 @NEG_DRAPE_OFF 自相矛盾", "replace", "@NEG_DRAPE_ON" if "@NEG_DRAPE_ON" in tokens else "")
+    if "@NEG_SOCKS" in seen_neg and any(t.startswith("@HOSE_") for t in toks) and "@STRIP_SOCKS" not in (pos_set | seen_neg) and "@BARE_FEET" not in pos_set:
+        add("@NEG_SOCKS", "negative", "warn", "正向穿了 @HOSE_* 长短袜却又挂了 @NEG_SOCKS", "remove")
+    if "@NEG_MALE_HAIR" in seen_neg and (pos_set & {"@HAIR_M_LONG_TIED", "@HAIR_M_MAN_BUN", "@HAIR_M_MULLET", "@ID_M_REN"}):
+        add("@NEG_MALE_HAIR", "negative", "warn", "男生长发配了 @NEG_MALE_HAIR 会把长发压掉", "remove")
+    if "@NEG_SKIN" in seen_neg and "@ID_F_HANA" in pos_set:
+        add("@NEG_SKIN", "negative", "warn", "小麦色皮肤角色与 @NEG_SKIN 冲突", "remove")
+    if "@NEG_FABRIC" in seen_neg and (pos_set & {"@OUT_CARDIGAN_SET", "@OUT_CASUAL_KNIT", "@OUT_SUNDRESS", "@OUT_SUNDRESS_FLORAL", "@OUT_YUKATA", "@OUT_YUKATA_BARE", "@OUT_LAB_COAT", "@OUT_LOUNGEWEAR"}):
+        add("@NEG_FABRIC", "negative", "warn", "白/浅/针织服装与 @NEG_FABRIC 直接冲突", "remove")
+    if "@NEG_GARMENT" in seen_neg and (pos_set & {"@OUT_GALA", "@OUT_GENERIC_FINE_GALA", "@OUT_HANFU", "@OUT_IDOL"}):
+        add("@NEG_GARMENT", "negative", "warn", "礼服/汉服与 @NEG_GARMENT 直接冲突", "remove")
+    if "@NEG_PROPS" in seen_neg and "@MOOD_SMOKE" in pos_set:
+        add("@NEG_PROPS", "negative", "warn", "抽烟情绪与 @NEG_PROPS（禁香烟）冲突", "remove")
+    if "@NEG_BLUR" in seen_neg and (pos_set & {"@BG_BOKEH", "@ATMO_FOG", "@ATMO_BOKEH"}):
+        add("@NEG_BLUR", "negative", "warn", "散景/雾气效果与 @NEG_BLUR 冲突", "remove")
 
     # 拆分统计
     stats["tokens"] = len(toks)

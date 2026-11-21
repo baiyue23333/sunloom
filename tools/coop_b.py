@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""B2：legacy_xl 草图 → 环境画师（挖空人区）→ 人物画师（剪影）→ 合成。
+"""B2：SD15 草图 → 环境画师（挖空人区）→ 人物画师（剪影）→ 合成。
 
   python tools/coop_b.py --scene-prompt "..." --ratio 0.34 --ground-y 0.86
 """
@@ -19,7 +19,7 @@ LIGHT_TEXT = {"left": "(lit from the left:1.25)", "right": "(lit from the right:
               "back": "(backlit, rim light:1.25)", "top": "(soft top light:1.25)"}
 
 
-def is_legacy_xl_lora(name):
+def is_sd15_lora(name):
     n = (name or "").lower()
     return any(k in n for k in ("_il", "xl", "illustrious", "noob"))
 
@@ -32,8 +32,8 @@ def main():
     ap.add_argument("--scene-lora", default="")
     ap.add_argument("--sketch", default="")
     ap.add_argument("--char-prompt", default="1girl, solo, single character, adult woman, tall slender, full body standing, long coat, (detailed face:1.2), (bright even lighting:1.1)")
-    ap.add_argument("--bg-painter", default="anima", choices=["anima", "legacy_xl"])
-    ap.add_argument("--char-painter", default="anima", choices=["anima", "legacy_xl"])
+    ap.add_argument("--bg-painter", default="anima", choices=["anima", "sd15"])
+    ap.add_argument("--char-painter", default="anima", choices=["anima", "sd15"])
     ap.add_argument("--bg-lora", default="")
     ap.add_argument("--char-lora", default="")
     ap.add_argument("--ratio", type=float, default=0.34)
@@ -54,13 +54,13 @@ def main():
     if a.prompt_char:
         a.char_prompt = a.prompt_char
 
-    bg_lora = a.bg_lora or a.scene_lora or ("" if a.bg_painter == "legacy_xl" else "painterly_env.safetensors")
-    char_lora = a.char_lora or ("" if a.char_painter == "legacy_xl" else "soft_style.safetensors")
+    bg_lora = a.bg_lora or a.scene_lora or ("bg_detailer_il.safetensors" if a.bg_painter == "sd15" else "anima-base-1-env_lora_a.safetensors")
+    char_lora = a.char_lora or ("artist_lora_c_il.safetensors" if a.char_painter == "sd15" else "@style_lora_b_anima_ver20.safetensors")
     for name, lora in ((a.bg_painter, bg_lora), (a.char_painter, char_lora)):
-        if name == "anima" and is_legacy_xl_lora(lora):
-            raise SystemExit("anima 画家不能挂 legacy_xl LoRA：%s" % lora)
-        if name == "legacy_xl" and not is_legacy_xl_lora(lora):
-            raise SystemExit("legacy_xl 画家需要 legacy_xl LoRA：%s" % lora)
+        if name == "anima" and is_sd15_lora(lora):
+            raise SystemExit("anima 画家不能挂 SD15 LoRA：%s" % lora)
+        if name == "sd15" and not is_sd15_lora(lora):
+            raise SystemExit("SD15 画家需要 SD15 LoRA：%s" % lora)
 
     if a.structure:
         man = json.load(open(os.path.join(a.structure, "manifest.json"), encoding="utf-8"))
@@ -75,7 +75,7 @@ def main():
 
     # ---- 1) 环境画师：从草图重画，人区已挖空 ----
     print("[1/3] 环境画师：%s（草图 → 环境）" % a.bg_painter, flush=True)
-    d_bg = a.denoise_bg or (0.82 if a.bg_painter == "legacy_xl" else 0.75)
+    d_bg = a.denoise_bg or (0.82 if a.bg_painter == "sd15" else 0.75)
     bg_prompt = (scene_prompt + ", (detailed environment:1.2), (clean composition:1.05), "
                  + LIGHT_TEXT.get(a.light, LIGHT_TEXT["left"]))
     bg_neg = ("(people:1.4), (person:1.4), (figure:1.4), 1girl, 1boy, human, (camera:1.3), (lens:1.3), "
@@ -98,13 +98,13 @@ def main():
 
     arr = np.asarray(bg.resize((64, 64))).reshape(-1, 3).mean(0)
     temp = "(warm ambient light:1.15)" if arr[0] >= arr[2] else "(cool ambient light:1.15)"
-    d_char = a.denoise_char or (0.86 if a.char_painter == "legacy_xl" else 0.80)
+    d_char = a.denoise_char or (0.86 if a.char_painter == "sd15" else 0.80)
     char_prompt = a.char_prompt + ", " + LIGHT_TEXT.get(a.light, LIGHT_TEXT["left"]) + ", " + temp
     ch_path = painters.render(a.char_painter, char_prompt,
                               "child, chibi, doll, big head, silhouette, two people, scenery, text, watermark, cropped",
                               char_lora, crop_path, a.seed + 7, d_char,
                               (crop.width, crop.height),
-                              pose=crop_path if a.char_painter == "legacy_xl" else None)
+                              pose=crop_path if a.char_painter == "sd15" else None)
     print("   ", ch_path, flush=True)
 
     # ---- 3) 合成：不再擦除，人直接盖在挖空处 ----

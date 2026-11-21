@@ -5,10 +5,10 @@ import os
 import time
 import urllib.request
 
-from PIL import PngImagePlugin
+from PIL import Image, PngImagePlugin
 
 DEFAULT_STYLE_SUFFIX = ", same lighting and palette"
-DEFAULT_FACE_SUFFIX = ", clean eyes, crisp facial linework, same art style"
+DEFAULT_FACE_SUFFIX = ", clean eyes, clear detailed irises, delicate eyelashes, crisp facial linework, same art style"
 DEFAULT_HAND_SUFFIX = "five natural fingers, clean hand anatomy, same art style"
 
 
@@ -55,9 +55,53 @@ def new_manifest(cfg, out_dir, plate_prompt, plate_neg, char_neg, plate_loras, c
         "expand_notes": list((cfg or {}).get("expand_notes") or []),
         "client_meta": (cfg or {}).get("client_meta") or {},
         "mask": {},
+        "hand_boxes": [],
         "steps": [],
         "final_image": "",
     }
+
+
+def embed_hand_boxes(png_path, hand_boxes, hand_prompt=""):
+    """把手部坐标元数据无损写入 PNG PngInfo（sunloom_hands），保留已有 ComfyUI/重映元数据。"""
+    if not png_path or not os.path.isfile(png_path):
+        return False
+    boxes = list(hand_boxes or [])
+    payload = json.dumps({"boxes": boxes, "hand_prompt": str(hand_prompt or "")}, ensure_ascii=False)
+    with Image.open(png_path) as im:
+        meta = PngImagePlugin.PngInfo()
+        for k, v in (im.info or {}).items():
+            if k == "sunloom_hands":
+                continue
+            if isinstance(v, str):
+                meta.add_text(k, v)
+        meta.add_text("sunloom_hands", payload)
+        tmp = png_path + ".tmp.png"
+        im.save(tmp, format="PNG", pnginfo=meta)
+    os.replace(tmp, png_path)
+    return True
+
+
+def read_hand_boxes_png(png_path):
+    """从 PNG 的 sunloom_hands（或 sunloom_manifest）读取已存手部坐标，没有则返回 None。"""
+    if not png_path or not os.path.isfile(png_path):
+        return None
+    try:
+        with Image.open(png_path) as im:
+            raw_h = (im.info or {}).get("sunloom_hands")
+            if raw_h:
+                d = json.loads(raw_h)
+                if isinstance(d, list):
+                    return {"boxes": d, "hand_prompt": ""}
+                if isinstance(d, dict):
+                    return {"boxes": list(d.get("boxes") or []), "hand_prompt": str(d.get("hand_prompt") or "")}
+            raw_m = (im.info or {}).get("sunloom_manifest")
+            if raw_m:
+                mf = json.loads(raw_m)
+                if isinstance(mf, dict) and "hand_boxes" in mf:
+                    return {"boxes": list(mf.get("hand_boxes") or []), "hand_prompt": str(mf.get("hand_prompt") or "")}
+    except Exception:
+        return None
+    return None
 
 
 def record_step(mf, name, **fields):
@@ -90,10 +134,15 @@ def save_comp_with_provenance(img, final_path, mf):
         "plate_neg": prompts.get("plate_negative", ""),
         "effective_params": {k: cfg.get(k) for k in ("width", "height", "steps", "cfg", "seed", "ratio", "ground_y", "x")},
         "loras": {"plate": (mf.get("loras") or {}).get("plate") or []},
+        "hand_boxes": mf.get("hand_boxes") or [],
     }
     meta = PngImagePlugin.PngInfo()
     meta.add_text("sunloom_mode", "reproject")
     meta.add_text("sunloom_manifest", json.dumps(compact, ensure_ascii=False))
+    meta.add_text("sunloom_hands", json.dumps({
+        "boxes": mf.get("hand_boxes") or [],
+        "hand_prompt": prompts.get("hand_prompt") or "",
+    }, ensure_ascii=False))
     meta.add_text(
         "parameters",
         "%s\nNegative prompt: %s\nSteps: %s, CFG scale: %s, Seed: %s, Size: %sx%s, Mode: reproject"
@@ -121,6 +170,10 @@ def register_recipe(api_url, final_path, mf):
             "seed": cfg.get("seed"),
             "denoise": 1.0,
             "loras": (mf.get("loras") or {}).get("plate") or [],
+            "detail_loras": (mf.get("loras") or {}).get("detail") or [],
+            "model": cfg.get("model") or "",
+            "hand_boxes": mf.get("hand_boxes") or [],
+            "hand_prompt": prompts.get("hand_prompt") or "",
             "manifest_path": mf.get("manifest_path", ""),
             "rewrite_notes": mf.get("expand_notes") or [],
             "client_meta": mf.get("client_meta") or {},

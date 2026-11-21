@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """环境画师的第二次调用：生成前景卡（挡在角色前面的近景元素）。
 
-分工：草稿(legacy_xl) → 环境(env_artist ×2：背景板 + 前景卡) → 人物(artist_style)。
+分工：草稿(SD15) → 环境(style_lora_c ×2：背景板 + 前景卡) → 人物(style_lora_a)。
 前景抠图固定走 BiRefNet：2.1 一次要 5 分钟，前景不值得。
 """
 import os

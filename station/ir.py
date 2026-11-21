@@ -13,38 +13,43 @@ import os
 import re
 import sys
 
-_REF_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ref")
-if _REF_DIR not in sys.path:
-    sys.path.insert(0, _REF_DIR)
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+for _d in (os.path.join(_ROOT_DIR, "ref"), os.path.join(_ROOT_DIR, "tools")):
+    if _d not in sys.path:
+        sys.path.insert(0, _d)
 import prompts as _prompts
+try:
+    from classify_blocks import MEDIUM as MEDIUM_SCENES, SMALL as SMALL_SCENES
+except Exception:
+    SMALL_SCENES, MEDIUM_SCENES = set(), set()
 
 ROLE_BY_PREFIX = [
     ("@SINGLE", "identity"), ("@ID", "identity"),
-    ("@BODY", "body"), ("@FACE", "face"),
+    ("@BODY", "body"), ("@BARE", "body"),
+    ("@FACE", "face"), ("@MAKEUP", "face"), ("@SKIN", "face"),
     ("@MOOD", "mood"), ("@GAZE", "gaze"), ("@HAND", "hand"), ("@HAIR", "hair"),
-    ("@CAM", "camera"), ("@COMP", "camera"),
+    ("@PIN", "acc"), ("@CLIP", "acc"), ("@BERET", "acc"), ("@HEADBAND", "acc"),
+    ("@RIBBON", "acc"), ("@FLOWER_CROWN", "acc"), ("@HAIRPIN", "acc"),
+    ("@MINI", "acc"), ("@ACC", "acc"),
+    ("@CAM", "camera"), ("@COMP", "camera"), ("@CROP", "camera"), ("@BG", "camera"),
     ("@LIGHT", "light"), ("@ATMO", "light"), ("@TIME", "light"), ("@WEATHER", "light"), ("@SEASON", "light"),
     ("@SET", "scene"),
-    ("@OUT", "garment"), ("@FAB", "garment"), ("@DRAPE", "drape"),
+    ("@OUT", "garment"), ("@HOSE", "garment"), ("@FAB", "garment"), ("@DRAPE", "drape"),
     ("@ROLE", "prop"), ("@PROP", "prop"), ("@OBJ", "prop"), ("@INSTR", "prop"), ("@RIDE", "prop"),
-    ("@STYLE", "style"),
+    ("@HOLD", "hold"), ("@WEAPON", "weapon"),
+    ("@STYLE", "style"), ("@FX", "style"),
+    ("@NSFW", "nsfw"),
     ("@STRIP", "negative"),
     ("@NEG", "negative"),
 ]
 
 STRONG_SCENE_ROLES = {"scene"}
 
-SMALL_SCENES = {
-    "@SET_BOOKSTORE", "@SET_PIANO", "@SET_LAUNDRY", "@SET_KITCHEN", "@SET_BATHROOM",
-    "@SET_BEDROOM", "@SET_LIBRARY", "@SET_CAFE", "@SET_ARTROOM", "@SET_ELEVATOR",
-    "@SET_BALCONY", "@SET_FLOWER_SHOP", "@SET_PARKING", "@SET_ALLEY",
-}
-
-_WORN = {"@DRAPE_WORN", "@DRAPE_REF"}
+_WORN = {"@DRAPE_WORN", "@DRAPE_REF", "@DRAPE_SLEEVES_ROLLED", "@DRAPE_CARDIGAN_TIED"}
 DRAPE_GARMENT = {
-    "slip": {"@DRAPE_OFF", "@DRAPE_CAPE", "@DRAPE_ELBOW", "@DRAPE_HALF", "@DRAPE_HOLD", "@DRAPE_SHRUG"},
+    "slip": {"@DRAPE_OFF", "@DRAPE_CAPE", "@DRAPE_ELBOW", "@DRAPE_HOLD"},
     "initial": _WORN,
-    "casual_knit": _WORN | {"@DRAPE_SHRUG", "@DRAPE_OFF"},
+    "casual_knit": _WORN | {"@DRAPE_OFF"},
     "school": _WORN,
     "gala": _WORN | {"@DRAPE_OFF"},
     "raincoat": _WORN | {"@DRAPE_CAPE"},
@@ -63,18 +68,26 @@ DRAPE_GARMENT = {
     "overalls": _WORN,
     "sundress": _WORN | {"@DRAPE_OFF"},
 }
-for _gk in ("denim_set", "hoodie_casual", "initial_fine_gala", "initial_fine_lite", "lab_coat",
-            "pajama", "sailor_winter", "school_bare", "sunbloom", "sundress_floral",
-            "apron_m", "casual_m", "coat_m", "gym_m", "hakama_m", "hoodie_m", "jersey_m",
-            "jinbei_m", "labcoat_m", "leather_m", "raincoat_m", "school_m", "suit_m", "swim_m",
-            "tracksuit_m", "tuxedo_m", "uniform_m", "vest_m", "winter_m", "yukata_m"):
+for _gk in ("maid", "swimsuit", "school", "school_bare", "gym", "pajama", "loungewear",
+            "apron_m", "gym_m", "hakama_m", "jersey_m", "jinbei_m", "swim_m", "yukata_m"):
     DRAPE_GARMENT[_gk] = _WORN
+for _gk in ("denim_set", "hoodie_casual", "initial_fine_gala", "initial_fine_lite", "lab_coat",
+            "sailor_winter", "sunbloom", "sundress_floral"):
+    DRAPE_GARMENT[_gk] = _WORN | {"@DRAPE_OPEN_FRONT", "@DRAPE_BELT"}
 for _gk in ("cardigan_set", "initial_fine", "yukata_bare"):
-    DRAPE_GARMENT[_gk] = _WORN | {"@DRAPE_OFF", "@DRAPE_SHRUG", "@DRAPE_ELBOW", "@DRAPE_HALF", "@DRAPE_ONE_SHOULDER"}
+    DRAPE_GARMENT[_gk] = _WORN | {"@DRAPE_OFF", "@DRAPE_ELBOW", "@DRAPE_ONE_SHOULDER", "@DRAPE_ARMS"}
+_M_OUT = {"@DRAPE_M_OPEN", "@DRAPE_M_OPEN_COAT", "@DRAPE_M_COLLAR_UP", "@DRAPE_M_BELTED"}
+_M_TOP = {"@DRAPE_M_CUFF", "@DRAPE_M_TUCKED", "@DRAPE_M_HALF", "@DRAPE_M_UNBUTTONED", "@DRAPE_M_OVERSIZE", "@DRAPE_M_COLLAR_POPPED"}
+for _gk in ("coat_m", "winter_m"):
+    DRAPE_GARMENT[_gk] = _WORN | _M_OUT | {"@DRAPE_M_SCARF_WRAP"}
+for _gk in ("leather_m", "raincoat_m", "labcoat_m", "school_m", "suit_m", "tuxedo_m"):
+    DRAPE_GARMENT[_gk] = _WORN | _M_OUT | {"@DRAPE_M_CUFF", "@DRAPE_M_UNBUTTONED", "@DRAPE_M_COLLAR_POPPED"}
+for _gk in ("casual_m", "hoodie_m", "tracksuit_m", "uniform_m", "vest_m"):
+    DRAPE_GARMENT[_gk] = _WORN | _M_TOP
 
 RULES_DOC = [
     "身份：正向必须包含 @ID（或含身份锁的等价文本）",
-    "服装：@OUT_SLIP 与 @OUT_CASUAL_KNIT 不能同时出现",
+    "服装：@OUT_SLIP 与 @OUT_GENERIC 不能同时出现",
     "型态：@DRAPE_* 必须与服装套装匹配（slip 用半脱系；initial/school/gym 用穿好系；gala/yukata/smock 可半脱）",
     "负向：必须含 @NEG_BASE；若有手部动作，建议加 @NEG_HAND_ART",
     "场景：场景块权重 > 1.15 时会被服装吃掉，建议同时加强服装或加 @NEG_FABRIC",
@@ -111,13 +124,13 @@ def validate(pos_blocks, neg_blocks, view=""):
             roles.setdefault(role_of(t), []).append((t, w))
 
     # ① 身份
-    ID_WORDS = ("white hair", "shoulder-length hair", "expressive eyes", "seasonal blooms hair ornament")
+    ID_WORDS = ("white hair", "silver hair", "two-tone eyes", "long hair ornament")
     # 身份积木：@ID_F / @ID_MALE / @ID_SOFT… 与 @SINGLE / @SINGLE_M 都算
     has_id = bool(view) or any(t.startswith(("@ID", "@SINGLE")) for t in pos_tokens) or any(
         any(w in (x or "").lower() for w in ID_WORDS) for _, _, x in pos)
     if not has_id:
         errors.append({"code": "NO_IDENTITY", "msg": "缺身份锁 @ID，人物会漂",
-                       "fix": "把身份积木（@ID_F / @ID_M 之类）拖进正向，权重 1.0"})
+                       "fix": "把身份积木（@ID_F / @ID_M_KAI 之类）拖进正向，权重 1.0"})
 
     # ② 服装互斥（任意两套同时出现都算冲突）
     outfits = sorted({t for t in pos_tokens if t.startswith("@OUT_")})
@@ -167,18 +180,19 @@ def validate(pos_blocks, neg_blocks, view=""):
                 scene_len = max(scene_len, len(_tokens.get(t, "")))
     except Exception:
         scene_len = 0
-    if scene_len > 520:
+    if scene_len > 380:
         hints.append({"code": "SCENE_HEAVY",
                       "msg": "场景描述 %d 字，明显偏长" % scene_len,
                       "fix": "搭配 @CAM_BUST/@CAM_CLOSEUP，或删掉场景里最远的元素"})
 
     # ⑦b 场景 × 机位
-    NEAR = {"@CAM_CLOSEUP", "@CAM_BUST", "@CAM_PROFILE", "@CAM_HIP"}
-    WIDE = {"@CAM_FULL", "@CAM_MEDIUM", "@CAM_REAR", "@CAM_BACKSIDE"}
+    NEAR = {"@CAM_CLOSEUP", "@CAM_BUST", "@CAM_PROFILE", "@CAM_HIP", "@CAM_EXTREME_CU"}
+    WIDE = {"@CAM_FULL", "@CAM_FULL_WIDE", "@CAM_ESTABLISH", "@CAM_MEDIUM", "@CAM_BACKSIDE"}
     cams = [t for t in pos_tokens if t.startswith("@CAM_")]
-    if scene_len > 480 and any(c in NEAR for c in cams):
+    large_scene = any(t.startswith("@SET_") and t not in SMALL_SCENES and t not in MEDIUM_SCENES for t in pos_tokens)
+    if (large_scene or scene_len > 380) and any(c in NEAR for c in cams):
         hints.append({"code": "SCENE_CAM_MISMATCH",
-                      "msg": "大场景（%d 字）配近景，背景会被挤掉" % scene_len,
+                      "msg": "大场景配近景，背景空间容易被裁掉",
                       "fix": "换成 @CAM_MEDIUM / @CAM_FULL，或改用小场景"})
     small_scene = any(t in SMALL_SCENES for t in pos_tokens)
     if small_scene and any(c in WIDE for c in cams):
@@ -206,10 +220,10 @@ def validate(pos_blocks, neg_blocks, view=""):
 
     # ⑥ 场景强度 vs 服装
     scene_w = max([w for t, w in roles.get("scene", [])] or [0])
-    if scene_w > 1.15 and "@OUT_CASUAL_KNIT" in pos_tokens:
+    if scene_w > 1.15 and "@OUT_GENERIC" in pos_tokens:
         hints.append({"code": "SCENE_EATS_GARMENT",
                       "msg": "场景权重 %.2f，初始服装有被吃掉的风险（实测出现过白裙漂移）" % scene_w,
-                      "fix": "把场景压到 1.1 以下，或加 @NEG_FABRIC + 加强 @OUT_CASUAL_KNIT 权重"})
+                      "fix": "把场景压到 1.1 以下，或加 @NEG_FABRIC + 加强 @OUT_GENERIC 权重"})
 
     # ⑦ 构图互斥：同一张图只能有一个主构图
     def _pick(*names):
@@ -249,7 +263,7 @@ def validate(pos_blocks, neg_blocks, view=""):
                          "fix": "二选一：低地平线给人留天，高地平线给人留地"})
     if "@COMP_SILHOUETTE" in pos_tokens:
         hints.append({"code": "COMP_SILHOUETTE_FACE",
-                      "msg": "剪影会吃掉面部细节，@ID 基本失效",
+                      "msg": "剪影会吃掉脸和异瞳，@ID 基本失效",
                       "fix": "只在明确要轮廓时用；要脸就别加 @COMP_SILHOUETTE"})
     if "@COMP_STD" in pos_tokens and _pick("@COMP_TELE", "@COMP_WIDE"):
         hints.append({"code": "COMP_STD_LENS",
@@ -258,7 +272,7 @@ def validate(pos_blocks, neg_blocks, view=""):
     if "@COMP_LOOKROOM" in pos_tokens and not any(t.startswith("@GAZE") for t in pos_tokens):
         hints.append({"code": "COMP_LOOKROOM_NO_GAZE",
                       "msg": "视线留白没有配 @GAZE_*，模型不知道她看哪边",
-                      "fix": "加一块 @GAZE_LEFT / @GAZE_RIGHT / @GAZE_DOWN"})
+                      "fix": "加一块 @GAZE_ASIDE / @GAZE_SIDE_GLANCE / @GAZE_DOWN"})
 
     # ⑨ 提示板新规则（2026-11-16），共用 ref/prompts.py 的词库与性别判定
     try:
@@ -300,7 +314,7 @@ def validate(pos_blocks, neg_blocks, view=""):
         if "@LIGHT_WIN" in pos_tokens:
             warnings.append({"code": "BACK_FRONT_LIGHT", "msg": "背影用了正面光 @LIGHT_WIN",
                              "fix": "换成 @LIGHT_WIN_BACK"})
-        if any(re.search(r"\beye\b|expressive eyes|\bfringe\b|blush", x or "", re.I) for _t, _w, x in pos):
+        if any(re.search(r"\beye\b|two-tone eyes|\bfringe\b|blush", x or "", re.I) for _t, _w, x in pos):
             warnings.append({"code": "BACK_FACE_WORDS", "msg": "背影块里还有脸/眼词，容易转正面",
                              "fix": "删掉眼睛/脸相关描述"})
 
@@ -336,11 +350,11 @@ def validate(pos_blocks, neg_blocks, view=""):
 # —— 视角 / 眼睛一致性（角色专属视角块用）——
 EYE_RED = r"\bred eye\b|\bred eyes\b"
 EYE_GREY = r"\bgrey eye\b|\bgray eye\b|\bgrey eyes\b|\bgray eyes\b"
-EYE_ANY = r"\beye\b|\beyes\b|expressive eyes|\bfringe\b|\bblush\b|\bsmile\b|\blips\b|\bface\b"
+EYE_ANY = r"\beye\b|\beyes\b|two-tone eyes|\bfringe\b|\bblush\b|\bsmile\b|\blips\b|\bface\b"
 
 
 def check_view(text, view):
-    """按视角块名检查眼睛/脸词是否矛盾。view 形如 @CAM_SIDE_R。"""
+    """按视角块名检查眼睛/脸词是否矛盾。view 形如 @MIO_SIDE_R。"""
     import re
     v = (view or "").upper()
     errs = []

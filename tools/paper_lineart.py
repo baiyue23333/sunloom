@@ -6,7 +6,7 @@
 
 流程：
     canvas 白底
-      → 线稿：draft 按 env → char → fg 依次 inpaint（denoise 0.92）
+      → 线稿：SD15 按 env → char → fg 依次 inpaint（denoise 0.92）
       → 上色：anima 按 env → char → fg 依次 inpaint（denoise 0.80~0.85）
       → 接触阴影直接画在画布上
 """
@@ -67,7 +67,7 @@ def inpaint(img_path, mask_name, prompt, negative, denoise, loras, steps=28, cfg
 
 
 def t2i(prompt, negative, loras, out_dir, seed=0, steps=26, cfg=6.0,
-        model="", tag="env_line"):
+        model="waiNSFWIllustrious_v90.safetensors", tag="env_line"):
     """整幅线稿用 t2i 出（第一遍没有可保留的内容，inpaint 没有意义）。"""
     body = {"prompt": prompt, "negative": negative, "width": W, "height": H,
             "steps": steps, "cfg": cfg, "seed": seed, "prefix": "LINEART_" + tag,
@@ -235,7 +235,7 @@ def run(scene, char, env_artist, char_artist, char_w, env_w, ratio, ground_y, x,
         print("[%s] %.0fs ok" % (tag, time.time() - t0), flush=True)
         return canvas
 
-    draft = ""
+    sd15 = "waiNSFWIllustrious_v90.safetensors"
     # ① 线稿：整幅 t2i，再把角色/前景注入对应区域
     t0 = time.time()
     res, sec0 = t2i(scene + LINE_TAIL, LINE_NEG,
@@ -284,10 +284,10 @@ def run(scene, char, env_artist, char_artist, char_w, env_w, ratio, ground_y, x,
     canvas.save(canvas_path)
     step("char_line", (char + ", " + _extra if _extra else char) + _size + LINE_TAIL,
          LINE_NEG + (", " + clean_neg(plan["char_neg"], char) if plan.get("char_neg") else ""),
-         draft_denoise, [{"name": char_artist, "weight": char_w}], draft)
+         draft_denoise, [{"name": char_artist, "weight": char_w}], sd15)
     if fg_items:
         step("fg_line", fg_items[0]["prompt"] + LINE_TAIL, LINE_NEG, draft_denoise,
-             [{"name": env_artist, "weight": env_w}], draft)
+             [{"name": env_artist, "weight": env_w}], sd15)
     # ② 上色
     # 只补充不覆盖：env_extra 只记录在 plan.json，不拼进提示词（run2 实测它会污染场景）
     step("env_color", scene + ", (detailed background:1.15), (cinematic lighting:1.05)",
@@ -331,8 +331,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scene", required=True)
     ap.add_argument("--char", required=True)
-    ap.add_argument("--env-artist", default="")
-    ap.add_argument("--char-artist", default="")
+    ap.add_argument("--env-artist", default="style_lora_c  Anima Style LoRA_Bstyle_v1_anima_sun.safetensors")
+    ap.add_argument("--char-artist", default="style_lora_a5E585B6E4B889.YDAV.safetensors")
     ap.add_argument("--env-w", type=float, default=0.6)
     ap.add_argument("--char-w", type=float, default=0.65)
     ap.add_argument("--ratio", type=float, default=0.46)

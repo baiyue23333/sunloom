@@ -55,27 +55,50 @@ def run_image(body, tag):
     return imgs[0], ""
 
 
+def route_matches(path, template):
+    """完整匹配路由模板；末尾斜杠允许作为动态路径拼接的静态前缀。"""
+    pattern = re.escape(template)
+    pattern = re.sub(r"\\\{[^}]+\\\}", "[^/]+", pattern)
+    return re.fullmatch(pattern, path) is not None
+
+
+def has_route(path, method, specs):
+    return any(route_matches(path, template) and method.upper() in methods for template, methods in specs)
+
+
 def check_routes():
     sys.path.insert(0, os.path.join(ROOT, "station"))
     os.chdir(os.path.join(ROOT, "station"))
     import server
     routes = {getattr(r, "path", "") for r in server.app.routes}
-    pats = [re.sub(r"\{[^}]+\}", "", r) for r in routes if r.startswith("/api/")]
+    specs = [(r.path, r.methods or set()) for r in server.app.routes if hasattr(r, "methods")]
+    api_routes = [r for r in routes if r.startswith("/api/")]
     js_files = [os.path.join(ROOT, "station", "static", "app.js")]
     js_dir = os.path.join(ROOT, "station", "static", "js")
     if os.path.isdir(js_dir):
         js_files.extend(os.path.join(js_dir, f) for f in os.listdir(js_dir) if f.endswith(".js"))
-    used = set()
+    used, methods_used = set(), set()
     for path in js_files:
         if os.path.isfile(path):
             txt = open(path, encoding="utf-8").read()
             used.update(u.rstrip(".") for u in re.findall(r"/api/[A-Za-z0-9_/{}.\-]+", txt))
+            calls = re.finditer(r"(?:api|fetch)\(\s*(['\"])(/api/[A-Za-z0-9_/-]+)\1\s*(?=[,)])", txt)
+            for call in calls:
+                tail = txt[call.end():call.end() + 180]
+                method = re.match(r"\s*,\s*\{\s*method\s*:\s*['\"]([A-Z]+)['\"]", tail, re.I)
+                methods_used.add((call.group(2), method.group(1).upper() if method else "GET"))
     miss = []
     for u in sorted(used):
-        if u in routes or any(u.startswith(p) and p for p in pats):
+        if u in routes or any(route_matches(u, route) for route in api_routes):
+            continue
+        # JS 会把动态 ID 拼到 '/api/job/' 等字面前缀后；必须对应完整动态模板。
+        if u.endswith("/") and any(route.startswith(u + "{") for route in api_routes):
             continue
         miss.append(u)
     rec("前端调用的 /api 路径都存在", not miss, miss)
+    wrong_methods = [(path, method) for path, method in sorted(methods_used)
+                     if not path.endswith("/") and not has_route(path, method, specs)]
+    rec("前端固定接口的 HTTP 方法正确", not wrong_methods, wrong_methods)
 
 
 def main(deep=False):
@@ -88,7 +111,7 @@ def main(deep=False):
     rec("内存接口", s == 200 and (mem.get("ram") or {}).get("total_gb", 0) > 0 and "comfy" in mem, s)
 
     s, e = post("/api/expand", {"positive": [{"token": "@ID", "text": "", "weight": 1}], "negative": []})
-    rec("expand 正常", s == 200 and isinstance(e.get("positive"), str) and "shoulder-length hair" in e.get("positive", ""), s)
+    rec("expand 正常", s == 200 and isinstance(e.get("positive"), str) and "silver hair" in e.get("positive", ""), s)
 
     s, h = post("/api/compose_hint", {"prompt": "wide rainy neon street", "seed": 9})
     rec("compose_hint", s == 200 and 0.2 <= h.get("ratio", 0) <= 0.6, (s, h))
@@ -118,7 +141,7 @@ def main(deep=False):
     s, v = post("/api/validate", {"positive": [{"token": "@ID_F", "text": "", "weight": 1}], "negative": []})
     rec("/api/validate", s == 200 and "warnings" in v, s)
 
-    s400, _ = post("/api/coop", {"mode": "legacy_xl", "scene": "x"})
+    s400, _ = post("/api/coop", {"mode": "sd15", "scene": "x"})
     rec("未知合作模式 400", s400 == 400, s400)
 
     s, cs = get("/api/coop/status")

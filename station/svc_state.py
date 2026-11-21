@@ -15,14 +15,14 @@ REF = os.path.join(ROOT, "ref")
 CORE = os.path.join(ROOT, "core")
 TOOLS = os.path.join(ROOT, "tools")
 
-for _p in (REF, HERE, CORE, TOOLS):
+for _p in (ROOT, REF, HERE, TOOLS):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 import comfy as cf  # noqa: E402
 import comfy_paths  # noqa: E402
 import prompts as pt  # noqa: E402
-import store  # noqa: E402
+from core import store  # noqa: E402
 from svc_obs import warn  # noqa: E402
 
 DATA_DIR = os.path.join(HERE, "data")
@@ -48,9 +48,11 @@ store.set_warn_hook(warn)
 store.init(recipes_json=RECIPE_PATH, registry_jsonl=REG, templates_json=TPL, cards_json=CARDS)
 
 JOBS = {}
+JOB_LOCK = threading.RLock()
 JOBS_MAX = 200
 LAST_GRAPH = {}
 COOP_STATE = {"status": "idle", "dir": "", "image": "", "log": "", "started": 0.0}
+COOP_LOCK = threading.RLock()
 MEM_LAST_JOB = [time.time()]
 MEM_LAST_FREE = [0.0]
 MEM_COMFY_FREED = [0]
@@ -92,7 +94,7 @@ COOP_ROOTS = [
     os.path.join(ROOT, "SD-Picture", "coop2"),
     os.path.join(ROOT, "SD-Picture", "coop_b"),
     os.path.join(ROOT, "SD-Picture", "coop_gen"),
-    os.path.join(ROOT, "SD-Picture"),
+    os.path.join(ROOT, "SD-Picture", "coop_sd15"),
     os.path.join(ROOT, "SD-Picture", "regional"),
     os.path.join(ROOT, "SD-Picture", "paper"),
 ]
@@ -284,16 +286,16 @@ def _lora_base_map(force=False):
             elif "krea" in arch:
                 base = "krea2"
             elif "stable-diffusion-xl" in arch:
-                base = "other_xl"
+                base = "sd15"
             elif "stable-diffusion-v1" in arch:
-                base = "anima" if "anima" in low else "other_xl"
+                base = "anima" if "anima" in low else "sd15"
             elif "moss" in low:
                 base = "moss"
             elif re.search(r"(krea|k2)", low):
                 base = "krea2"
-            elif re.search(r"(_il\b|_il_|XL|illustrious|noob|other_xl)", low):
-                base = "other_xl"
-            elif "anima" in low:
+            elif re.search(r"(_il\b|_il_|XL|illustrious|noob|sd15)", low):
+                base = "sd15"
+            elif "anima" in low or re.match(r"local_char_lora_", low):
                 base = "anima"
             else:
                 base = "unknown"
@@ -314,7 +316,7 @@ def _lora_base_map(force=False):
     return _LORA_META_CACHE
 
 
-_HIDDEN_LORAS = {}
+_HIDDEN_LORAS = {"Anima_Real_skin_lora.safetensors"}
 
 
 def list_loras():
@@ -354,9 +356,11 @@ def _evict_jobs():
 def job_new(kind, label=""):
     MEM_LAST_JOB[0] = time.time()
     jid = uuid.uuid4().hex[:10]
-    _evict_jobs()
-    JOBS[jid] = {"id": jid, "kind": kind, "label": label, "status": "running",
-                 "progress": 0.0, "logs": [], "result": None, "started": time.time()}
+    with JOB_LOCK:
+        _evict_jobs()
+        JOBS[jid] = {"id": jid, "kind": kind, "label": label, "status": "running",
+                     "progress": 0.0, "logs": [], "result": None, "started": time.time()}
+        job_save(jid)
     return jid
 
 
@@ -390,6 +394,32 @@ def _memory_loop():
 
 def registry_entries():
     return store.load_registry()
+
+
+def _dedupe_clauses(text):
+    """按顶层逗号切分（括号权重组视为整体），大小写/空白归一后去重，保留首次出现顺序。"""
+    segs, buf, depth = [], [], 0
+    for ch in text or "":
+        if ch == "(":
+            depth += 1
+        elif ch == ")" and depth > 0:
+            depth -= 1
+        if ch == "," and depth == 0:
+            segs.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    segs.append("".join(buf))
+    seen, out = set(), []
+    for s in segs:
+        s = s.strip()
+        k = re.sub(r"\s+", " ", s.lower()).strip(" .")
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append(s)
+    removed = len([s for s in segs if s.strip()]) - len(out)
+    return ", ".join(out), removed
 
 
 def expand_blocks(positive, negative):
@@ -433,11 +463,11 @@ def expand_blocks(positive, negative):
     pos, pos_used = render(positive, do_strip=bool(strip_raw))
     has_scene = any((b.token or "").startswith("@SET_") for b in positive if b.enabled)
     pos_toks_upper = {(b.token or "").upper() for b in positive if b.enabled}
-    is_tight_face = bool(pos_toks_upper & {"@CAM_CLOSEUP", "@CAM_BUST"})
-    _RIGID_ID = "oval youthful face with almond eyes and long eyelashes, heterochromia with a red eye on the left side of the image and a grey eye on the right side of the image"
+    is_tight_face = bool(pos_toks_upper & {"@CAM_CLOSEUP", "@CAM_BUST", "@ID_F_TIGHT"})
+    _RIGID_ID = "two-tone eyes with a red eye on the left side of the image and a grey eye on the right side of the image"
     if not is_tight_face and _RIGID_ID in pos:
-        pos = pos.replace(_RIGID_ID, "heterochromia, red right eye, grey left eye")
-        rewrites.append({"rule": "id_natural_gaze", "detail": "非特写镜头下放宽 @ID_* 对称正脸锁死，保留角色右红左灰异色瞳并允许自然转头"})
+        pos = pos.replace(_RIGID_ID, "two-tone eyes, red right eye, grey left eye")
+        rewrites.append({"rule": "id_natural_gaze", "detail": "非特写镜头下放宽 @ID_* 对称正脸眼位描述，保留鹅蛋脸/杏眼/长睫与右红左灰双色瞳"})
     if has_scene:
         pos = re.sub(r"\b(?:two|three|four|five|six)\s+(?=[a-z])", "", pos, flags=re.I)
     if has_scene and re.search(r"(?i)\b(?:clean|plain)\s+(?:white\s+)?background\b", pos):
@@ -483,6 +513,11 @@ def expand_blocks(positive, negative):
                          "neg_changed": neg != neg_before, "detail": "正向含持杯意图，已让路清理负向饮具词"})
         if not removed_cup_tokens:
             notes.append("已让路：负向清掉了杯子相关词（正向要杯子）")
+    pos, pos_dup = _dedupe_clauses(pos)
+    neg, neg_dup = _dedupe_clauses(neg)
+    if pos_dup or neg_dup:
+        rewrites.append({"rule": "dedupe", "pos_removed": pos_dup, "neg_removed": neg_dup,
+                         "detail": "展开去重：正向 %d 条、负向 %d 条重复短语已合并" % (pos_dup, neg_dup)})
     if unknown:
         unk = sorted(set(unknown))
         notes.append("未识别宏（原样保留）：" + "、".join(unk))

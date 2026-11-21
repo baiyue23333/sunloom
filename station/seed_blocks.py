@@ -3,7 +3,7 @@
 """seed_blocks.py — 批量创作新积木（含备注）"""
 import json
 
-P = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ref", "prompt_lib.json")
+P = r"A:\project\dsh\ref\prompt_lib.json"
 lib = json.load(open(P, encoding="utf-8"))
 toks = lib["tokens"]
 notes = lib.setdefault("notes", {})
@@ -31,7 +31,7 @@ BLOCKS = {
 "@GAZE_CAMERA": ("(looking directly at the viewer:1.35)", "正面视线。会立刻变成“证件照”感，慎配全身。"),
 "@GAZE_DOWN": ("(looking down:1.3)", "看下方（书、手、台阶）。低头会挡眼，注意刘海长度。"),
 "@GAZE_WINDOW": ("(looking out the window:1.3)", "望窗外。侧脸+逆光最好看。"),
-"@GAZE_CLOSED": ("(eyes closed:1.35)", "闭眼。适合微风、祈祷、听音乐。可按需要调节视线描述权重。"),
+"@GAZE_CLOSED": ("(eyes closed:1.35)", "闭眼。适合微风、祈祷、听音乐。别配 @ID 的红眼权重过高。"),
 "@GAZE_ASIDE": ("(looking aside:1.3), (eyes to the side:1.2)", "侧目。比转头含蓄，能保留正脸构图。"),
 "@GAZE_FAR": ("(gazing into the distance:1.3), (unfocused eyes:1.15)", "望远。适合大场景、空旷背景。"),
 
@@ -89,6 +89,7 @@ BLOCKS = {
 "@SET_STATION": ("(empty train platform at night:1.3), (platform lights:1.2)", "空站台。离别感专用。"),
 
 # ---------------- 道具 ----------------
+"@PROP_PLANT": ("(holding a single sunflower:1.3)", "手持花卉。主题呼应；注意别和发饰重复。"),
 "@PROP_BOOK": ("(an open book in her hands:1.25)", "书。和 @HAND_BOOK 二选一。"),
 "@PROP_CAMERA": ("(an old film camera hanging from her neck:1.25)", "胶片机。复古感，注意肩带别穿模。"),
 "@PROP_VINYL": ("(holding a vinyl record sleeve:1.2)", "黑胶唱片。配 @SET_BOOKSTORE 或 @ATMO_LAMP。"),

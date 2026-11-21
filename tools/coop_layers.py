@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""分层接力：legacy_xl 草稿/光引导 → 后景 → 人物 → 前景（同一画布逐层 inpaint）。
+"""分层接力：SD15 草稿/光引导 → 后景 → 人物 → 前景（同一画布逐层 inpaint）。
 
   # 两步之一：在已有底图上补「人物精修 + 前景互动」
   python tools/coop_layers.py --mode post --base SD-Picture/regional/xxx/comp.png \
       --scene "rainy neon street" --char "1girl, white coat" --fg "rusty railing and weeds"
 
-  # 两步之二：从 legacy_xl 草稿开始完整跑
+  # 两步之二：从 SD15 草稿开始完整跑
   python tools/coop_layers.py --mode full --scene "..." --char "..."
 """
 import argparse, json, os, subprocess, sys, time
@@ -17,7 +17,7 @@ API = "http://127.0.0.1:8770"
 from comfy_paths import COMFY_IN as CI
 OUT = os.path.join(ROOT, "SD-Picture", "layers")
 W, H = 1344, 768
-legacy_xl = ""
+SD15 = "waiNSFWIllustrious_v90.safetensors"
 
 import urllib.request
 
@@ -141,8 +141,8 @@ def main():
     ap.add_argument("--scene", required=True)
     ap.add_argument("--char", default="1girl, solo, adult woman, white coat, standing")
     ap.add_argument("--fg", default="rusty railing and overgrown weeds in the foreground")
-    ap.add_argument("--env-lora", default="painterly_env.safetensors")
-    ap.add_argument("--char-lora", default="soft_style.safetensors")
+    ap.add_argument("--env-lora", default="anima-base-1-env_lora_a.safetensors")
+    ap.add_argument("--char-lora", default="@style_lora_b_anima_ver20.safetensors")
     ap.add_argument("--ratio", type=float, default=0.36)
     ap.add_argument("--ground-y", type=float, default=0.88)
     ap.add_argument("--x", type=float, default=0.38)
@@ -167,9 +167,9 @@ def main():
     neg = "two people, duplicate, text, watermark, lowres, letterbox, blurry"
 
     if a.mode == "full":
-        print("[1/5] legacy_xl 草稿…", flush=True)
+        print("[1/5] SD15 草稿…", flush=True)
         draft = t2i(a.scene + ", wide shot, cinematic lighting, no people",
-                    "people, person, 1girl, 1boy, human, text, watermark", a.seed, model=legacy_xl, steps=20, cfg=6.0)
+                    "people, person, 1girl, 1boy, human, text, watermark", a.seed, model=SD15, steps=20, cfg=6.0)
         draft_path = os.path.join(out, "00_draft.png")
         Image.open(draft).convert("RGB").save(draft_path)
         print("[2/5] 光引导（模糊去色，只做光照参考）…", flush=True)

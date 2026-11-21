@@ -11,8 +11,8 @@ B = "http://127.0.0.1:8188"
 ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from comfy_paths import COMFY_IN as CI
 OUT = os.path.join(ROOT, "SD-Picture", "coop_b")
-CKPT = ""
-CN = ""
+CKPT = "waiNSFWIllustrious_v90.safetensors"
+CN = "controlnet-union-sd15.safetensors"
 W, H = 1344, 768
 
 

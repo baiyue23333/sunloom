@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""画家后端：anima（站内 i2i）与 legacy_xl（本地图 + ControlNet）。
+"""画家后端：anima（站内 i2i）与 sd15（本地图 + ControlNet）。
 
 统一签名 render(painter=..., prompt=, negative=, lora=, init=, pose=, seed=, denoise=, size=) -> 本地图片路径
 """
@@ -11,8 +11,8 @@ API = "http://127.0.0.1:8770"
 ROOT = os.environ.get("SUNLOOM_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 from comfy_paths import COMFY_IN as CI
 from comfy_paths import COMFY_OUT as OUT
-CKPT = ""
-CN = ""
+CKPT = "waiNSFWIllustrious_v90.safetensors"
+CN = "controlnet-union-sd15.safetensors"
 
 
 def _post(base, p, o):
@@ -66,7 +66,7 @@ def render_anima(prompt, negative, lora, init, seed, denoise, size, steps=28, cf
     raise TimeoutError("anima timeout")
 
 
-def render_legacy_xl(prompt, negative, lora, init, seed, denoise, size, pose=None, steps=30, cfg=6.2,
+def render_sd15(prompt, negative, lora, init, seed, denoise, size, pose=None, steps=30, cfg=6.2,
                 cn_strength=0.8, lora_w=0.85, mask=None):
     w, h = size
     g = {
@@ -117,11 +117,11 @@ def render_legacy_xl(prompt, negative, lora, init, seed, denoise, size, pose=Non
 def render(painter, prompt, negative, lora, init, seed, denoise, size, pose=None, mask=None):
     try:
         import mem_plan
-        mem_plan.schedule("legacy_xl" if painter == "legacy_xl" else "anima",
-                          unet=CKPT if painter == "legacy_xl" else "",
+        mem_plan.schedule("sd15" if painter == "sd15" else "anima",
+                          unet=CKPT if painter == "sd15" else "",
                           reason="painter:" + str(painter), context="coop")
     except Exception:
         pass
-    if painter == "legacy_xl":
-        return render_legacy_xl(prompt, negative, lora, init, seed, denoise, size, pose=pose, mask=mask)
+    if painter == "sd15":
+        return render_sd15(prompt, negative, lora, init, seed, denoise, size, pose=pose, mask=mask)
     return render_anima(prompt, negative, lora, init, seed, denoise, size, mask=mask)

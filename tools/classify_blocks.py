@@ -29,23 +29,30 @@ RULES = [
     ("@OBJ", "prop"), ("@INSTR", "prop"), ("@RIDE", "prop"), ("@ROLE", "prop"),
     ("@STRIP", "neg"), ("@WEATHER", "atmo"), ("@SEASON", "time"),
     ("@BODY", "body"), ("@FACE", "face"), ("@MAKEUP", "face"), ("@SKIN", "face"),
-    ("@PIN", "hair"), ("@CLIP", "hair"), ("@BERET", "hair"), ("@HEADBAND", "hair"),
-    ("@RIBBON", "hair"), ("@FLOWER_CROWN", "hair"), ("@HAIRPIN", "hair"),
-    ("@MINI", "hair"), ("@FX", "style"), ("@CROP", "comp"), ("@BARE", "body"),
-    ("@BG", "comp"), ("@HOSE", "outfit"), ("@ID", "id"),
+    ("@PIN", "acc"), ("@CLIP", "acc"), ("@BERET", "acc"), ("@HEADBAND", "acc"),
+    ("@RIBBON", "acc"), ("@FLOWER_CROWN", "acc"), ("@HAIRPIN", "acc"),
+    ("@MINI", "acc"), ("@FX", "style"), ("@CROP", "comp"), ("@BARE", "body"),
+    ("@BG", "comp"), ("@HOSE", "outfit"), ("@NSFW", "nsfw"), ("@ID", "id"),
     ("@SINGLE", "id"), ("@ACC", "acc"),
 ]
 NSFW = {"@MOOD_SMOKE", "@MOOD_ALCOHOL", "@MOOD_TIRED", "@MOOD_COLD", "@STYLE_NOIR",
-        "@STYLE_GRAIN", "@MAKEUP_SICK", "@NEG_NSFW"}
+        "@STYLE_GRAIN", "@MAKEUP_SICK", "@NEG_NSFW",
+        "@NSFW_SULTRY", "@NSFW_WET_SKIN", "@NSFW_SILK_SLIP"}
 
 # 场景规模：给 set 类再挂一个子分类
 SMALL = {"@SET_BOOKSTORE", "@SET_PIANO", "@SET_LAUNDRY", "@SET_KITCHEN", "@SET_BATHROOM",
          "@SET_BEDROOM", "@SET_LIBRARY", "@SET_CAFE", "@SET_ARTROOM", "@SET_ELEVATOR",
-         "@SET_BALCONY", "@SET_FLOWER_SHOP", "@SET_PARKING", "@SET_ALLEY"}
+         "@SET_BALCONY", "@SET_FLOWER_SHOP", "@SET_PARKING", "@SET_ALLEY",
+         "@SET_CONVENIENCE", "@SET_TEA_HOUSE", "@SET_IZAKAYA", "@SET_RECORD_SHOP",
+         "@SET_MUSIC_STUDIO", "@SET_BOOK_CAFE"}
 MEDIUM = {"@SET_GREENHOUSE", "@SET_CORRIDOR", "@SET_CLASSROOM", "@SET_SHRINE", "@SET_TRAM",
           "@SET_SUBWAY", "@SET_ARCADE", "@SET_MARKET", "@SET_ONSEN", "@SET_SCHOOL_GATE",
           "@SET_ROOFTOP", "@SET_ROOFTOP_GARDEN", "@SET_PARK", "@SET_RIVERBANK",
-          "@SET_CONSTRUCTION", "@SET_CITY_STREET", "@SET_GARDEN_PEONY"}
+          "@SET_CONSTRUCTION", "@SET_CITY_STREET", "@SET_GARDEN_PEONY",
+          "@SET_BOTANICAL_BRIDGE", "@SET_TRAIN_CROSSING", "@SET_SHOPPING_ARCADE",
+          "@SET_ROOFTOP_POOL", "@SET_GARDEN_COTTAGE", "@SET_UNDERPASS",
+          "@SET_METRO_PLATFORM", "@SET_BAMBOO_GROVE", "@SET_ROOFTOP_BILLBOARD",
+          "@SET_FERRY_DECK"}
 
 
 def cat_of(name):

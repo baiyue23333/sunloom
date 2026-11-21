@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "purpose": "环境合理性审查 v2：不用『必须』锁死单一形态，只保留四条不变量 + 现实变体清单",
+  "invariants": {
+    "support": "任何物体必须与某个表面或悬挂点接触：桌面、墙钩、支架、椅背、地面",
+    "lighting": "存在一个主导光源（台灯或屏幕），投影方向与之一致；灯罩朝向光线落点",
+    "scale": "家具与人体比例合理：桌面约在坐姿腰部高度，椅面约在小腿高",
+    "perspective": "桌面平面、地平线、消失点一致，无镜像或重复结构"
+  },
+  "realistic_variants": {
+    "monitor": ["独立支架，正对或略转向人物", "夹在显示器悬臂上，可侧向", "双屏一横一竖"],
+    "peripherals": ["有线键鼠，线缆可见", "无线键鼠，桌面无线缆", "键盘有线、鼠标无线"],
+    "headphones": ["挂在显示器边缘挂钩", "挂在桌沿挂钩", "放在耳机支架上", "直接放桌面", "搭在椅背上"],
+    "tablet": ["数位板平放接 USB", "数位屏在支架上", "无线数位板"],
+    "sunflowers": ["只在窗台花盆（发饰除外）"]
+  },
+  "forbidden": ["server rack", "server room", "data center", "rack lights", "sunflowers on wall", "floral wallpaper", "sunflowers on the desk", "flower vase on the desk", "floating objects", "unsupported objects", "duplicated furniture", "mirrored structure", "text", "logo", "watermark", "outdoor daylight"],
+  "objectives": {
+    "eye_direction": "画面左侧红眼、右侧灰眼（她的右眼红、左眼灰）",
+    "hair_purity": "头发纯象牙白，无红/蓝色溢出"
+  },
+  "manual_checklist": [
+    "每个物体能否说清『靠什么支撑』",
+    "投影方向是否与光源一致",
+    "家具与人体比例是否合理",
+    "是否存在重复/镜像/悬浮结构",
+    "是否有禁用物（机柜、墙花、桌面花卉、LOGO）",
+    "异瞳方向是否正确（画面左红）",
+    "头发是否有颜色溢出"
+  ]
+}

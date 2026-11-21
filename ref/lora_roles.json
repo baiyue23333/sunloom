@@ -7,5 +7,7 @@
   "background",
   "environment"
  ],
- "names": []
+ "names": [
+  "anima-base-1-env_lora_a.safetensors"
+ ]
 }

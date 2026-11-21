@@ -7,7 +7,19 @@ const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 
 const api = async (url, opt) => {
   const r = await fetch(url, opt ? { headers:{'Content-Type':'application/json'}, ...opt } : undefined);
-  if (!r.ok) throw new Error(url + ' → ' + r.status + ' ' + (await r.text()).slice(0,120));
+  if (!r.ok) {
+    const text = await r.text();
+    let detail = text;
+    try {
+      const body = JSON.parse(text);
+      detail = body.detail || body.error || text;
+      if (Array.isArray(detail)) detail = detail.map(x => (x.loc || []).join('.') + ': ' + x.msg).join('; ');
+      if (typeof detail !== 'string') detail = JSON.stringify(detail);
+    } catch (e) {}
+    const error = new Error(url + ' → ' + r.status + ' ' + String(detail).slice(0,1000));
+    error.status = r.status;
+    throw error;
+  }
   return r.json();
 };
 

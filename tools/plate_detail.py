@@ -175,12 +175,12 @@ def run(src, out_dir, seed=2026, hair=True, hair_denoise=0.32):
         print("[hair] 头框 r=%.0f box=%s" % (hr, [int(v) for v in box]), flush=True)
         t0 = time.time()
         img2 = hair_refine(img, box,
-                           "(shoulder-length hair:1.3), long straight hair, (seasonal blooms hair ornament:1.2), "
+                           "(silver hair:1.3), long straight hair, (long hair ornament:1.2), "
                            "(detailed hair strands:1.2), backlit rim light, same art style",
                            "blurry, extra hair, weird ornament, text, watermark",
                            denoise=hair_denoise, seed=seed + 3,
-                           loras=[{"name": "artist_style.safetensors", "weight": 0.5},
-                                  {"name": "character_lora.safetensors", "weight": 0.9}])
+                           loras=[{"name": "style_lora_a5E585B6E4B889.YDAV.safetensors", "weight": 0.5},
+                                  {"name": "local_char_lora_h2.safetensors", "weight": 0.9}])
         print("[hair] %.0fs" % (time.time() - t0), flush=True)
         img.save(os.path.join(out_dir, "03_hair_src.png"))
         img = img2

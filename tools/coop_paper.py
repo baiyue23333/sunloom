@@ -1,6 +1,6 @@
 """纸片模式：背景板 → 人物卡 → 前景卡 → 合成器（几何关系由合成器负责）。
   python tools/coop_paper.py --scene "rainy neon alley..." --char "1girl, white coat" \
-      --artist "soft_style.safetensors" --ratio 0.46 --fg "rusty railing and weeds"
+      --artist "@style_lora_b_anima_ver20.safetensors" --ratio 0.46 --fg "rusty railing and weeds"
 """
 import argparse, json, os, re, sys, time, urllib.request
 from PIL import Image, ImageDraw, ImageFilter
@@ -49,7 +49,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--scene", default="")
     ap.add_argument("--char", default="1girl, solo, adult woman, white coat, standing")
-    ap.add_argument("--artist", default="soft_style.safetensors")
+    ap.add_argument("--artist", default="@style_lora_b_anima_ver20.safetensors")
     ap.add_argument("--artist-char", default="", help="人物画师 LoRA（空=用 --artist）")
     ap.add_argument("--artist-env", default="", help="环境画师 LoRA（空=用 --artist）")
     ap.add_argument("--artist-w", type=float, default=0.65)
@@ -70,8 +70,8 @@ def main():
     ap.add_argument("--footwear", default="(dark brown leather shoes:1.25), (wearing shoes:1.2)")
     ap.add_argument("--char-size", default="1024x1536")
     ap.add_argument("--cutout-res", type=int, default=1024, help="2.1 抠图分辨率；人物卡越大越该调高")
-    ap.add_argument("--draft", default="legacy_xl", help="草稿画师：legacy_xl=先出结构草图再交环境画师；空=不草图")
-    ap.add_argument("--draft-model", default="")
+    ap.add_argument("--draft", default="sd15", help="草稿画师：sd15=先出结构草图再交环境画师；空=不草图")
+    ap.add_argument("--draft-model", default="waiNSFWIllustrious_v90.safetensors")
     ap.add_argument("--draft-denoise", type=float, default=0.58)
     ap.add_argument("--no-fusion", action="store_true")
     ap.add_argument("--shot", default="auto")
@@ -120,7 +120,7 @@ def main():
                         "prefix": "PAPER_PLATE", "mode": "t2i", "save_to": "paper",
                         "loras": [{"name": env_artist, "weight": SCENERY_W["plate"]}]}, tag)
         draft_path = ""
-        if (a.draft or "").lower() == "legacy_xl":
+        if (a.draft or "").lower() == "sd15":
             import paper_draft
             draft_path = paper_draft.make(run, a.scene, a.seed, a.draft_model, W, H, out)
         try:

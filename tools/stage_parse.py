@@ -52,7 +52,7 @@ PARSE_Q = (
     "\"style\":\"warm gaslight, wet stone\","
     "\"shot\":\"mid\",\"priority\":\"balanced\","
     "\"details\":[\"wet cobblestone joints\",\"warm window reflections\",\"distant tram wires\"],"
-    "\"char_details\":[\"cream blouse ruffles\",\"dark pleated skirt\",\"seasonal blooms hairpin\"],"
+    "\"char_details\":[\"cream blouse ruffles\",\"dark pleated skirt\",\"long hairpin\"],"
     "\"interaction\":{\"surface\":\"wet stone\",\"wet\":true,\"wind\":\"none\",\"held\":\"\"},"
     "\"wet_ground\":true,\"atmosphere\":\"rain haze\"}. "
     "shot is one of far/mid/near/closeup and describes how large the character should appear. "

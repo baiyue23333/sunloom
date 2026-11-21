@@ -153,14 +153,31 @@ def view_url(filename, subfolder=""):
     return COMFY + "/view?" + q
 
 
-def interrupt():
+def interrupt(prompt_id=None):
+    """只中断指定 prompt；绝不退化为全局中断。"""
+    if not prompt_id:
+        return False
     try:
-        req = urllib.request.Request(COMFY + "/interrupt", data=b"{}",
+        req = urllib.request.Request(COMFY + "/interrupt", data=json.dumps({"prompt_id": prompt_id}).encode(),
                                      headers={"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=5).read()
         return True
     except Exception:
         return False
+
+
+def cancel_prompt(prompt_id):
+    if not prompt_id:
+        return False
+    removed = False
+    try:
+        req = urllib.request.Request(COMFY + "/queue", data=json.dumps({"delete": [prompt_id]}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=5):
+            removed = True
+    except Exception:
+        pass
+    return interrupt(prompt_id) or removed
 
 
 def wait(pid, timeout=900, on_tick=None):

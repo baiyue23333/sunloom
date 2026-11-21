@@ -110,10 +110,10 @@ def run_checks():
     # 2 服装
     try:
         g = (ch or {}).get("garments") or {}
-        ok = all(k in g and g[k].get("prompt") for k in ("slip", "initial"))
+        ok = all(k in g and g[k].get("prompt") for k in ("slip", "casual_knit"))
         add("garments", "两套服装", ok,
-            "slip %d 字符 / initial %d 字符" % (len(g.get("slip", {}).get("prompt", "")),
-                                                len(g.get("initial", {}).get("prompt", ""))),
+            "slip %d 字符 / casual_knit %d 字符" % (len(g.get("slip", {}).get("prompt", "")),
+                                                len(g.get("casual_knit", {}).get("prompt", ""))),
             "在 词库→服装 补全文案后保存")
     except Exception as e:
         add("garments", "两套服装", False, str(e), "检查 ref/character.json 的 garments")
@@ -121,7 +121,7 @@ def run_checks():
     # 3 宏展开
     try:
         # 2026-11-12：澪的身份/体型积木改名，自检也跟着用新名
-        out, used = _expand("@SINGLE_F, @CAM_BUST, @ID_F, @OUT_CASUAL_KNIT, @DRAPE_WORN, @BODY_F, @FACE_F", tokens)
+        out, used = _expand("@SINGLE_F, @CAM_BUST, @ID_F, @OUT_GENERIC, @DRAPE_WORN, @BODY_F, @FACE_F", tokens)
         left = re.findall(r"@[A-Z_]+", out)
         add("expand", "宏展开", not left,
             "展开 %d 字符，命中 %d 个宏%s" % (len(out), len(used),
@@ -184,10 +184,10 @@ def run_checks():
                 if os.path.isdir(d):
                     loras = sorted(x for x in os.listdir(d) if x.endswith(".safetensors"))
                     break
-        has = any("character_h2" in x for x in loras)
+        has = any("local_char_lora_h2" in x for x in loras)
         add("loras", "身份 LoRA", has,
-            ("共 %d 个，含 character_h2" % len(loras)) if has else "未找到 character_h2",
-            "把  放进 models/loras")
+            ("共 %d 个，含 local_char_lora_h2" % len(loras)) if has else "未找到 local_char_lora_h2",
+            "把 local_char_lora_h2.safetensors 放进 models/loras")
     except Exception as e:
         add("loras", "身份 LoRA", False, str(e), "检查 models/loras")
 

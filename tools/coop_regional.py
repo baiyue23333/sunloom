@@ -38,9 +38,9 @@ def main():
                                          "duplicate, text, watermark, lowres, letterbox, black bars, border, blurry, "
                                          "lamp post, sun, halo, ring light, poster, portrait in window, giant face, billboard, "
                                          "overexposed, blown highlights, pure white sky, white window, two heads, twins, conjoined")
-    ap.add_argument("--env-lora", default="painterly_env.safetensors")
+    ap.add_argument("--env-lora", default="anima-base-1-env_lora_a.safetensors")
     ap.add_argument("--env-w", type=float, default=0.7)
-    ap.add_argument("--char-lora", default="soft_style.safetensors")
+    ap.add_argument("--char-lora", default="@style_lora_b_anima_ver20.safetensors")
     ap.add_argument("--char-w", type=float, default=0.5)
     ap.add_argument("--ratio", type=float, default=0.34)
     ap.add_argument("--ground-y", type=float, default=0.86)

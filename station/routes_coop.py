@@ -19,11 +19,14 @@ from svc_coop import (
     coop_dir_allowed,
     coop_worker as _coop_worker,
     list_coop_history,
+    persist_coop_run,
+    publish_run,
     read_coop_manifest,
     resolve_coop_final as _resolve_coop_final,
 )
 from svc_jobs import Block, ExpandReq
-from svc_state import COOP_DIR, COOP_STATE, MEM_LAST_JOB, OUT_DIR, ROOT, expand_blocks, img_allowed
+from svc_validation import validate_coop
+from svc_state import COOP_DIR, COOP_LOCK, COOP_STATE, MEM_LAST_JOB, OUT_DIR, ROOT, expand_blocks, img_allowed
 
 router = APIRouter()
 
@@ -38,15 +41,21 @@ class CoopReq(BaseModel):
     scene: str = "station"
     prompt_scene: str = ""
     prompt_char: str = ""
-    scene_lora: str = ""
+    scene_lora: str = "anima-base-1-env_lora_a.safetensors"
     char_lora: str = ""
-    ratio: float = 0.34
+    ratio: float = 0.0
+    ratio_mode: str = "auto"
+    x_locked: bool = False
+    probe_posture: bool = True
     ground_y: float = 0.88
     x: float = 0.34
     light: str = "left"
     seed: int = 515501
     mode: str = "classic"
     pipeline: str = "a"
+    layer_mode: str = "auto"
+    env_steps: int = 24
+    char_steps: int = 30
     bg_painter: str = "anima"
     char_painter: str = "anima"
     env_weight: float = 0.70
@@ -67,17 +76,24 @@ class CoopReq(BaseModel):
     neg_char: str = ""
     face_prompt: str = ""
     hand_prompt: str = ""
+    prompt_char_plate: str = ""
+    neg_face: str = ""
     width: int = 0
     height: int = 0
     steps: int = 28
     cfg: float = 5.5
+    model: str = ""
     extra_loras: List[Dict[str, Any]] = []
     keep_intermediates: bool = False
+    tile_bg: bool = False
+    auto_handfix: bool = False
     expand_notes: List[str] = []
     client_meta: Dict[str, Any] = {}
     style_suffix: Optional[str] = None
     face_suffix: Optional[str] = None
     hand_suffix: Optional[str] = None
+    pose: Optional[Dict[str, Any]] = None
+    lens_spec: Dict[str, Any] = {}
 
 
 class ComposeHintReq(BaseModel):
@@ -204,46 +220,65 @@ def api_standee(req: StandeeReq):
 
 @router.post("/api/coop")
 def api_coop(req: CoopReq):
-    if COOP_STATE.get("status") == "running":
-        return {"ok": False, "note": "合作模式正在运行"}
     tool_map = {
         "reproject": "coop_reproject.py", "sketch": "coop_sketch.py", "gen": "coop_gen.py",
         "b2": "coop_b.py", "regional": "coop_regional.py", "paper": "coop_paper.py", "classic": "coop_render.py",
     }
     if req.mode not in tool_map:
         raise HTTPException(400, "不支持的合作模式: %s" % req.mode)
+    validate_coop(req)
+    with COOP_LOCK:
+        if COOP_STATE.get("status") in ("starting", "running"):
+            return {"ok": False, "note": "合作模式正在运行"}
+        run = {"id": uuid.uuid4().hex[:10], "tool": os.path.join(ROOT, "tools", tool_map[req.mode]),
+               "mode": req.mode, "keep_intermediates": bool(req.keep_intermediates),
+               "status": "starting", "dir": "", "image": "", "log": "", "error": "",
+               "phase": "准备", "progress": 0.0, "started": time.time()}
+        COOP_STATE.clear()
+        COOP_STATE.update(run)
+    try:
+        return _start_coop(req, run)
+    except Exception as exc:
+        publish_run(run, status="error", error=str(exc), log=str(exc), phase="失败")
+        persist_coop_run(run)
+        raise
+
+
+def _start_coop(req, run):
     MEM_LAST_JOB[0] = time.time()
-    COOP_STATE["id"] = uuid.uuid4().hex[:10]
-    COOP_STATE["tool"] = os.path.join(ROOT, "tools", tool_map[req.mode])
-    COOP_STATE["mode"] = req.mode
-    COOP_STATE["keep_intermediates"] = bool(req.keep_intermediates)
-    COOP_STATE.update(status="starting", dir="", image="", log="", phase="准备", progress=0.0)
     hint = None
     if req.auto_compose:
         hint = _compose_hint(req.prompt_scene or req.prompt_char or req.scene, req.seed)
-        if req.mode != "reproject" or not req.ratio or req.ratio <= 0:
+        if req.mode != "reproject" or (req.ratio_mode != "auto" and (not req.ratio or req.ratio <= 0)):
             req.ratio = hint["ratio"]
     args = ["--ratio", str(req.ratio), "--ground-y", str(req.ground_y),
             "--x", str(req.x), "--seed", str(req.seed), "--light", req.light]
     if req.mode == "reproject":
-        reproj_out = os.path.join(COOP_DIR, f"reproj_{time.strftime('%Y%m%d_%H%M%S')}_{req.seed}")
+        reproj_out = os.path.join(COOP_DIR, f"reproj_{time.strftime('%Y%m%d_%H%M%S')}_{req.seed}_{run['id']}")
         os.makedirs(reproj_out, exist_ok=True)
-        COOP_STATE["dir"] = reproj_out
+        publish_run(run, dir=reproj_out)
         cfg_path = os.path.join(reproj_out, "reproj_cfg.json")
         cfg_payload = {
             "scene": req.prompt_scene or req.scene, "char": req.prompt_char or "",
             "neg_scene": req.neg_scene or "", "neg_char": req.neg_char or "",
             "face_prompt": req.face_prompt or "", "hand_prompt": req.hand_prompt or "",
+            "char_plate": req.prompt_char_plate or "", "neg_face": req.neg_face or "",
             "width": req.width or 1216, "height": req.height or 832,
-            "steps": req.steps or 28, "cfg": req.cfg or 5.5, "seed": req.seed,
+            "steps": req.steps, "env_steps": req.env_steps, "char_steps": req.char_steps, "cfg": req.cfg, "seed": req.seed, "model": req.model or "",
             "scene_lora": req.scene_lora or "", "env_weight": req.env_weight,
             "char_lora": req.char_lora or "", "char_weight": req.char_weight,
-            "extra_loras": req.extra_loras or [], "ratio": req.ratio,
+            "extra_loras": req.extra_loras or [], "ratio": req.ratio, "ratio_mode": req.ratio_mode or "auto",
+            "x_locked": bool(req.x_locked), "probe_posture": bool(req.probe_posture),
             "ground_y": req.ground_y, "x": req.x, "light": req.light or "left", "pipeline": req.pipeline or "a",
+            "layer_mode": req.layer_mode or "auto",
             "keep_intermediates": bool(req.keep_intermediates),
+            "tile_bg": bool(req.tile_bg),
+            "auto_handfix": bool(req.auto_handfix),
             "expand_notes": req.expand_notes or [],
             "client_meta": req.client_meta or {},
             "style_suffix": req.style_suffix, "face_suffix": req.face_suffix, "hand_suffix": req.hand_suffix,
+            "pose": req.pose or {},
+            "lens_spec": req.lens_spec or {},
         }
         with open(cfg_path, "w", encoding="utf-8") as cf_f:
             json.dump(cfg_payload, cf_f, ensure_ascii=False, indent=2)
@@ -282,27 +317,30 @@ def api_coop(req: CoopReq):
             args += ["--prompt-char", req.prompt_char]
         if req.sketch:
             args += ["--sketch", req.sketch]
-    threading.Thread(target=_coop_worker, args=(args,), daemon=True).start()
-    return {"ok": True, "status": "running", "id": COOP_STATE["id"], "dir": COOP_STATE.get("dir", ""),
-            "hint": hint, "ratio": req.ratio, "ground_y": req.ground_y, "x": req.x}
+    persist_coop_run(run)
+    threading.Thread(target=_coop_worker, args=(args, dict(run)), daemon=True).start()
+    return {"ok": True, "status": "running", "id": run["id"], "dir": run.get("dir", ""),
+            "hint": hint, "ratio": req.ratio, "ratio_mode": req.ratio_mode, "ground_y": req.ground_y, "x": req.x}
 
 
 @router.get("/api/coop/status")
 def api_coop_status():
-    d = COOP_STATE.get("dir") or ""
-    img = COOP_STATE.get("image") or ""
+    with COOP_LOCK:
+        state = dict(COOP_STATE)
+    d = state.get("dir") or ""
+    img = state.get("image") or ""
     if not img and d:
         img = os.path.join(d, "comp.png")
-    el, prog = 0.0, COOP_STATE.get("progress", 0.0)
-    if COOP_STATE.get("status") == "running":
-        el = round(time.time() - COOP_STATE.get("started", time.time()), 1)
+    el, prog = 0.0, state.get("progress", 0.0)
+    if state.get("status") == "running":
+        el = round(time.time() - state.get("started", time.time()), 1)
         base, target, eta = {"准备": (0.02, 0.15, 20), "背景": (0.15, 0.55, 150),
                              "人物": (0.55, 0.85, 90), "合成": (0.85, 0.99, 45)}.get(
-            COOP_STATE.get("phase", ""), (0.02, 0.99, 300))
-        frac = min(1.0, (time.time() - COOP_STATE.get("phase_at", time.time())) / eta)
+            state.get("phase", ""), (0.02, 0.99, 300))
+        frac = min(1.0, (time.time() - state.get("phase_at", time.time())) / eta)
         prog = round(base + (target - base) * frac, 3)
-    return {"status": COOP_STATE.get("status"), "dir": d, "log": COOP_STATE.get("log", ""),
-            "phase": COOP_STATE.get("phase", ""), "progress": prog, "elapsed": el,
+    return {"id": state.get("id", ""), "status": state.get("status"), "dir": d, "log": state.get("log", ""),
+            "error": state.get("error", ""), "phase": state.get("phase", ""), "progress": prog, "elapsed": el,
             "image": img if img and os.path.isfile(img) else ""}
 
 
@@ -319,3 +357,28 @@ def api_coop_manifest(dir: str = "", path: str = ""):
     if not target or not os.path.isdir(target) or not coop_dir_allowed(target):
         raise HTTPException(404, "找不到重映记录目录")
     return read_coop_manifest(target)
+
+
+class HintReq(BaseModel):
+    scene: str = ""
+    char: str = ""
+    env_blocks: List[Block] = []
+    chr_blocks: List[Block] = []
+
+
+@router.post("/api/coop/hint")
+def api_coop_hint(req: HintReq):
+    import sys as _sys
+    tdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools")
+    if tdir not in _sys.path:
+        _sys.path.insert(0, tdir)
+    import scene_hints
+    sc = req.scene
+    ch = req.char
+    if req.env_blocks or re.search(r"@[A-Z0-9_]+", sc or ""):
+        blk = req.env_blocks or [Block(token=t.strip()) if t.strip().startswith("@") else Block(text=t.strip()) for t in (sc or "").split(",") if t.strip()]
+        sc = (expand_blocks(blk, []).get("positive") or sc)
+    if req.chr_blocks or re.search(r"@[A-Z0-9_]+", ch or ""):
+        blk = req.chr_blocks or [Block(token=t.strip()) if t.strip().startswith("@") else Block(text=t.strip()) for t in (ch or "").split(",") if t.strip()]
+        ch = (expand_blocks(blk, []).get("positive") or ch)
+    return scene_hints.analyze_scene_layering(sc, ch)

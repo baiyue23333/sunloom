@@ -184,7 +184,7 @@ def prepare_stage(family, unet="", reason="", context="base", force_unload=False
 
     规则：
     1) 同家族且同 UNET：优先保留热模型（keep），仅在低于 soft/hard 水位时清缓存或强卸；
-    2) 切换模型家族（如 anima <-> sdpose / birefnet / upscale / other）或更换 UNET：
+    2) 切换模型家族（如 anima <-> sdpose / birefnet / upscale / sd15）或更换 UNET：
        按策略触发 switch_unload 先释放旧权重，避免 8GB GPU 碎片化挤压与 OOM。
     """
     fam, un = _norm_stage(family, unet)

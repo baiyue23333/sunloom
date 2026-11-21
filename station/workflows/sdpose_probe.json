@@ -1,0 +1,53 @@
+{
+  "id": "sdpose_probe",
+  "version": 2,
+  "requires": [
+    "CheckpointLoaderSimple",
+    "SDPoseKeypointExtractor",
+    "LoadImage",
+    "SavePoseKeypointsJSON"
+  ],
+  "nodes": {
+    "1": {
+      "type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "sdpose_wholebody_fp16.safetensors"
+      }
+    },
+    "2": {
+      "type": "LoadImage",
+      "inputs": {
+        "image": "{{reference}}"
+      }
+    },
+    "3": {
+      "type": "SDPoseKeypointExtractor",
+      "inputs": {
+        "model": [
+          "1",
+          0
+        ],
+        "vae": [
+          "1",
+          2
+        ],
+        "image": [
+          "2",
+          0
+        ],
+        "batch_size": 1
+      }
+    },
+    "4": {
+      "type": "SavePoseKeypointsJSON",
+      "inputs": {
+        "keypoints": [
+          "3",
+          0
+        ],
+        "prefix": "{{prefix}}"
+      }
+    }
+  },
+  "kind": "detector"
+}

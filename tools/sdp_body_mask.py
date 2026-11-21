@@ -64,16 +64,18 @@ def body_mask(json_path, W, H, grow=1.12):
     if len(ok) < 8:
         return None, 0.0
 
-    # 用肩膀宽度做身体尺度
     def pt(i):
         x, y, s = pts[i]
         return (x, y) if s > 0.2 else None
 
+    # 用肩膀宽度做身体尺度（侧身/四分之三视角肩宽会收窄，用身高兜底避免细线条过细）
+    ys_all = [p[1] for p in ok]
+    body_h_est = max(20.0, max(ys_all) - min(ys_all))
     rs, ls = pt(RS), pt(LS)
     if rs and ls:
-        sw = math.hypot(rs[0] - ls[0], rs[1] - ls[1])
+        sw = max(math.hypot(rs[0] - ls[0], rs[1] - ls[1]), body_h_est * 0.14)
     else:
-        sw = max(40, sum((p[1] for p in ok)) / len(ok) * 0.25)
+        sw = max(40.0, body_h_est * 0.22)
 
     m = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(m)
@@ -104,11 +106,11 @@ def body_mask(json_path, W, H, grow=1.12):
                     d.ellipse((c[0] - limb_w / 2, c[1] - limb_w / 2, c[0] + limb_w / 2, c[1] + limb_w / 2), fill=255)
 
     cov = float(np.asarray(m).mean()) / 255 * 100
-    # 骨架若塌缩（两肩太近 / 覆盖率过低），改用人形模板
+    # 骨架若真塌缩（高度过矮 / 有效点不足 / 覆盖率极低），改用人形模板；避免高分辨率画布正常张腿姿势被误判
     ys = [p[1] for p in ok]
     top, bot = min(ys), max(ys)
     body_h = max(20, bot - top)
-    if sw < body_h * 0.10 or cov < 4:
+    if body_h < H * 0.08 or cov < 0.8 or (sw < body_h * 0.07 and len(ok) < 10):
         xs = [p[0] for p in ok]
         cx = float(np.median(xs))
         bw2 = max(body_h * 0.34, sw * 2.2)

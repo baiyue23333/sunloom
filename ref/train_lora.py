@@ -16,21 +16,21 @@ def post(url, data):
     return json.loads(urllib.request.urlopen(req, timeout=120).read().decode())
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--dataset", default="lora_dataset")
+ap.add_argument("--dataset", default="lora_local_char_lora")
 ap.add_argument("--steps", type=int, default=1800)
 ap.add_argument("--rank", type=int, default=8)
 ap.add_argument("--lr", type=float, default=1e-4)
 ap.add_argument("--batch", type=int, default=1)
 ap.add_argument("--accum", type=int, default=4)
-ap.add_argument("--prefix", default="custom_anima")
+ap.add_argument("--prefix", default="local_char_lora_anima")
 ap.add_argument("--offload", action="store_true", default=False)
 ap.add_argument("--gc", action="store_true", default=True)
 ap.add_argument("--no-gc", dest="gc", action="store_false")
-ap.add_argument("--profile", default="", choices=["", "local", "gpu_24g", "t4", "gpu_40g"],
-                help="按显卡一键套参数：local/24G/t4/gpu_40g")
+ap.add_argument("--profile", default="", choices=["", "local", "gpu", "t4", "gpu"],
+                help="按显卡一键套参数：local/gpu/t4/gpu")
 ap.add_argument("--profile-auto", action="store_true", help="读 GPU 显存自动选档")
 ap.add_argument("--dry-run", action="store_true", help="只打印参数，不提交")
-ap.add_argument("--existing-lora", default="[None]", help="续训：已有 LoRA 文件名，如 custom_lora.safetensors")
+ap.add_argument("--existing-lora", default="[None]", help="续训：已有 LoRA 文件名，如 local_char_lora_h2.safetensors")
 ap.add_argument("--keep", type=int, default=3, help="同前缀只保留最近 N 个产物（0=不清理）")
 ap.add_argument("--list-profiles", action="store_true")
 ap.add_argument("--cache", default="", help="用已编码缓存训练（LoadTrainingDataset 的 folder_name）")
@@ -40,9 +40,9 @@ a = ap.parse_args()
 # ---- 分档参数（吸收 Colab notebook 的 GPU_PROFILE 思路）----
 PROFILES = {
     "local": dict(rank=8,  batch=1, accum=4, lr=5e-5, gc=True,  offload=True,  note="4060 8G, 512x512, slow but stable"),
-    "gpu_24g":  dict(rank=16, batch=2, accum=2, lr=2e-5, gc=True,  offload=False, note="24G 24G, 768x768, measured 11 min / 400 iters"),
+    "gpu":  dict(rank=16, batch=2, accum=2, lr=2e-5, gc=True,  offload=False, note="gpu 24G, 768x768, measured 11 min / 400 iters"),
     "t4":    dict(rank=16, batch=1, accum=4, lr=2e-5, gc=True,  offload=True,  note="T4 16G, 768x768, needs block swap"),
-    "gpu_40g":  dict(rank=16, batch=1, accum=4, lr=2e-5, gc=False, offload=False, note="40G 40G, 1024x1024"),
+    "gpu":  dict(rank=16, batch=1, accum=4, lr=2e-5, gc=False, offload=False, note="GPU 40G, 1024x1024"),
 }
 
 def detect_profile():
@@ -53,12 +53,12 @@ def detect_profile():
         line = out.splitlines()[0] if out else ""
         mb = int(line.split(",")[0].replace("MiB", "").strip()) if line else 0
         low = line.lower()
-        if "gpu_40g" in low:
-            return "gpu_40g"
+        if "gpu" in low:
+            return "gpu"
         if "t4" in low:
             return "t4"
         if mb >= 20000:
-            return "gpu_24g"
+            return "gpu"
         return "local"
     except Exception:
         return "local"
